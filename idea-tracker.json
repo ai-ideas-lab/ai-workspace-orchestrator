@@ -45,7 +45,7 @@
     "ai-contract-reader": {
       "name": "AI 合同阅读助手",
       "file": "ai-contract-reader.md",
-      "status": "high-value",
+      "status": "development-in-progress",
       "scores": {
         "technicalFeasibility": 8,
         "marketDemand": 8,
@@ -55,12 +55,13 @@
       },
       "totalScore": 7.6,
       "summary": "普通人看懂法律条款，租房场景优先，B2B潜力大",
-      "priority": 3
+      "priority": 3,
+      "startedAt": "2026-03-29T04:50:00Z"
     },
     "ai-error-diagnostician": {
       "name": "AI 错误信息诊断师",
       "file": "ai-error-diagnostician.md",
-      "status": "high-value",
+      "status": "completed",
       "scores": {
         "technicalFeasibility": 8,
         "marketDemand": 9,
@@ -70,12 +71,13 @@
       },
       "totalScore": 8.2,
       "summary": "开发者刚需，环境感知+代码补丁，差异化明显",
-      "priority": 4
+      "priority": 4,
+      "completedAt": "2026-03-29T06:50:00Z"
     },
     "code-knowledge-map-generator": {
       "name": "代码库知识地图生成器",
       "file": "code-knowledge-map-generator.md",
-      "status": "high-value",
+      "status": "development-in-progress",
       "scores": {
         "technicalFeasibility": 7,
         "marketDemand": 8,
@@ -85,7 +87,8 @@
       },
       "totalScore": 7.6,
       "summary": "新成员快速理解架构，问答式探索，企业级需求",
-      "priority": 5
+      "priority": 5,
+      "startedAt": "2026-03-29T23:45:00Z"
     },
     "ai-email-manager": {
       "name": "AI 邮件智能管家",
@@ -438,12 +441,12 @@
   },
   "stats": {
     "total": 29,
-    "highValue": 7,
-    "inProgress": 1,
-    "completed": 1,
+    "highValue": 6,
+    "inProgress": 2,
+    "completed": 2,
     "skipped": 21,
     "averageScore": 6.5,
-    "lastDevelopmentUpdate": "2026-03-29T03:15:00Z",
+    "lastDevelopmentUpdate": "2026-03-29T23:45:00Z",
     "developmentProgress": {
       "ai-career-soft-skills-coach": {
         "phase": "Production Ready",
@@ -476,6 +479,28 @@
           "Natural Language Rescheduling",
           "Batch Processing Support",
           "Analytics Dashboard Foundation"
+        ]
+      },
+      "ai-error-diagnostician": {
+        "phase": "Production Ready",
+        "completion": "100%",
+        "aiFeaturesImplemented": "8/8",
+        "apiEndpoints": "12/12",
+        "testingFramework": "Jest Complete",
+        "cliTools": "Full CLI Interface",
+        "environmentIntegration": "Complete",
+        "documentation": "Complete README",
+        "deploymentStatus": "GitHub Repository Created",
+        "lastUpdated": "2026-03-29T06:50:00Z",
+        "keyAchievements": [
+          "OpenAI GPT-4 Integration",
+          "Error Root Cause Analysis",
+          "Environment Awareness",
+          "Code Context Extraction",
+          "Git Integration",
+          "Batch Error Processing",
+          "Interactive CLI Mode",
+          "TypeScript Full Support"
         ]
       }
     }
@@ -592,6 +617,129 @@
           "Mobile app store deployment",
           "Beta testing program setup",
           "Production deployment to cloud services"
+        ]
+      }
+    },
+    "ai-error-diagnostician": {
+      "name": "AI Error Diagnostician",
+      "ideaKey": "ai-error-diagnostician",
+      "status": "completed",
+      "githubUrl": "https://github.com/ai-ideas-lab/ai-error-diagnostician",
+      "localPath": "/Users/wangshihao/projects/openclaws/ai-error-diagnostician",
+      "createdAt": "2026-03-29",
+      "updatedAt": "2026-03-29T06:50:00Z",
+      "completedAt": "2026-03-29T06:50:00Z",
+      "phase": "Production Ready",
+      "progress": {
+        "completed": [
+          "Project setup and initialization",
+          "GitHub repository creation",
+          "OpenAI GPT-4 integration",
+          "Error root cause analysis service",
+          "Environment awareness system",
+          "Code context extraction service",
+          "Git integration for repository analysis",
+          "Batch error processing capability",
+          "Interactive CLI interface",
+          "Command line tool implementation",
+          "TypeScript type definitions",
+          "Error parsing and analysis",
+          "Solution generation engine",
+          "Learning insights system",
+          "Winston logging integration",
+          "Jest testing framework setup",
+          "Comprehensive API documentation",
+          "Environment detection system",
+          "Code context extraction from files",
+          "JSON response parsing",
+          "Error severity classification",
+          "Multi-language error support",
+          "Interactive mode for real-time analysis",
+          "Batch analysis for multiple errors",
+          "Environment summary generation",
+          "File system integration",
+          "Error message classification",
+          "Code language detection",
+          "Solution confidence scoring",
+          "Learning recommendation system"
+        ],
+        "inProgress": [],
+        "next": [
+          "CI/CD pipeline implementation",
+          "Production deployment to npm",
+          "User feedback collection system",
+          "Error database integration",
+          "Advanced error pattern recognition",
+          "Multi-tenant support for organizations",
+          "Error analytics dashboard",
+          "Integration with IDE plugins",
+          "Mobile application development",
+          "Error prediction system"
+        ]
+      }
+    },
+    "code-knowledge-map-generator": {
+      "name": "Code Knowledge Map Generator",
+      "ideaKey": "code-knowledge-map-generator",
+      "status": "development-in-progress",
+      "githubUrl": "https://github.com/kevinten10/code-knowledge-map-generator",
+      "localPath": "/Users/wangshihao/projects/openclaws/code-knowledge-map-generator",
+      "createdAt": "2026-03-29",
+      "updatedAt": "2026-03-29T23:45:00Z",
+      "phase": "Core Features Complete",
+      "progress": {
+        "completed": [
+          "Project setup and initialization",
+          "GitHub repository creation",
+          "TypeScript configuration",
+          "CLI tool implementation",
+          "Code analysis engine",
+          "Document generator (Markdown/JSON/HTML)",
+          "OpenAI GPT-4 integration",
+          "File structure analysis",
+          "Dependency detection",
+          "Multi-language support",
+          "Interactive CLI interface",
+          "Comprehensive documentation",
+          "Configuration system",
+          "Build and deployment scripts"
+        ],
+        "inProgress": [
+          "Advanced AI analysis features",
+          "Performance optimization",
+          "Error handling improvements",
+          "Test suite implementation",
+          "CI/CD pipeline setup"
+        ],
+        "next": [
+          "Production deployment to npm",
+          "Advanced AI features",
+          "Plugin system for custom analyzers",
+          "Real-time collaboration features",
+          "Enterprise-level features",
+          "Mobile companion app",
+          "Integration with IDEs",
+          "Advanced analytics dashboard"
+        ]
+      },
+      "code-knowledge-map-generator": {
+        "phase": "Core Features Complete",
+        "completion": "75%",
+        "aiFeaturesImplemented": "4/4",
+        "analysisTools": "Code structure, dependency analysis, metrics calculation",
+        "documentFormats": "Markdown, JSON, HTML",
+        "cliTools": "Command line interface with multiple commands",
+        "multiLanguageSupport": "JavaScript/TypeScript, Python, Java, Go, Rust, C/C++",
+        "aiIntegration": "OpenAI GPT-4 for intelligent analysis",
+        "lastUpdated": "2026-03-29T23:45:00Z",
+        "keyAchievements": [
+          "Complete CLI tool implementation",
+          "Multi-language code analysis engine",
+          "AI-powered insights generation",
+          "Comprehensive document generator",
+          "Dependency detection and circular dependency analysis",
+          "Interactive user interface",
+          "Configuration system and build scripts"
         ]
       }
     }
