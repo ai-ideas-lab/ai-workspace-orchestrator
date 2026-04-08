@@ -29,13 +29,22 @@ class AIEngineService {
         this.engines.set('claude', claudeConfig);
     }
     selectEngine(task) {
+        // Validate task object
+        if (!task) {
+            throw new Error('Task cannot be null or undefined');
+        }
+        if (!task.type) {
+            throw new Error('Task type is required');
+        }
         const availableEngines = Array.from(this.engines.values()).filter(engine => engine.enabled);
         if (availableEngines.length === 0) {
             throw new Error('No available AI engines');
         }
         // First check if a specific engine is requested
         if (task.engine) {
-            const requestedEngine = this.engines.get(task.engine);
+            // Try case-insensitive lookup
+            const engineKey = task.engine.toLowerCase();
+            const requestedEngine = this.engines.get(engineKey);
             if (requestedEngine && requestedEngine.enabled) {
                 return requestedEngine;
             }
@@ -52,7 +61,7 @@ class AIEngineService {
         }
     }
     getEngineConfig(engineName) {
-        const engine = this.engines.get(engineName);
+        const engine = this.engines.get(engineName.toLowerCase());
         if (!engine) {
             throw new Error(`Engine ${engineName} not found`);
         }

@@ -95,7 +95,7 @@ export class AIEngineService {
   }
 
   public getEngineConfig(engineName: string): EngineConfig {
-    const engine = this.engines.get(engineName);
+    const engine = this.engines.get(engineName.toLowerCase());
     if (!engine) {
       throw new Error(`Engine ${engineName} not found`);
     }

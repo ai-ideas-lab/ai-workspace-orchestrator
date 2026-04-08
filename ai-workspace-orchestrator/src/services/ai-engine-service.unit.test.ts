@@ -54,6 +54,13 @@ describe('AIEngineService', () => {
       expect(config.type).toBe('chatgpt');
     });
 
+    it('should return engine configuration with case-insensitive lookup', () => {
+      // getEngineConfig should normalize to lowercase, consistent with addEngine/removeEngine
+      const config = service.getEngineConfig('ChatGPT');
+      expect(config.name).toBe('ChatGPT');
+      expect(config.type).toBe('chatgpt');
+    });
+
     it('should throw error for non-existent engine', () => {
       expect(() => service.getEngineConfig('nonexistent')).toThrow('Engine nonexistent not found');
     });
