@@ -1,465 +1,331 @@
 # AI Workspace Orchestrator 架构设计推演
 
-## 项目概述
+> 项目名称：AI Workspace Orchestrator  
+> 设计日期：2026-04-08  
+> 设计师：孔明  
+> 项目状态：in-progress，已完成API框架和WebSocket，需数据库集成和AI引擎
 
-AI Workspace Orchestrator 是一个企业级AI工作流自动化平台，通过自然语言界面智能调度多个AI引擎，让非技术人员也能轻松管理和编排多个AI工具。
+## 一、技术选型分析
 
-## 1. 技术选型
+### 1.1 候选方案对比
 
-### 1.1 框架选型比较
+#### 方案一：全栈Node.js微服务架构
+**优势：**
+- 统一技术栈，开发效率高
+- TypeScript全链路类型安全
+- 微服务便于扩展和维护
+- 与现有代码一致度高
 
-**候选方案1：Python FastAPI + React**
-- **优势**：FastAPI性能优异，自动API文档，Python生态丰富，AI库支持完善
-- **劣势**：前端需要额外技术栈，开发效率相对较低
-- **适用场景**：对API性能要求高，团队熟悉Python生态
+**劣势：**
+- 系统复杂度较高
+- 需要服务治理
+- 资源消耗较大
 
-**候选方案2：Node.js Express + Next.js**
-- **优势**：全栈JavaScript，开发效率高，生态系统成熟，SSR支持良好
-- **劣势**：AI库支持相对Python较弱，性能略低于FastAPI
-- **适用场景**：注重开发效率，团队熟悉JavaScript生态
+**适用场景：** 企业级应用，需要高度可扩展性
 
-**候选方案3：Go Gin + Vue.js**
-- **优势**：并发性能极强，编译型语言，资源占用少
-- **劣势**：AI库生态不完善，开发曲线较陡峭
-- **适用场景**：高并发、微服务架构，对性能要求极高
+#### 方案二：单体架构 + 容器化
+**优势：**
+- 架构简单，部署便捷
+- 开发调试成本低
+- 性能优化更容易
+- 适合初期快速迭代
 
-**推荐方案：Python FastAPI + React**
-**推荐理由**：
-1. AI集成优势：Python在AI/ML领域拥有最丰富的库和框架支持
-2. 性能需求：FastAPI提供异步支持，满足高并发工作流执行需求
-3. 自动化文档：FastAPI自动生成Swagger文档，便于API管理
-4. 企业级支持：成熟的Python企业级解决方案
+**劣势：**
+- 扩展性受限
+- 技术栈单一
+- 长期维护困难
 
-### 1.2 数据库选型
+**适用场景：** MVP阶段，快速验证
 
-**候选方案1：PostgreSQL + Redis**
-- **优势**：关系型数据完整性强，Redis缓存提升性能，ACID特性完善
-- **劣势**：运维复杂度较高
-- **适用场景**：企业级应用，需要数据一致性保障
+#### 方案三：混合架构（推荐）
+**优势：**
+- 核心服务微服务化
+- 公共组件服务化
+- 渐进式演进
+- 平衡扩展性和开发效率
 
-**候选方案2：MongoDB + Redis**
-- **优势**：灵活的文档存储，适合工作流动态特性
-- **劣势**：数据一致性较弱，复杂查询性能较低
-- **适用场景**：快速迭代开发，数据结构频繁变化
+**劣势：**
+- 架构设计复杂度中等
+- 需要合理的服务边界
 
-**推荐方案：PostgreSQL + Redis**
-**推荐理由**：
-1. 数据完整性：工作流执行状态、用户权限等需要强一致性
-2. ACID支持：确保工作流执行的原子性和可靠性
-3. 生态系统：成熟的ORM和迁移工具支持
-4. 扩展性：支持水平分片和读写分离
+**适用场景：** 长期发展，兼顾短期和长期需求
 
-### 1.3 AI模型集成
+### 1.2 推荐方案：混合微服务架构
 
-**候选方案1：直接集成各厂商API**
-- **优势**：模型最新，功能完整，厂商支持好
-- **劣势**：成本高，依赖性强，切换困难
-- **适用场景**：追求最新功能，预算充足
+**推荐理由：**
+1. **技术延续性**：现有Node.js代码基础良好，可平滑迁移
+2. **企业级需求**：支持多租户、高并发、可扩展性
+3. **成本控制**：按需扩展，资源利用效率高
+4. **团队友好**：技术栈统一，学习成本低
 
-**候选方案2：本地部署开源模型**
-- **优势**：成本低可控，无依赖，可定制
-- **劣势**：维护复杂，更新延迟，硬件要求高
-- **适用场景**：数据敏感，注重隐私，长线规划
-
-**推荐方案：混合模式 - API为主 + 本地为辅**
-**推荐理由**：
-1. 成本效益：主要使用API降低硬件成本，关键功能本地部署
-2. 灵活性：厂商API可快速集成新模型，本地保证核心功能可用
-3. 可靠性：多云架构避免单点故障
-4. 可扩展性：支持未来模型无缝切换
-
-### 1.4 部署方案
-
-**候选方案1：Docker Compose + Kubernetes**
-- **优势**：容器化部署，弹性扩展，标准化运维
-- **劣势**：运维复杂度高，学习成本大
-- **适用场景**：生产环境，大规模部署
-
-**候选方案2：Serverless + Vercel/Railway**
-- **优势**：免运维，自动扩缩容，快速部署
-- **劣势**：状态管理复杂，成本控制较难
-- **适用场景**：MVP阶段，快速验证
-
-**推荐方案：Docker + Kubernetes**
-**推荐理由**：
-1. 企业级稳定：容器化确保环境一致性，K8s提供生产级管理
-2. 弹性扩展：根据工作流负载自动扩缩容
-3. 监控完善：完善的日志、监控和告警体系
-4. 标准化：DevOps最佳实践，易于CI/CD集成
-
-## 2. 系统架构图
+## 二、系统架构图
 
 ```mermaid
 graph TB
     subgraph "客户端层"
-        A[Web前端 React]
-        B[移动端 React Native]
-        C[API文档 Swagger]
+        Web[Web前端 React]
+        Mobile[移动端 React Native]
+        Desktop[桌面端 Electron]
+        API[第三方API调用]
     end
-
-    subgraph "API网关层"
-        D[API Gateway]
-        E[认证授权服务]
-        F[限流熔断]
+    
+    subgraph "网关层"
+        Gateway[API网关 Nginx+Kong]
+        LoadBalancer[负载均衡器]
+        RateLimit[限流服务]
+        Auth[认证服务]
     end
-
-    subgraph "业务服务层"
-        G[工作流服务]
-        H[AI调度服务]
-        I[用户服务]
-        J[权限服务]
+    
+    subgraph "核心服务"
+        Workflow[工作流引擎<br/>Node.js + TypeScript]
+        Execution[执行引擎<br/>Node.js + TypeScript]
+        AIEngine[AI引擎服务<br/>Python + FastAPI]
+        Orchestrator[编排服务<br/>Node.js + TypeScript]
     end
-
+    
     subgraph "数据层"
-        K[PostgreSQL]
-        L[Redis]
-        M[MinIO文件存储]
+        PostgreSQL[(PostgreSQL<br/>主数据库)]
+        Redis[(Redis<br/>缓存+会话)]
+        Mongo[(MongoDB<br/>文档存储)]
+        ElasticSearch[(ElasticSearch<br/>搜索+分析)]
     end
-
-    subgraph "AI引擎层"
-        N[OpenAI GPT-4]
-        O[Anthropic Claude]
-        P[Google Gemini]
-        Q[本地模型]
+    
+    subgraph "AI服务层"
+        OpenAI[OpenAI API]
+        Anthropic[Anthropic API]
+        GoogleAI[Google Gemini API]
+        CustomAI[自定义AI模型]
     end
-
-    subgraph "基础设施层"
-        R[Docker Container]
-        S[Kubernetes]
-        T[监控系统]
-        U[日志系统]
+    
+    subgraph "基础设施"
+        Kubernetes[Kubernetes集群]
+        Monitoring[监控系统<br/>Prometheus+Grafana]
+        Logging[日志系统<br/>ELK]
+        Storage[对象存储<br/>MinIO/S3]
     end
-
-    A --> D
-    B --> D
-    C --> D
-    D --> E
-    D --> F
-    E --> G
-    E --> I
-    F --> G
-    G --> H
-    G --> J
-    H --> N
-    H --> O
-    H --> P
-    H --> Q
-    I --> K
-    J --> K
-    G --> L
-    H --> L
-    G --> M
-    N --> R
-    O --> R
-    P --> R
-    Q --> R
-    R --> S
-    S --> T
-    S --> U
-
-    subgraph "数据流向"
-        direction LR
-        A --> G
-        H --> N
-        N --> G
-        G --> K
-        K --> I
-    end
+    
+    Web --> Gateway
+    Mobile --> Gateway
+    Desktop --> Gateway
+    API --> Gateway
+    
+    Gateway --> LoadBalancer
+    Gateway --> RateLimit
+    Gateway --> Auth
+    
+    Auth --> Workflow
+    Auth --> Execution
+    Auth --> AIEngine
+    Auth --> Orchestrator
+    
+    Workflow --> PostgreSQL
+    Execution --> PostgreSQL
+    AIEngine --> PostgreSQL
+    Orchestrator --> PostgreSQL
+    
+    Workflow --> Redis
+    Execution --> Redis
+    AIEngine --> Redis
+    Orchestrator --> Redis
+    
+    AIEngine --> Mongo
+    AIEngine --> ElasticSearch
+    
+    AIEngine --> OpenAI
+    AIEngine --> Anthropic
+    AIEngine --> GoogleAI
+    AIEngine --> CustomAI
+    
+    Workflow --> Kubernetes
+    Execution --> Kubernetes
+    AIEngine --> Kubernetes
+    Orchestrator --> Kubernetes
+    
+    Workflow --> Monitoring
+    Execution --> Monitoring
+    AIEngine --> Monitoring
+    Orchestrator --> Monitoring
+    
+    Workflow --> Logging
+    Execution --> Logging
+    AIEngine --> Logging
+    Orchestrator --> Logging
+    
+    Workflow --> Storage
+    Execution --> Storage
+    AIEngine --> Storage
+    Orchestrator --> Storage
 ```
 
-## 3. 目录结构设计
+## 三、目录结构设计
 
 ```
 ai-workspace-orchestrator/
-├── backend/
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py                 # FastAPI应用入口
-│   │   ├── config.py               # 配置管理
-│   │   ├── database.py            # 数据库连接
-│   │   ├── security.py            # 安全相关
-│   │   ├── middleware/            # 中间件
-│   │   │   ├── __init__.py
-│   │   │   ├── auth.py             # 认证中间件
-│   │   │   ├── cors.py             # CORS中间件
-│   │   │   └── rate_limit.py       # 限流中间件
-│   │   ├── api/                    # API路由
-│   │   │   ├── __init__.py
-│   │   │   ├── v1/
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── auth.py         # 认证相关API
-│   │   │   │   ├── users.py        # 用户管理API
-│   │   │   │   ├── workflows.py   # 工作流API
-│   │   │   │   ├── executions.py   # 执行记录API
-│   │   │   │   ├── ai_engines.py   # AI引擎API
-│   │   │   │   └── templates.py    # 模板API
-│   │   │   └── v2/
-│   │   │       └── __init__.py
-│   │   ├── models/                 # 数据模型
-│   │   │   ├── __init__.py
-│   │   │   ├── base.py            # 基础模型
-│   │   │   ├── user.py            # 用户模型
-│   │   │   ├── workflow.py        # 工作流模型
-│   │   │   ├── execution.py       # 执行记录模型
-│   │   │   ├── template.py         # 模型板
-│   │   │   └── audit.py           # 审计日志模型
-│   │   ├── schemas/                # Pydantic模式
-│   │   │   ├── __init__.py
-│   │   │   ├── user.py
-│   │   │   ├── workflow.py
-│   │   │   ├── execution.py
-│   │   │   └── template.py
-│   │   ├── services/               # 业务逻辑服务
-│   │   │   ├── __init__.py
-│   │   │   ├── auth_service.py
-│   │   │   ├── user_service.py
-│   │   │   ├── workflow_service.py
-│   │   │   ├── execution_service.py
-│   │   │   ├── ai_service.py
-│   │   │   ├── template_service.py
-│   │   │   ├── notification_service.py
-│   │   │   └── audit_service.py
-│   │   ├── utils/                  # 工具函数
-│   │   │   ├── __init__.py
-│   │   │   ├── crypto.py          # 加密工具
-│   │   │   ├── validation.py      # 验证工具
-│   │   │   ├── decorators.py      # 装饰器
-│   │   │   └── helpers.py          # 辅助函数
-│   │   ├── core/                   # 核心组件
-│   │   │   ├── __init__.py
-│   │   │   ├── ai_scheduler.py    # AI调度器
-│   │   │   ├── workflow_executor.py # 工作流执行器
-│   │   │   ├── engine_factory.py # AI引擎工厂
-│   │   │   ├── cache.py           # 缓存管理
-│   │   │   └── events.py          # 事件处理
-│   │   └── api_docs/              # API文档
-│   │       ├── __init__.py
-│   │       ├── auth.yaml
-│   │       ├── workflows.yaml
-│   │       └── executions.yaml
-│   ├── migrations/                # 数据库迁移
-│   ├── tests/                      # 测试文件
-│   │   ├── __init__.py
-│   │   ├── test_auth.py
-│   │   ├── test_workflows.py
-│   │   ├── test_ai_integration.py
-│   │   └── utils/
-│   ├── alembic.ini               # 数据库迁移配置
-│   ├── requirements.txt          # Python依赖
-│   └── .env.example              # 环境变量示例
-├── frontend/
-│   ├── src/
-│   │   ├── components/           # 通用组件
-│   │   │   ├── layout/            # 布局组件
-│   │   │   │   ├── Header.jsx
-│   │   │   │   ├── Sidebar.jsx
-│   │   │   │   └── Footer.jsx
-│   │   │   ├── forms/            # 表单组件
-│   │   │   │   ├── WorkflowForm.jsx
-│   │   │   │   ├── LoginForm.jsx
-│   │   │   │   └── TemplateForm.jsx
-│   │   │   ├── ui/               # 基础UI组件
-│   │   │   │   ├── Button.jsx
-│   │   │   │   ├── Input.jsx
-│   │   │   │   ├── Modal.jsx
-│   │   │   │   └── Table.jsx
-│   │   │   ├── workflow/         # 工作流组件
-│   │   │   │   ├── WorkflowDesigner.jsx
-│   │   │   │   ├── WorkflowExecute.jsx
-│   │   │   │   └── WorkflowResults.jsx
-│   │   │   ├── auth/             # 认证组件
-│   │   │   │   ├── Login.jsx
-│   │   │   │   ├── Register.jsx
-│   │   │   │   └── Profile.jsx
-│   │   │   └── common/           # 通用组件
-│   │   │       ├── Loading.jsx
-│   │   │       ├── ErrorBoundary.jsx
-│   │   │       └── Toast.jsx
-│   │   ├── pages/                # 页面组件
-│   │   │   ├── auth/             # 认证页面
-│   │   │   │   ├── Login.jsx
-│   │   │   │   └── Register.jsx
-│   │   │   ├── dashboard/        # 仪表板页面
-│   │   │   │   ├── Dashboard.jsx
-│   │   │   │   ├── Workflows.jsx
-│   │   │   │   ├── Executions.jsx
-│   │   │   │   └ Templates.jsx
-│   │   │   ├── workflow/         # 工作流页面
-│   │   │   │   ├── List.jsx
-│   │   │   │   ├── Create.jsx
-│   │   │   │   ├── Edit.jsx
-│   │   │   │   └── Execute.jsx
-│   │   │   └── profile/          # 用户页面
-│   │   │       ├── Profile.jsx
-│   │   │       └── Settings.jsx
-│   │   ├── services/             # API服务
-│   │   │   ├── api.js            # API客户端
-│   │   │   ├── auth.js           # 认证服务
-│   │   │   ├── workflows.js      # 工作流服务
-│   │   │   ├── executions.js     # 执行服务
-│   │   │   └── templates.js      # 模板服务
-│   │   ├── store/                # 状态管理
-│   │   │   ├── authStore.js
-│   │   │   ├── workflowStore.js
-│   │   │   ├── executionStore.js
-│   │   │   └── templateStore.js
-│   │   ├── utils/                # 工具函数
-│   │   │   ├── api.js
-│   │   │   ├── validators.js
-│   │   │   ├── formatters.js
-│   │   │   └── constants.js
-│   │   ├── hooks/                # 自定义钩子
-│   │   │   ├── useAuth.js
-│   │   │   ├── useWorkflows.js
-│   │   │   ├── useExecutions.js
-│   │   │   └── useTemplates.js
-│   │   ├── styles/               # 样式文件
-│   │   │   ├── index.css
-│   │   │   ├── globals.css
-│   │   │   └── theme.css
-│   │   ├── App.jsx               # 应用入口
-│   │   ├── index.js              # 渲染入口
-│   │   └── setupTests.js        # 测试设置
-│   ├── public/                   # 静态资源
-│   ├── package.json              # 依赖包
-│   ├── vite.config.js           # Vite配置
-│   └── tailwind.config.js       # Tailwind配置
-├── docker-compose.yml           # Docker Compose配置
-├── k8s/                         # Kubernetes配置
-│   ├── namespace.yaml
-│   ├── deployment.yaml
-│   ├── service.yaml
-│   ├── ingress.yaml
-│   └── configmap.yaml
-├── .gitignore                   # Git忽略文件
-├── README.md                    # 项目文档
-├── SECURITY.md                  # 安全文档
-├── CONTRIBUTING.md              # 贡献指南
-└── LICENSE                      # 许可证
+├── packages/                          # 微服务包
+│   ├── gateway/                       # API网关
+│   │   ├── src/
+│   │   │   ├── controllers/
+│   │   │   ├── middleware/
+│   │   │   ├── services/
+│   │   │   └── app.ts
+│   │   ├── tests/
+│   │   └── package.json
+│   ├── workflow-engine/              # 工作流引擎
+│   │   ├── src/
+│   │   │   ├── handlers/
+│   │   │   ├── validators/
+│   │   │   ├── services/
+│   │   │   └── app.ts
+│   │   ├── tests/
+│   │   └── package.json
+│   ├── execution-engine/              # 执行引擎
+│   │   ├── src/
+│   │   │   ├── runners/
+│   │   │   ├── schedulers/
+│   │   │   ├── monitors/
+│   │   │   └── app.ts
+│   │   ├── tests/
+│   │   └── package.json
+│   ├── ai-engine/                     # AI引擎
+│   │   ├── src/
+│   │   │   ├── providers/
+│   │   │   ├── processors/
+│   │   │   ├── routers/
+│   │   │   └── app.ts
+│   │   ├── tests/
+│   │   └── package.json
+│   └── orchestrator/                  # 编排服务
+│       ├── src/
+│       │   ├── coordinators/
+│       │   ├── managers/
+│       │   ├── api/
+│       │   └── app.ts
+│       ├── tests/
+│       └── package.json
+├── shared/                            # 共享包
+│   ├── types/                        # 类型定义
+│   ├── utils/                        # 工具函数
+│   ├── database/                     # 数据库模式
+│   └── api/                          # API文档
+├── infrastructure/                    # 基础设施
+│   ├── docker/                       # Docker配置
+│   ├── kubernetes/                   # K8s配置
+│   ├── monitoring/                   # 监控配置
+│   └── deployments/                  # 部署脚本
+├── docs/                             # 文档
+│   ├── architecture/                # 架构文档
+│   ├── api/                          # API文档
+│   ├── deployment/                  # 部署文档
+│   └── development/                  # 开发文档
+├── tests/                            # 集成测试
+├── scripts/                          # 构建和部署脚本
+├── .github/                         # GitHub配置
+├── package.json                      # 根包配置
+├── README.md                         # 项目说明
+└── docker-compose.yml                # 本地开发环境
 ```
 
-## 4. 核心API设计
+## 四、核心API设计
 
-### 4.1 RESTful API端点列表
+### 4.1 工作流管理API
 
-#### 认证相关
-```
-POST   /api/v1/auth/register      # 用户注册
-POST   /api/v1/auth/login         # 用户登录
-POST   /api/v1/auth/logout        # 用户登出
-GET    /api/v1/auth/refresh       # 刷新令牌
-GET    /api/v1/auth/me           # 获取当前用户信息
-POST   /api/v1/auth/forgot-password # 忘记密码
-POST   /api/v1/auth/reset-password  # 重置密码
-```
-
-#### 用户管理
-```
-GET    /api/v1/users              # 获取用户列表
-GET    /api/v1/users/{id}        # 获取用户详情
-PUT    /api/v1/users/{id}        # 更新用户信息
-DELETE /api/v1/users/{id}        # 删除用户
-GET    /api/v1/users/{id}/profile # 获取用户资料
-PUT    /api/v1/users/{id}/profile # 更新用户资料
+```yaml
+# 工作流管理端点
+POST   /api/v1/workflows            # 创建工作流
+GET    /api/v1/workflows           # 获取工作流列表
+GET    /api/v1/workflows/:id      # 获取工作流详情
+PUT    /api/v1/workflows/:id      # 更新工作流
+DELETE /api/v1/workflows/:id      # 删除工作流
+POST   /api/v1/workflows/:id/start # 启动工作流
+GET    /api/v1/workflows/:id/executions # 获取执行历史
 ```
 
-#### 工作流管理
-```
-POST   /api/v1/workflows          # 创建工作流
-GET    /api/v1/workflows          # 获取工作流列表
-GET    /api/v1/workflows/{id}    # 获取工作流详情
-PUT    /api/v1/workflows/{id}    # 更新工作流
-DELETE /api/v1/workflows/{id}    # 删除工作流
-POST   /api/v1/workflows/{id}/execute # 执行工作流
-GET    /api/v1/workflows/{id}/executions # 获取执行历史
-GET    /api/v1/workflows/{id}/status # 获取工作流状态
-POST   /api/v1/workflows/{id}/duplicate # 复制工作流
-POST   /api/v1/workflows/{id}/share # 分享工作流
+### 4.2 执行管理API
+
+```yaml
+# 执行管理端点
+GET    /api/v1/executions           # 获取执行列表
+GET    /api/v1/executions/:id      # 获取执行详情
+POST   /api/v1/executions/:id/cancel # 取消执行
+GET    /api/v1/executions/stats     # 获取执行统计
+GET    /api/v1/executions/logs     # 获取执行日志
 ```
 
-#### 工作流模板
-```
-POST   /api/v1/templates         # 创建模板
-GET    /api/v1/templates         # 获取模板列表
-GET    /api/v1/templates/{id}   # 获取模板详情
-PUT    /api/v1/templates/{id}   # 更新模板
-DELETE /api/v1/templates/{id}   # 删除模板
-GET    /api/v1/templates/search  # 搜索模板
-POST   /api/v1/templates/{id}/use # 使用模板创建工作流
+### 4.3 AI引擎API
+
+```yaml
+# AI引擎端点
+POST   /api/v1/ai/generate         # 文本生成
+POST   /api/v1/ai/analyze          # 文本分析
+POST   /api/v1/ai/process          # 文档处理
+POST   /api/v1/ai/custom           # 自定义AI任务
+GET    /api/v1/ai/providers        # 获取AI提供商列表
+POST   /api/v1/ai/providers        # 添加AI提供商
 ```
 
-#### 执行记录
-```
-GET    /api/v1/executions         # 获取执行列表
-GET    /api/v1/executions/{id}   # 获取执行详情
-GET    /api/v1/executions/{id}/logs # 获取执行日志
-GET    /api/v1/executions/{id}/status # 获取执行状态
-DELETE /api/v1/executions/{id}   # 删除执行记录
-GET    /api/v1/executions/{id}/results # 获取执行结果
-POST   /api/v1/executions/{id}/stop # 停止执行
+### 4.4 编排服务API
+
+```yaml
+# 编排服务端点
+GET    /api/v1/orchest/status      # 获取编排状态
+POST   /api/v1/orchest/schedule    # 调度任务
+GET    /api/v1/orchest/jobs        # 获取任务列表
+DELETE /api/v1/orchest/jobs/:id   # 取消任务
 ```
 
-#### AI引擎管理
-```
-GET    /api/v1/ai-engines        # 获取AI引擎列表
-GET    /api/v1/ai-engines/{id}  # 获取AI引擎详情
-POST   /api/v1/ai-engines/test   # 测试AI引擎连接
-GET    /api/v1/ai-engines/{id}/capabilities # 获取引擎能力
-POST   /api/v1/ai-engines/{id}/configure # 配置AI引擎
-```
-
-#### 团队协作
-```
-GET    /api/v1/teams             # 获取团队列表
-POST   /api/v1/teams             # 创建团队
-GET    /api/v1/teams/{id}       # 获取团队详情
-PUT    /api/v1/teams/{id}       # 更新团队
-DELETE /api/v1/teams/{id}       # 删除团队
-POST   /api/v1/teams/{id}/members # 添加团队成员
-DELETE /api/v1/teams/{id}/members/{user_id} # 移除团队成员
-```
-
-#### 审计日志
-```
-GET    /api/v1/audit/logs        # 获取审计日志
-GET    /api/v1/audit/logs/{id}   # 获取审计日志详情
-GET    /api/v1/audit/logs/search # 搜索审计日志
-```
-
-### 4.2 WebSocket事件
+### 4.5 WebSocket事件
 
 ```typescript
-// 工作流执行事件
-interface WorkflowEvents {
-  'workflow:created': Workflow;
-  'workflow:updated': Workflow;
-  'workflow:deleted': { id: string };
-  'workflow:started': { id: string; timestamp: Date };
-  'workflow:progress': { id: string; step: string; progress: number };
-  'workflow:completed': { id: string; result: any };
-  'workflow:failed': { id: string; error: string };
-}
-
-// AI引擎事件
-interface AIEngineEvents {
-  'ai:engine:connected': { id: string; name: string };
-  'ai:engine:disconnected': { id: string; name: string };
-  'ai:engine:error': { id: string; error: string };
-}
-
-// 用户事件
-interface UserEvents {
-  'user:joined': { user: User; team: string };
-  'user:left': { user: User; team: string };
-  'user:typing': { userId: string; channelId: string };
+// WebSocket事件类型
+interface WebSocketEvents {
+  // 订阅事件
+  subscribe: {
+    type: 'subscribe';
+    channels: string[];
+  };
+  
+  // 工作流事件
+  workflow: {
+    type: 'workflow.execution';
+    data: {
+      workflowId: string;
+      executionId: string;
+      status: 'running' | 'completed' | 'failed' | 'cancelled';
+      progress: number;
+      message: string;
+    };
+  };
+  
+  // 执行步骤事件
+  step: {
+    type: 'execution.step';
+    data: {
+      executionId: string;
+      stepId: string;
+      status: 'pending' | 'running' | 'completed' | 'failed';
+      result?: any;
+      error?: string;
+    };
+  };
+  
+  // AI任务事件
+  ai: {
+    type: 'ai.task';
+    data: {
+      taskId: string;
+      status: 'pending' | 'running' | 'completed' | 'failed';
+      progress: number;
+      result?: any;
+      error?: string;
+    };
+  };
 }
 ```
 
-## 5. 数据模型设计
-
-### 5.1 Prisma Schema草案
+## 五、数据模型设计 (Prisma Schema)
 
 ```prisma
+// database/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -471,243 +337,164 @@ datasource db {
 
 // 用户模型
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  username  String   @unique
-  password  String
-  name      String?
-  avatar    String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // 关联关系
-  profiles       UserProfile[]
-  teams          TeamMember[]
-  workflows      Workflow[]
-  executions     Execution[]
-  templates      Template[]
-  auditLogs      AuditLog[]
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  avatar      String?
+  role        UserRole @default(USER)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // 关系
+  workflows   Workflow[]
+  executions  Execution[]
+  providers   AIProvider[]
+  sessions    UserSession[]
   
   @@map("users")
 }
 
-// 用户资料模型
-model UserProfile {
-  id        String @id @default(cuid())
-  userId    String @unique
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  bio       String?
-  timezone  String @default("UTC")
-  language  String @default("zh-CN")
-  preferences Json?
-  
-  @@map("user_profiles")
-}
-
-// 团队模型
-model Team {
-  id          String   @id @default(cuid())
+// AI提供商模型
+model AIProvider {
+  id          String      @id @default(cuid())
   name        String
-  description String?
-  ownerUserId String
+  provider    AIProviderType
+  apiKey      String
+  model       String
+  baseUrl     String?
+  config      Json?
+  isActive    Boolean     @default(true)
+  userId      String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
   
-  owner       User     @relation(fields: [ownerUserId], references: [id])
-  members     TeamMember[]
-  workflows   Workflow[]
-  templates   Template[]
+  // 关系
+  user        User        @relation(fields: [userId], references: [id])
   
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@map("teams")
-}
-
-// 团队成员模型
-model TeamMember {
-  id       String   @id @default(cuid())
-  teamId   String
-  userId   String
-  role     TeamRole @default(MEMBER)
-  joinedAt DateTime @default(now())
-  
-  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@unique([teamId, userId])
-  @@map("team_members")
+  @@map("ai_providers")
 }
 
 // 工作流模型
 model Workflow {
-  id            String      @id @default(cuid())
-  title         String
-  description   String?
-  version       String      @default("1.0.0")
-  status       WorkflowStatus @default(DRAFT)
-  isPublic      Boolean     @default(false)
-  isTemplate    Boolean     @default(false)
-  tags         String[]
-  config       Json        // 工作流配置
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  config      Json
+  variables   Json?
+  status      WorkflowStatus @default(DRAFT)
+  userId      String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  lastRunAt   DateTime?
   
-  // 关联关系
-  userId       String
-  user         User        @relation(fields: [userId], references: [id])
-  teamId       String?
-  team         Team?       @relation(fields: [teamId], references: [id])
-  executions   Execution[]
-  templates    Template[]
-  
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  lastExecutedAt DateTime?
+  // 关系
+  user        User        @relation(fields: [userId], references: [id])
+  executions  Execution[]
+  templates   WorkflowTemplate[]
   
   @@map("workflows")
 }
 
-// 工作流步骤模型
-model WorkflowStep {
-  id          String       @id @default(cuid())
-  workflowId  String
-  title       String
+// 工作流模板模型
+model WorkflowTemplate {
+  id          String      @id @default(cuid())
+  name        String
   description String?
-  stepType    StepType
-  order       Int
-  config      Json        // 步骤配置
-  aiEngineId  String?
+  config      Json
+  category    String
+  tags        Json?
+  isPublic    Boolean     @default(false)
+  userId      String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
   
-  workflow    Workflow     @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  aiEngine    AIEngine?    @relation(fields: [aiEngineId], references: [id])
+  // 关系
+  user        User        @relation(fields: [userId], references: [id])
+  workflows   Workflow[]
   
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  
-  @@map("workflow_steps")
+  @@map("workflow_templates")
 }
 
-// AI引擎模型
-model AIEngine {
-  id               String   @id @default(cuid())
-  name             String
-  provider         AIProvider
-  model            String
-  apiKey           String
-  baseUrl          String?
-  config           Json    // 引擎配置
-  isActive        Boolean  @default(true)
-  capabilities     Json[]   // 支持的能力
-  rateLimit        Json    // 速率限制配置
-  
-  // 关联关系
-  steps            WorkflowStep[]
-  
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  
-  @@map("ai_engines")
-}
-
-// 执行记录模型
+// 执行模型
 model Execution {
-  id           String           @id @default(cuid())
-  workflowId   String
-  workflow     Workflow         @relation(fields: [workflowId], references: [id])
-  userId       String
-  user         User             @relation(fields: [userId], references: [id])
+  id          String        @id @default(cuid())
+  workflowId  String
+  userId      String
+  input       Json?
+  output      Json?
+  status      ExecutionStatus @default(PENDING)
+  progress    Int           @default(0)
+  startTime   DateTime?
+  endTime     DateTime?
+  duration    Int?
+  error       String?
+  logs        Json[]
   
-  status       ExecutionStatus  @default(PENDING)
-  input        Json?
-  output       Json?
-  error        String?
-  duration     Int?            // 执行时长(毫秒)
-  
-  steps        ExecutionStep[]
-  
-  createdAt    DateTime         @default(now())
-  completedAt  DateTime?
+  // 关系
+  workflow    Workflow      @relation(fields: [workflowId], references: [id])
+  user        User          @relation(fields: [userId], references: [id])
+  steps       ExecutionStep[]
   
   @@map("executions")
 }
 
 // 执行步骤模型
 model ExecutionStep {
-  id           String              @id @default(cuid())
-  executionId  String
-  execution    Execution            @relation(fields: [executionId], references: [id], onDelete: Cascade)
-  workflowStepId String
-  workflowStep WorkflowStep       @relation(fields: [workflowStepId], references: [id])
+  id          String        @id @default(cuid())
+  executionId String
+  stepId      String
+  name        String
+  type        StepType
+  config      Json
+  status      StepStatus    @default(PENDING)
+  order       Int
+  startTime   DateTime?
+  endTime     DateTime?
+  duration    Int?
+  result      Json?
+  error       String?
   
-  title        String
-  stepType     StepType
-  order        Int
-  status       ExecutionStepStatus @default(PENDING)
-  input        Json?
-  output       Json?
-  error        String?
-  duration     Int?
-  aiEngineId   String
-  aiEngine     AIEngine            @relation(fields: [aiEngineId], references: [id])
-  
-  createdAt    DateTime            @default(now())
-  completedAt  DateTime?
+  // 关系
+  execution   Execution     @relation(fields: [executionId], references: [id])
   
   @@map("execution_steps")
 }
 
-// 模板模型
-model Template {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  category    String
-  tags        String[]
-  isPublic    Boolean  @default(false)
-  config      Json    // 模板配置
-  usageCount  Int      @default(0)
-  
-  // 关联关系
+// 用户会话模型
+model UserSession {
+  id          String    @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  teamId      String?
-  team        Team?    @relation(fields: [teamId], references: [id])
-  workflows   Workflow[]
+  token       String    @unique
+  expiresAt   DateTime
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  // 关系
+  user        User      @relation(fields: [userId], references: [id])
   
-  @@map("templates")
-}
-
-// 审计日志模型
-model AuditLog {
-  id          String        @id @default(cuid())
-  userId      String
-  user        User          @relation(fields: [userId], references: [id])
-  action      String        // 操作类型
-  resource    String        // 操作资源
-  resourceId  String?       // 资源ID
-  details     Json?         // 操作详情
-  ipAddress   String?       // IP地址
-  userAgent   String?       // 用户代理
-  
-  createdAt   DateTime      @default(now())
-  
-  @@map("audit_logs")
+  @@map("user_sessions")
 }
 
 // 枚举类型
-enum TeamRole {
-  OWNER
+enum UserRole {
+  USER
   ADMIN
-  MEMBER
+  SUPER_ADMIN
+}
+
+enum AIProviderType {
+  OPENAI
+  ANTHROPIC
+  GOOGLE
+  CUSTOM
 }
 
 enum WorkflowStatus {
   DRAFT
   ACTIVE
+  PAUSED
   ARCHIVED
-  DELETED
 }
 
 enum ExecutionStatus {
@@ -716,317 +503,282 @@ enum ExecutionStatus {
   COMPLETED
   FAILED
   CANCELLED
-  TIMEOUT
 }
 
-enum ExecutionStepStatus {
+enum StepType {
+  AI_TASK
+  CONDITION
+  PARALLEL
+  SEQUENTIAL
+  DATA_PROCESSING
+  API_CALL
+}
+
+enum StepStatus {
   PENDING
   RUNNING
   COMPLETED
   FAILED
   SKIPPED
-  RETRYING
-}
-
-enum StepType {
-  AI_GENERATION
-  DATA_PROCESSING
-  CONDITIONAL
-  LOOP
-  PARALLEL
-  MERGE
-  NOTIFICATION
-  FILE_UPLOAD
-  API_CALL
-}
-
-enum AIProvider {
-  OPENAI
-  ANTHROPIC
-  GOOGLE
-  COHERE
-  LOCAL
 }
 ```
 
-## 6. 关键技术难点及解决方案
+## 六、关键技术难点及解决方案
 
-### 6.1 工作流引擎的复杂状态管理
+### 6.1 工作流编排复杂性
 
-**问题**：
-- 工作流执行涉及多个步骤的并行、串行、条件执行
-- 需要处理步骤失败、重试、回滚等异常情况
-- 实时状态跟踪和更新
+**挑战：**
+- 复杂的条件分支和并行处理
+- 步骤间的数据传递和状态同步
+- 长时间运行任务的可靠性
 
-**解决方案**：
-1. **状态机设计**：使用状态机模式管理每个步骤的状态转换
-2. **事件驱动架构**：基于事件驱动的异步处理机制
-3. **持久化状态**：关键状态实时写入数据库，支持断点续传
-4. **幂等性设计**：确保重复执行不会产生副作用
+**解决方案：**
+1. **状态机模式**：使用状态机管理工作流状态转换
+2. **事件驱动架构**：通过事件总线实现步骤间通信
+3. **持久化执行**：实现任务检查点和恢复机制
+4. **超时处理**：为每个步骤设置超时和重试策略
 
-```python
-# 工作流状态管理示例
-class WorkflowStateMachine:
-    def __init__(self, workflow_id):
-        self.workflow_id = workflow_id
-        self.current_state = "PENDING"
-        self.steps = {}
-        
-    async def transition(self, new_state, context=None):
-        """状态转换"""
-        if self.is_valid_transition(new_state):
-            self.current_state = new_state
-            await self.save_state()
-            await self.emit_state_changed_event(new_state, context)
-            
-    async def handle_failure(self, step_id, error):
-        """处理失败"""
-        await self.transition("FAILED", {"step_id": step_id, "error": error})
-        await self.retry_or_rollback(step_id)
-```
-
-### 6.2 多AI引擎的智能调度
-
-**问题**：
-- 不同AI引擎有不同的优势和适用场景
-- 需要根据任务类型、成本、延迟等因素选择最佳引擎
-- 负载均衡和故障转移
-
-**解决方案**：
-1. **策略模式**：实现多种调度策略（性能优先、成本优先、质量优先）
-2. **健康检查**：实时监控各引擎状态和性能
-3. **负载预测**：基于历史数据预测负载，提前调度
-4. **降级机制**：主引擎故障时自动切换备用引擎
-
-```python
-# AI调度器示例
-class AIScheduler:
-    def __init__(self):
-        self.engines = {}
-        self.strategies = {
-            'performance': PerformanceStrategy(),
-            'cost': CostStrategy(),
-            'quality': QualityStrategy()
-        }
-        
-    async def schedule_engine(self, task):
-        """智能调度AI引擎"""
-        # 1. 获取候选引擎
-        candidates = self.get_available_engines(task.type)
-        
-        # 2. 选择调度策略
-        strategy = self.select_strategy(task)
-        
-        # 3. 选择最佳引擎
-        best_engine = strategy.select(candidates, task)
-        
-        # 4. 执行任务
-        return await best_engine.execute(task)
-```
-
-### 6.3 大规模工作流的数据一致性
-
-**问题**：
-- 分布式事务保证工作流的原子性
-- 长时间运行的任务需要支持补偿机制
-- 数据一致性和完整性的保证
-
-**解决方案**：
-1. **Saga模式**：使用Saga模式处理分布式事务
-2. **补偿机制**：为每个步骤设计对应的补偿操作
-3. **事务边界**：合理设计事务边界，避免过大或过小
-4. **最终一致性**：通过异步消息队列保证最终一致性
-
-```python
-# 事务管理示例
-class WorkflowTransactionManager:
-    def __init__(self):
-        self.saga = Saga()
-        self.compensations = {}
-        
-    async def execute_workflow(self, workflow):
-        """执行工作流事务"""
-        try:
-            for step in workflow.steps:
-                # 执行步骤
-                result = await step.execute()
-                
-                # 注册补偿操作
-                self.compensations[step.id] = step.get_compensation()
-                
-            await self.commit()
-        except Exception as e:
-            await self.rollback()
-```
-
-### 6.4 实时协作和状态同步
-
-**问题**：
-- 多用户同时编辑工作流的并发控制
-- 实时状态同步和冲突解决
-- 离线支持和数据同步
-
-**解决方案**：
-1. **操作转换(OT)**：使用操作转换算法处理实时协作
-2. **乐观锁**：使用版本号控制并发编辑
-3. **WebSocket**：实时推送状态变更
-4. **离线优先**：支持离线编辑，网络恢复后同步
-
-```javascript
-// 实时协作示例
-class WorkflowCollaboration {
-  constructor(workflowId) {
-    this.workflowId = workflowId;
-    this.operations = [];
-    this.version = 0;
+```typescript
+// 工作流状态管理
+class WorkflowStateMachine {
+  private currentState: WorkflowState;
+  private context: ExecutionContext;
+  
+  async transition(event: WorkflowEvent): Promise<WorkflowState> {
+    const nextState = this.getStateTransition(this.currentState, event);
     
-    // 初始化WebSocket连接
-    this.socket = new WebSocket(`/collaborate/${workflowId}`);
-    this.setupEventHandlers();
+    if (this.isValidTransition(this.currentState, nextState)) {
+      await this.executeStateHooks(this.currentState, nextState);
+      this.currentState = nextState;
+      this.context.updateState(nextState);
+      return nextState;
+    }
+    
+    throw new InvalidTransitionError(this.currentState, nextState);
+  }
+}
+```
+
+### 6.2 AI服务集成复杂性
+
+**挑战：**
+- 多AI提供商的统一接口
+- 服务的容错和降级
+- 成本控制和优化
+
+**解决方案：**
+1. **适配器模式**：为每个AI提供商实现统一接口
+2. **负载均衡**：智能路由和负载分配
+3. **熔断机制**：防止级联故障
+4. **缓存优化**：结果缓存和复用
+
+```typescript
+// AI服务适配器
+interface AIProviderAdapter {
+  generateText(params: GenerationParams): Promise<GenerationResult>;
+  analyzeText(params: AnalysisParams): Promise<AnalysisResult>;
+  processDocument(params: DocumentParams): Promise<DocumentResult>;
+}
+
+class OpenAIAdapter implements AIProviderAdapter {
+  async generateText(params: GenerationParams): Promise<GenerationResult> {
+    // OpenAI具体实现
+  }
+}
+
+class AnthropicAdapter implements AIProviderAdapter {
+  async generateText(params: GenerationParams): Promise<GenerationResult> {
+    // Anthropic具体实现
+  }
+}
+
+// AI服务管理器
+class AIServiceManager {
+  private providers: Map<string, AIProviderAdapter> = new Map();
+  private loadBalancer: LoadBalancer;
+  
+  async routeRequest(provider: string, task: AITask): Promise<any> {
+    const adapter = this.providers.get(provider);
+    if (!adapter) throw new ProviderNotFoundError(provider);
+    
+    return this.loadBalancer.execute(adapter, task);
+  }
+}
+```
+
+### 6.3 高并发和性能优化
+
+**挑战：**
+- 大量并发执行任务
+- 实时状态更新
+- 系统资源优化
+
+**解决方案：**
+1. **异步处理**：使用消息队列处理耗时任务
+2. **连接池**：数据库连接池和HTTP连接池
+3. **缓存策略**：Redis缓存热点数据
+4. **CDN加速**：静态资源CDN分发
+
+```typescript
+// 异步任务处理
+class AsyncTaskProcessor {
+  private queue: BullMQ.Queue;
+  private worker: BullMQ.Worker;
+  
+  constructor() {
+    this.queue = new BullMQ.Queue('ai-tasks');
+    this.worker = new BullMQ.Worker('ai-tasks', this.processTask.bind(this));
   }
   
-  async updateWorkflow(operation) {
-    // 应用操作转换
-    const transformed = this.transform(operation, this.operations);
+  async processTask(job: BullMQ.Job): Promise<any> {
+    const { task, provider, params } = job.data;
     
-    // 发送到服务器
-    await this.sendOperation(transformed);
-    
-    // 本地应用
-    this.applyOperation(transformed);
-  }
-  
-  transform(operation, existingOps) {
-    // 操作转换算法
-    return existingOps.reduce((transformed, existing) => {
-      return transform(existing, operation);
-    }, operation);
+    try {
+      const result = await this.executeAIProvider(task, provider, params);
+      await this.updateExecutionProgress(job.id, 100, result);
+      return result;
+    } catch (error) {
+      await this.updateExecutionProgress(job.id, 0, null, error);
+      throw error;
+    }
   }
 }
 ```
 
-### 6.5 AI模型的安全和隐私
+### 6.4 数据一致性和持久化
 
-**问题**：
-- 敏感数据的安全性
-- AI模型的输出过滤和内容安全
-- 符合数据保护法规
+**挑战：**
+- 分布式事务一致性
+- 数据库性能优化
+- 数据备份和恢复
 
-**解决方案**：
-1. **数据加密**：敏感数据端到端加密
-2. **内容过滤**：集成内容安全API过滤不当内容
-3. **访问控制**：细粒度的数据访问权限控制
-4. **审计日志**：完整的数据访问和使用记录
+**解决方案：**
+1. **事务管理**：使用数据库事务确保一致性
+2. **读写分离**：主从数据库架构
+3. **数据分片**：水平分片处理大数据量
+4. **定期备份**：自动化备份和恢复机制
 
-```python
-# 安全管理示例
-class SecurityManager:
-    def __init__(self):
-        self.content_filter = ContentFilter()
-        self.encryptor = DataEncryptor()
-        self.audit_logger = AuditLogger()
-        
-    async def process_ai_request(self, request):
-        """处理AI请求"""
-        # 1. 数据加密
-        encrypted_data = await self.encryptor.encrypt(request.data)
-        
-        # 2. 内容安全检查
-        safety_result = await self.content_filter.check(encrypted_data)
-        if not safety_result.safe:
-            raise ContentSafetyError("内容不安全")
-            
-        # 3. 执行AI处理
-        result = await self.execute_ai(encrypted_data)
-        
-        # 4. 审计记录
-        await self.audit_logger.log(request, result)
-        
-        return result
+```typescript
+// 数据库事务管理
+class TransactionManager {
+  async executeInTransaction<T>(operation: () => Promise<T>): Promise<T> {
+    const tx = await db.$begin();
+    
+    try {
+      const result = await operation();
+      await tx.$commit();
+      return result;
+    } catch (error) {
+      await tx.$rollback();
+      throw error;
+    }
+  }
+}
 ```
 
-### 6.6 性能优化和可扩展性
+### 6.5 安全和隐私保护
 
-**问题**：
-- 高并发场景下的性能瓶颈
-- 大规模工作流的执行效率
-- 系统的可扩展性
+**挑战：**
+- 用户数据安全
+- AI内容安全
+- 访问控制
 
-**解决方案**：
-1. **异步处理**：使用异步IO提高并发性能
-2. **缓存机制**：多级缓存减少重复计算
-3. **负载均衡**：智能负载均衡分配任务
-4. **水平扩展**：支持横向扩展和弹性伸缩
+**解决方案：**
+1. **身份认证**：JWT + OAuth2.0
+2. **权限控制**：RBAC权限模型
+3. **数据加密**：敏感数据加密存储
+4. **内容过滤**：AI内容安全检测
 
-```python
-# 性能优化示例
-class PerformanceOptimizer:
-    def __init__(self):
-        self.cache = RedisCache()
-        self.load_balancer = LoadBalancer()
-        self.executor = AsyncExecutor()
-        
-    async def execute_workflow(self, workflow):
-        """优化后的工作流执行"""
-        # 1. 缓存检查
-        cache_key = f"workflow:{workflow.id}"
-        cached_result = await self.cache.get(cache_key)
-        if cached_result:
-            return cached_result
-            
-        # 2. 负载均衡
-        executor = self.load_balancer.select_executor(workflow)
-        
-        # 3. 异步执行
-        result = await executor.execute_async(workflow)
-        
-        # 4. 缓存结果
-        await self.cache.set(cache_key, result, ttl=3600)
-        
-        return result
+```typescript
+// 安全中间件
+class SecurityMiddleware {
+  async authenticate(req: Request, res: Response, next: NextFunction) {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = decoded;
+      next();
+    } catch (error) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+  }
+  
+  async checkPermission(resource: string, action: string) {
+    return (req: Request, res: Response, next: NextFunction) => {
+      const user = req.user;
+      
+      if (!this.hasPermission(user, resource, action)) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      
+      next();
+    };
+  }
+}
 ```
 
-## 7. 实施计划
+## 七、实施路径
 
-### 7.1 开发阶段
+### 7.1 第一阶段：基础架构搭建 (2-3个月)
+1. 完成数据库集成和Prisma配置
+2. 实现基础的AI服务适配器
+3. 完善工作流引擎核心功能
+4. 建立监控和日志系统
 
-1. **第一阶段（1-2个月）**：核心功能开发
-   - 用户认证和权限管理
-   - 基础工作流引擎
-   - AI引擎集成框架
-   - 数据库设计和实现
+### 7.2 第二阶段：功能完善 (3-4个月)
+1. 实现高级工作流编排功能
+2. 完成AI服务集成优化
+3. 建立测试体系
+4. 实现部署自动化
 
-2. **第二阶段（3-4个月）**：功能完善
-   - 高级工作流功能
-   - 实时协作功能
-   - AI调度优化
-   - 前端界面开发
+### 7.3 第三阶段：企业级特性 (2-3个月)
+1. 实现多租户支持
+2. 完善权限和安全体系
+3. 建立性能优化机制
+4. 实现高可用架构
 
-3. **第三阶段（5-6个月）**：优化和部署
-   - 性能优化
-   - 安全加固
-   - 测试和调试
-   - 生产环境部署
+### 7.4 第四阶段：生态建设 (1-2个月)
+1. 开发插件系统
+2. 建立开发者社区
+3. 完善文档和教程
+4. 发布正式版本
 
-### 7.2 风险控制
+## 八、技术栈总结
 
-1. **技术风险**：AI API稳定性、数据一致性
-2. **市场风险**：用户接受度、竞争环境
-3. **团队风险**：技术栈学习曲线、人员流动
+| 层级 | 技术选型 | 用途 |
+|------|----------|------|
+| 前端 | React + TypeScript | 用户界面 |
+| 后端 | Node.js + TypeScript | 业务逻辑 |
+| 数据库 | PostgreSQL + Redis | 数据存储 |
+| AI服务 | OpenAI + Anthropic + Google | AI能力 |
+| 容器化 | Docker + Kubernetes | 部署和管理 |
+| 监控 | Prometheus + Grafana | 系统监控 |
+| 消息队列 | Redis + BullMQ | 异步任务 |
+| 缓存 | Redis + CDN | 性能优化 |
 
-### 7.3 成功指标
+## 九、风险控制和优化建议
 
-1. **技术指标**：系统可用性>99.9%，响应时间<500ms
-2. **业务指标**：用户增长率、工作流执行成功率
-3. **用户指标**：用户满意度、功能使用频率
+### 9.1 技术风险
+- **技术债务**：定期代码审查和重构
+- **依赖风险**：建立依赖管理和监控机制
+- **性能瓶颈**：建立性能监控和预警
 
-## 8. 总结
+### 9.2 业务风险
+- **需求变更**：采用敏捷开发，快速响应
+- **市场竞争**：持续创新，保持技术领先
+- **用户增长**：设计可扩展架构
 
-AI Workspace Orchestrator的架构设计基于现代企业级应用的最佳实践，采用了微服务架构、事件驱动、异步处理等技术，确保了系统的可扩展性、可靠性和安全性。核心创新点在于：
+### 9.3 优化建议
+1. **性能优化**：建立性能基准测试
+2. **成本控制**：AI服务使用优化和监控
+3. **用户体验**：建立用户反馈机制
+4. **团队协作**：完善开发流程和工具
 
-1. **多AI引擎智能调度**：根据任务类型和需求选择最佳AI引擎
-2. **自然语言工作流设计**：降低使用门槛，提升用户体验
-3. **实时协作机制**：支持团队高效协作
-4. **企业级安全**：完善的数据保护和权限管理
+---
 
-通过这个架构设计，我们可以构建一个功能强大、易于使用、安全可靠的企业级AI工作流自动化平台。
+**总结：** 本架构设计采用混合微服务架构，平衡了技术复杂性和业务需求，通过分层设计和模块化架构确保系统的可扩展性和可维护性。重点关注AI服务集成、工作流编排和高并发处理等关键技术难点，为项目的长期发展奠定坚实基础。
