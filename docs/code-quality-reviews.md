@@ -1,256 +1,695 @@
-# AI Email Manager - 代码质量巡检报告
-
-**项目名称**: ai-email-manager  
-**审查时间**: 2026-04-06 16:30 (Asia/Shanghai)  
-**审查者**: 孔明  
-**代码质量评分**: 5.5/10
+# 代码质量巡检报告 - ai-interview-coach 项目
 
 ## 项目概述
-AI Email Manager 是一个基于React + Node.js + TypeScript的智能邮件管理系统，能够自动提取邮件中的行动项，进行智能分类，并提供用户友好的界面。项目采用Express.js + Prisma + OpenAI + Material-UI技术栈。
+- **项目名称**: ai-interview-coach
+- **类型**: AI面试模拟和辅导平台
+- **技术栈**: Node.js, Express.js, TypeScript, PostgreSQL, Prisma, OpenAI GPT-4
+- **审查时间**: 2026-04-10 08:30 UTC (基于8 % 14项目索引选择)
 
-## 详细问题分析
+## 详细代码质量审查
 
-### 🔴 严重安全问题
+### 🔴 错误处理 - 问题较多
 
-#### 1. JWT密钥硬编码漏洞 (src/server/middleware/auth.ts:10)
+**1. 缺少数据库连接错误重试机制**
 ```typescript
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret';
-```
-**问题**: 使用硬编码的默认JWT密钥，极易受到JWT令牌破解攻击
-**风险级别**: 高
-**修复方案**: 
-```typescript
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET环境变量必须设置，系统将无法启动');
-}
-```
-
-#### 2. 密码环境变量直接暴露 (src/server/controllers/emailController.ts:41)
-```typescript
-password: process.env.IMAP_PASSWORD
-```
-**问题**: 明文密码通过环境变量传递，可能出现在日志或内存转储中
-**风险级别**: 高
-**修复方案**: 使用加密环境变量或安全密钥管理系统
-
-#### 3. CORS配置存在安全隐患 (src/server/index.ts:18-21)
-```typescript
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  credentials: true
-}));
-```
-**问题**: 开发环境下允许所有localhost访问，可能被恶意利用
-**修复方案**: 严格限制CORS白名单
-```typescript
-const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'];
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
-}));
-```
-
-#### 4. 用户密码字段返回问题 (src/server/controllers/userController.ts:53)
-```typescript
-const { password: _, ...userWithoutPassword } = user;
-```
-**问题**: 虽然密码字段被删除，但其他敏感信息可能泄露
-**风险级别**: 中
-**修复方案**: 明确指定返回字段，避免意外泄露
-
-### 🟡 中等问题
-
-#### 5. TypeScript类型安全严重不足 (src/App.tsx:22-33)
-```typescript
-const [emails, setEmails] = useState([]);
-const [actionItems, setActionItems] = useState([]);
-const [user, setUser] = useState(null);
-```
-**问题**: 使用`any[]`和`null`类型，完全失去类型保护
-**风险级别**: 高
-**修复方案**: 定义明确的接口
-```typescript
-interface Email {
-  id: string;
-  subject: string;
-  from: string;
-  body?: string;
-  date: Date;
-  category?: {
-    id: string;
-    name: string;
-  };
-  actionItems: ActionItem[];
-}
-
-const [emails, setEmails] = useState<Email[]>([]);
-const [actionItems, setActionItems] = useState<ActionItem[]>([]);
-const [user, setUser] = useState<User | null>(null);
-```
-
-#### 6. 错误处理不一致且不安全 (src/server/controllers/emailController.ts:24-28)
-```typescript
-const handleError = (res: Response, error: any, message: string) => {
-  console.error(`${message}:`, error);
-  res.status(500).json({ error: message });
+// src/index.ts:34-48
+const connectDB = async () => {
+  try {
+    await prisma.$connect();
+    console.log('Connected to database successfully');
+    
+    // Run migrations if in development
+    if (process.env.NODE_ENV === 'development') {
+      await prisma.$executeRaw`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`;
+      console.log('Database migrations completed');
+    }
+  } catch (error) {
+    console.error('Database connection error:', error);
+    process.exit(1); // 简单退出，没有重试机制
+  }
 };
 ```
-**问题**: 
-- 使用`any`类型处理错误
-- 错误日志可能包含敏感信息
-- 前端可能收到过多调试信息
-**修复方案**:
+**修复建议**: 添加重试逻辑
 ```typescript
-const handleError = (res: Response, error: Error, message: string) => {
-  console.error(`${message}:`, error.message);
-  res.status(500).json({ 
-    error: '系统暂时不可用，请稍后重试',
-    code: 'INTERNAL_ERROR'
+const connectDB = async (retryCount = 3, delay = 5000) => {
+  for (let i = 0; i < retryCount; i++) {
+    try {
+      await prisma.$connect();
+      console.log('Connected to database successfully');
+      return;
+    } catch (error) {
+      if (i === retryCount - 1) {
+        console.error('Database connection failed after retries:', error);
+        process.exit(1);
+      }
+      console.error(`Database connection attempt ${i + 1} failed, retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+};
+```
+
+**2. OpenAI API调用缺少错误处理**
+```typescript
+// src/controllers/interviewController.ts:233-253
+const response = await openai.chat.completions.create({
+  model: "gpt-4",
+  messages: [{ role: "user", content: prompt }],
+  temperature: 0.7,
+  max_tokens: 1000
+});
+const questionsData = JSON.parse(response.choices[0].message.content);
+```
+**修复建议**: 添加错误处理和数据验证
+```typescript
+const generateAIQuestions = async (user: any, session: any, difficulty?: string) => {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+      max_tokens: 1000
+    });
+
+    if (!response.choices?.[0]?.message?.content) {
+      throw createError('Invalid response from OpenAI API', 500);
+    }
+
+    const questionsData = JSON.parse(response.choices[0].message.content);
+    
+    if (!questionsData.questions || !Array.isArray(questionsData.questions)) {
+      throw createError('Invalid question format from OpenAI API', 500);
+    }
+
+    // 验证问题数据结构
+    questionsData.questions.forEach((q, index) => {
+      if (!q.question || !q.type || !q.category || !q.expectedAnswer) {
+        throw createError(`Invalid question data at index ${index}`, 500);
+      }
+    });
+  } catch (error) {
+    if (error.code === 'insufficient_quota') {
+      throw createError('OpenAI API quota exceeded', 429);
+    }
+    throw createError('Failed to generate AI questions', 500);
+  }
+};
+```
+
+### 🔴 硬编码密钥和URL - 严重问题
+
+**1. JWT Secret硬编码在环境变量中缺少验证**
+```typescript
+// src/middleware/auth.ts:15-16
+const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+```
+**修复建议**: 添加环境变量验证
+```typescript
+import { config } from 'dotenv';
+
+config();
+
+const validateEnvironment = () => {
+  const requiredEnvVars = [
+    'JWT_SECRET',
+    'DATABASE_URL',
+    'OPENAI_API_KEY'
+  ];
+  
+  const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+  
+  if (missingEnvVars.length > 0) {
+    throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+  }
+  
+  // 验证JWT Secret长度和复杂性
+  const jwtSecret = process.env.JWT_SECRET!;
+  if (jwtSecret.length < 32) {
+    console.warn('JWT_SECRET should be at least 32 characters for security');
+  }
+};
+
+validateEnvironment();
+```
+
+**2. 数据库URL硬编码风险**
+```typescript
+// .env.example
+DATABASE_URL="postgresql://username:password@localhost:5432/ai_interview_coach?schema=public"
+```
+**修复建议**: 添加URL格式验证和连接池配置
+```typescript
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+      // 添加连接池配置
+      pool: {
+        min: 2,
+        max: 10,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 2000,
+      }
+    }
+  },
+  log: process.env.NODE_ENV === 'development' ? ['query', 'info', 'warn', 'error'] : ['error'],
+});
+
+const validateDatabaseUrl = () => {
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    throw new Error('DATABASE_URL is required');
+  }
+  
+  try {
+    new URL(dbUrl);
+  } catch (error) {
+    throw new Error('Invalid DATABASE_URL format');
+  }
+};
+```
+
+### 🟡 TypeScript类型严格性 - 中等问题
+
+**1. 使用any类型过多**
+```typescript
+// src/middleware/auth.ts:8
+interface AuthRequest extends Request {
+  user?: {
+    id: string;
+    email: string;
+    name: string;
+  };
+}
+```
+**修复建议**: 定义严格的类型
+```typescript
+// types/index.ts
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  experienceLevel: string;
+  targetIndustry: string;
+  targetRole: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AuthRequest extends Request {
+  user?: User;
+}
+
+// 在控制器中使用具体类型
+export interface CreateSessionRequest {
+  type: 'technical' | 'behavioral' | 'case-study' | 'system-design';
+  title: string;
+  description: string;
+  experienceLevel: 'entry' | 'junior' | 'mid' | 'senior' | 'lead';
+  targetIndustry: string;
+  targetRole: string;
+}
+```
+
+**2. 返回类型不明确**
+```typescript
+// src/controllers/interviewController.ts:32-44
+const session = await prisma.interviewSession.create({
+  data: {
+    userId: req.user!.id,
+    type,
+    title,
+    description,
+    experienceLevel,
+    targetIndustry,
+    targetRole,
+    status: 'planning'
+  },
+  include: {
+    user: {
+      select: { id: true, name: true, email: true }
+    }
+  }
+});
+```
+**修复建议**: 定义明确的返回类型
+```typescript
+import { InterviewSession } from '@prisma/client';
+
+export interface InterviewSessionWithUser extends InterviewSession {
+  user: {
+    id: string;
+    name: string;
+    email: string;
+  };
+}
+
+export interface SessionResponse {
+  success: boolean;
+  data: InterviewSessionWithUser;
+  message: string;
+}
+```
+
+### 🟡 性能问题 - 中等问题
+
+**1. N+1查询问题**
+```typescript
+// src/controllers/interviewController.ts:71-89
+const sessions = await prisma.interviewSession.findMany({
+  where: { userId: req.user!.id },
+  include: {
+    questions: {
+      orderBy: { createdAt: 'desc' }
+    },
+    feedbacks: {
+      orderBy: { createdAt: 'desc' }
+    }
+  },
+  orderBy: { createdAt: 'desc' }
+});
+```
+**修复建议**: 添加查询优化和分页
+```typescript
+export const getUserSessions = async (req: AuthRequest, res: Response) => {
+  const { page = 1, limit = 10 } = req.query;
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const [sessions, total] = await Promise.all([
+    prisma.interviewSession.findMany({
+      where: { userId: req.user!.id },
+      include: {
+        questions: {
+          orderBy: { createdAt: 'desc' },
+          take: 50, // 限制问题数量
+          orderBy: { createdAt: 'desc' }
+        },
+        feedbacks: {
+          orderBy: { createdAt: 'desc' },
+          take: 20, // 限制反馈数量
+          orderBy: { createdAt: 'desc' }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: Number(limit),
+      skip
+    }),
+    prisma.interviewSession.count({ where: { userId: req.user!.id } })
+  ]);
+
+  res.json({
+    success: true,
+    data: {
+      sessions,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / Number(limit))
+      }
+    },
+    message: 'Sessions retrieved successfully'
   });
 };
 ```
 
-#### 7. 缺少输入验证 (多处控制器文件)
-**文件**: src/server/controllers/userController.ts, actionController.ts
-**问题**: 
-- 用户注册缺少邮箱格式验证
-- 密码强度要求不明确
-- 参数验证逻辑缺失
-**修复方案**: 使用Joi或类似库进行输入验证
-
-#### 8. API路由设计不规范 (src/server/routes/emails.ts)
+**2. 缺少缓存机制**
 ```typescript
-router.post('/sync', authenticate, syncEmails);
-router.post('/categorize', authenticate, categorizeEmailHandler);
-router.delete('/:id', authenticate, deleteEmail);
+// src/controllers/questionController.ts:26-45
+const [questions, total] = await Promise.all([
+  prisma.questionBank.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    take: Number(limit),
+    skip
+  }),
+  prisma.questionBank.count({ where })
+]);
 ```
-**问题**: 
-- 混合了资源操作和业务逻辑
-- 缺少统一的错误响应格式
-- 缺少API版本控制
-**修复方案**: 重新设计RESTful路由结构
-
-### 🟢 性能问题
-
-#### 9. 潜在的N+1查询问题 (src/server/controllers/emailController.ts:59-73)
+**修复建议**: 添加Redis缓存
 ```typescript
-const emails = await prisma.email.findMany({
-  where,
-  include: {
-    category: true,
-    actionItems: {
-      orderBy: { createdAt: 'desc' }
+import { createClient } from 'redis';
+
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+
+export const getQuestions = async (req: Request, res: Response) => {
+  const { type, category, difficulty, limit = 20, page = 1 } = req.query;
+  const cacheKey = `questions:${type}:${category}:${difficulty}:${page}:${limit}`;
+  
+  try {
+    // 尝试从缓存获取
+    const cached = await redisClient.get(cacheKey);
+    if (cached) {
+      return res.json(JSON.parse(cached));
+    }
+    
+    const skip = (Number(page) - 1) * Number(limit);
+    const where: any = {};
+    if (type) where.type = type;
+    if (category) where.category = category;
+    if (difficulty) where.difficulty = difficulty;
+
+    const [questions, total] = await Promise.all([
+      prisma.questionBank.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: Number(limit),
+        skip
+      }),
+      prisma.questionBank.count({ where })
+    ]);
+
+    const response = {
+      success: true,
+      data: {
+        questions,
+        pagination: {
+          total,
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(total / Number(limit))
+        }
+      },
+      message: 'Questions retrieved successfully'
+    };
+
+    // 缓存结果，过期时间5分钟
+    await redisClient.setEx(cacheKey, 300, JSON.stringify(response));
+    return res.json(response);
+  } catch (error) {
+    // 缓存失败时直接查询
+    console.error('Redis cache error:', error);
+    // ... 正常查询逻辑
+  }
+};
+```
+
+### 🟡 API设计规范性 - 中等问题
+
+**1. RESTful路由不够规范**
+```typescript
+// src/routes/interview.ts
+router.post('/sessions/:id/start', asyncHandler(interviewController.startInterview));
+router.post('/sessions/:id/submit-answer', asyncHandler(interviewController.submitAnswer));
+router.post('/sessions/:id/analyze', asyncHandler(interviewController.analyzeAnswer));
+```
+**修复建议**: 改进RESTful设计
+```typescript
+// 改进后的路由设计
+// 实体相关路由
+router.post('/sessions', asyncHandler(interviewController.createSession));
+router.get('/sessions', asyncHandler(interviewController.getUserSessions));
+router.get('/sessions/:id', asyncHandler(interviewController.getSession));
+router.put('/sessions/:id', asyncHandler(interviewController.updateSession));
+router.delete('/sessions/:id', asyncHandler(interviewController.deleteSession));
+
+// 子资源路由
+router.post('/sessions/:id/questions', asyncHandler(interviewController.addQuestion));
+router.get('/sessions/:id/questions', asyncHandler(interviewController.getSessionQuestions));
+router.put('/questions/:id', asyncHandler(interviewController.updateQuestion));
+router.delete('/questions/:id', asyncHandler(interviewController.deleteQuestion));
+
+// 操作/动作路由 (使用不同的HTTP方法或明确的动作)
+router.post('/sessions/:id/start', asyncHandler(interviewController.startInterview));
+router.post('/sessions/:id/answers', asyncHandler(interviewController.submitAnswer));
+router.post('/sessions/:id/feedback', asyncHandler(interviewController.provideFeedback));
+router.get('/sessions/:id/analysis/:questionId', asyncHandler(interviewController.analyzeAnswer));
+```
+
+**2. 统一响应格式不一致**
+```typescript
+// 不同控制器中的响应格式不统一
+res.status(201).json({
+  success: true,
+  data: session,
+  message: 'Session created successfully'
+});
+
+res.json({
+  success: true,
+  data: questions,
+  message: 'Questions retrieved successfully'
+});
+```
+**修复建议**: 创建统一的响应格式
+```typescript
+// utils/response.ts
+export interface ApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  message: string;
+  errors?: string[];
+  pagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+export const createSuccessResponse = <T>(
+  data: T,
+  message: string = 'Success',
+  pagination?: ApiResponse<T>['pagination']
+): ApiResponse<T> => ({
+  success: true,
+  data,
+  message,
+  pagination
+});
+
+export const createErrorResponse = (
+  message: string,
+  errors?: string[],
+  statusCode: number = 400
+): ApiResponse => ({
+  success: false,
+  message,
+  errors,
+});
+```
+
+### 🔴 安全问题 - 严重问题
+
+**1. JWT安全配置不足**
+```typescript
+// src/middleware/auth.ts:15-16
+const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+```
+**修复建议**: 增强JWT安全性
+```typescript
+import jwt from 'jsonwebtoken';
+import { config } from 'dotenv';
+
+config();
+
+const JWT_SECRET = process.env.JWT_SECRET!;
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+
+const verifyToken = (token: string) => {
+  try {
+    return jwt.verify(token, JWT_SECRET, {
+      algorithms: ['HS256'],
+      expiresIn: JWT_EXPIRES_IN,
+      clockTolerance: 0,
+      maxAge: '7d',
+    });
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      throw createError('Token expired', 401);
+    }
+    if (error.name === 'JsonWebTokenError') {
+      throw createError('Invalid token', 401);
+    }
+    throw createError('Token verification failed', 401);
+  }
+};
+
+export const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    // 检查Authorization头格式
+    const authHeader = req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw createError('Invalid authorization header format', 401);
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    
+    // 检查token长度
+    if (token.length < 10) {
+      throw createError('Invalid token', 401);
+    }
+
+    const decoded = verifyToken(token);
+    
+    // 验证用户是否存在
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { id: true, email: true, name: true, isActive: true }
+    });
+
+    if (!user || !user.isActive) {
+      throw createError('User not found or inactive', 401);
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    return res.status(error.statusCode || 401).json({
+      success: false,
+      message: error.message || 'Authentication failed'
+    });
+  }
+};
+```
+
+**2. CORS配置过于宽松**
+```typescript
+// src/index.ts:17-19
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+  credentials: true
+}));
+```
+**修复建议**: 增强CORS安全性
+```typescript
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:3001',
+  'http://localhost:3000',
+].filter(Boolean);
+
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    // 允许没有origin的请求（如移动应用、Postman等）
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
     }
   },
-  skip,
-  take: Number(limit),
-  orderBy: {
-    date: 'desc'
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'X-API-Key',
+  ],
+  exposedHeaders: ['X-Total-Count'],
+  maxAge: 600, // 10分钟
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
+```
+
+**3. 缺少输入验证和SQL注入防护**
+```typescript
+// src/controllers/interviewController.ts:45-48
+const session = await prisma.interviewSession.updateMany({
+  where: { 
+    id: req.params.id, 
+    userId: req.user!.id 
+  },
+  data: {
+    title,
+    description,
+    status,
+    updatedAt: new Date()
   }
 });
 ```
-**问题**: 当邮件数量多时，actionItems的关联查询可能导致性能问题
-**修复方案**: 考虑使用select或分批次查询
-
-#### 10. 前端渲染性能问题 (src/App.tsx:152-172)
+**修复建议**: 添加输入验证和参数化查询
 ```typescript
-{emails.map((email: any) => (
-  <Grid item xs={12} md={6} key={email.id}>
-    <Card>
-      <CardContent>
-        <Typography variant="h6">{email.subject}</Typography>
-        <Typography variant="body2" color="textSecondary">
-          {email.from}
-        </Typography>
-        <Typography variant="body2" sx={{ mt: 1 }}>
-          {email.body?.substring(0, 100)}...
-        </Typography>
-      </CardContent>
-    </Card>
-  </Grid>
-))}
-```
-**问题**: 大量邮件数据可能导致DOM节点过多，影响渲染性能
-**修复方案**: 使用虚拟滚动或分页组件
+import Joi from 'joi';
 
-#### 11. 内存泄漏风险 (src/server/services/aiService.ts:45-65)
-```typescript
-const response = await openai.chat.completions.create({
-  model: 'gpt-4',
-  messages: [
-    {
-      role: 'system',
-      content: '你是一个专业的邮件分析助手，专门从邮件中提取行动项。请严格按照JSON格式返回结果。'
-    },
-    {
-      role: 'user',
-      content: prompt
+const updateSessionSchema = Joi.object({
+  title: Joi.string().max(200).optional(),
+  description: Joi.string().max(1000).optional(),
+  status: Joi.string().valid('planning', 'in_progress', 'completed').optional(),
+});
+
+export const updateSession = async (req: AuthRequest, res: Response) => {
+  try {
+    // 验证输入
+    const { error, value } = updateSessionSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid input data',
+        errors: error.details.map(detail => detail.message)
+      });
     }
-  ],
-  temperature: 0.3,
-  max_tokens: 1500
-});
+
+    // 使用参数化查询避免SQL注入
+    const result = await prisma.interviewSession.updateMany({
+      where: { 
+        id: req.params.id, 
+        userId: req.user!.id 
+      },
+      data: {
+        ...value,
+        updatedAt: new Date()
+      }
+    });
+
+    if (result.count === 0) {
+      throw createError('Session not found or access denied', 404);
+    }
+
+    // 获取更新后的会话
+    const updatedSession = await prisma.interviewSession.findUnique({
+      where: { id: req.params.id },
+      include: {
+        questions: true,
+        feedbacks: true
+      }
+    });
+
+    res.json({
+      success: true,
+      data: updatedSession,
+      message: 'Session updated successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 ```
-**问题**: 长时间运行的AI调用可能导致内存堆积
-**修复方案**: 实现请求超时和重试机制
 
-### 🟢 代码质量问题
+## 代码质量评分: 6/10
 
-#### 12. 重复代码 (src/server/controllers/emailController.ts, userController.ts)
-**问题**: 多个控制器文件中存在相似的错误处理和认证检查逻辑
-**修复方案**: 抽取公共的中间件和工具函数
+### 评分说明:
+- **错误处理 (2/5)**: 基本错误处理存在，但缺少重试机制和完善的异常处理
+- **安全性 (2/5)**: 存在严重的安全隐患，JWT、CORS、输入验证都需要改进
+- **性能 (3/5)**: 基本性能优化存在，但缺少缓存和查询优化
+- **代码规范 (4/5)**: TypeScript和代码组织相对规范
+- **可维护性 (4/5)**: 项目结构清晰，但需要更好的错误处理和安全性
 
-#### 13. 缺少常量定义 (src/server/index.ts)
-```typescript
-const PORT = process.env.PORT || 8000;
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100')
-});
-```
-**问题**: 魔法数字和重复的配置解析逻辑
-**修复方案**: 创建配置文件和常量定义
+### 推荐优先修复的问题
 
-#### 14. React组件缺少错误边界 (src/App.tsx)
-**问题**: 整个应用缺少React错误边界，可能导致白屏
-**修复方案**: 实现ErrorBoundary组件包装主要UI组件
+1. **高优先级**: JWT安全配置、CORS安全、输入验证
+2. **中优先级**: 错误处理重试机制、数据库连接池、缓存
+3. **低优先级**: API规范统一、类型定义优化、性能优化
 
-## 修复优先级建议
+### 建议改进计划
 
-### 立即修复 (P0)
-1. JWT密钥硬编码问题
-2. TypeScript类型安全问题
-3. CORS配置收紧
-4. 输入验证机制缺失
+1. **第一阶段**: 修复安全漏洞和基本错误处理
+2. **第二阶段**: 优化性能和添加缓存机制  
+3. **第三阶段**: 改进API设计和代码规范
 
-### 短期修复 (P1) 
-1. 统一错误处理机制
-2. API路由重新设计
-3. 数据库查询优化
-4. 前端性能优化
+### 下次巡检建议
 
-### 长期优化 (P2)
-1. 实现完整的测试覆盖
-2. 添加API文档
-3. 代码重构和重复代码消除
-4. 监控和日志系统完善
-
-## 代码质量评分: 5.5/10
-
-**优点**:
-- 使用了现代化的技术栈（React + TypeScript + Prisma）
-- 基本的错误处理机制
-- 用户界面设计相对友好
-
-**不足**:
-- 安全配置存在严重漏洞
-- TypeScript类型安全不足
-- 代码重复较多，维护性较差
-- 缺少完整的输入验证和错误边界
-
-## 下次巡检时间
-预计下次巡检时间: 2026-04-06 20:30 (Asia/Shanghai)
+建议在修复上述问题后重新进行代码质量巡检，重点关注安全性和性能方面的改进。
 
 ---
-*本报告由AI代码质量巡检系统生成，旨在提升代码质量和系统安全性*
+*孔明 代码质量巡检 - 2026-04-10*
