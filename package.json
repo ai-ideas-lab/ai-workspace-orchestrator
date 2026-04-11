@@ -1,0 +1,20 @@
+{
+  "name": "dependency-upgrade-demo",
+  "version": "1.0.0",
+  "description": "Demo project for dependency upgrades",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "lodash": "^4.17.21",
+    "moment": "^2.24.0"
+  },
+  "devDependencies": {
+    "jest": "^26.6.3"
+  },
+  "keywords": ["demo", "dependency"],
+  "author": "孔明",
+  "license": "MIT"
+}
