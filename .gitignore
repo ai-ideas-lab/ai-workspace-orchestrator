@@ -1,5 +1,7 @@
+# Standard ignores
 .openclaw/
 node_modules/
 frontend/node_modules/
 logs/
 *.log
+.DS_Store

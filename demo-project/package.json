@@ -1,0 +1,16 @@
+{
+  "name": "demo-vulnerable-project",
+  "version": "1.0.0",
+  "description": "Demo project with vulnerable dependencies",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Simple test passed\""
+  },
+  "dependencies": {
+    "lodash": "^4.17.21",
+    "moment": "^2.24.0",
+    "axios": "^0.21.1"
+  },
+  "author": "孔明",
+  "license": "MIT"
+}
