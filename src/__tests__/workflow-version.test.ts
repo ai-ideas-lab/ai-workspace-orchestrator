@@ -1,11 +1,8 @@
 /**
  * WorkflowVersionService 单元测试
  */
-import {
-  WorkflowVersionService,
-  type WorkflowDefinition,
-} from '../services/workflow-version.js';
-import type { WorkflowStep } from '../services/workflow-executor.js';
+import { WorkflowVersionService } from '../services/workflow-version.js';
+import type { WorkflowDefinition, WorkflowStep } from '../services/workflow-executor.js';
 
 // ── 测试辅助 ──────────────────────────────────────
 
