@@ -1,6 +1,7 @@
 /**
  * WorkflowVersionService 单元测试
  */
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { WorkflowVersionService } from '../services/workflow-version.js';
 import type { WorkflowDefinition, WorkflowStep } from '../services/workflow-executor.js';
 
@@ -20,249 +21,180 @@ function makeStep(id: string, name: string, dependsOn: string[] = []): WorkflowS
   };
 }
 
-// ── 测试 ──────────────────────────────────────────
+describe('WorkflowVersionService', () => {
+  let service: WorkflowVersionService;
 
-let service: WorkflowVersionService;
+  beforeEach(() => {
+    service = new WorkflowVersionService();
+  });
 
-function beforeEach() {
-  service = new WorkflowVersionService();
-}
+  // ── createSnapshot ────────────────────────────────
 
-// ── createSnapshot ────────────────────────────────
+  describe('createSnapshot()', () => {
+    it('应创建快照并保留元信息', () => {
+      const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
+      const snap = service.createSnapshot(wf, '初始版本', 'alice');
 
-function testCreateSnapshot() {
-  beforeEach();
-  const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
+      expect(snap.workflowId).toBe('wf1');
+      expect(snap.version).toBe(1);
+      expect(snap.message).toBe('初始版本');
+      expect(snap.createdBy).toBe('alice');
+      expect(snap.definition.steps).toHaveLength(1);
+      expect(snap.id).toMatch(/^snap_/);
+    });
 
-  const snap = service.createSnapshot(wf, '初始版本', 'alice');
+    it('版本号应自动递增', () => {
+      const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
+      const v1 = service.createSnapshot(wf, 'v1');
+      const v2 = service.createSnapshot(wf, 'v2');
+      const v3 = service.createSnapshot(wf, 'v3');
 
-  console.assert(snap.workflowId === 'wf1', 'workflowId 应该是 wf1');
-  console.assert(snap.version === 1, '第一个快照版本应为 1');
-  console.assert(snap.message === '初始版本', 'message 应该保留');
-  console.assert(snap.createdBy === 'alice', 'createdBy 应该保留');
-  console.assert(snap.definition.steps.length === 1, '快照应包含步骤');
-  console.assert(snap.id.startsWith('snap_'), 'ID 应以 snap_ 开头');
-  console.log('✅ createSnapshot 通过');
-}
+      expect(v1.version).toBe(1);
+      expect(v2.version).toBe(2);
+      expect(v3.version).toBe(3);
+    });
 
-function testVersionAutoIncrement() {
-  beforeEach();
-  const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
+    it('快照应是深拷贝，不受后续修改影响', () => {
+      const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
+      service.createSnapshot(wf);
 
-  const v1 = service.createSnapshot(wf, 'v1');
-  const v2 = service.createSnapshot(wf, 'v2');
-  const v3 = service.createSnapshot(wf, 'v3');
+      wf.steps.push(makeStep('s2', 'Step 2'));
+      wf.steps[0].name = 'Modified';
 
-  console.assert(v1.version === 1, 'v1');
-  console.assert(v2.version === 2, 'v2');
-  console.assert(v3.version === 3, 'v3');
-  console.log('✅ version 自动递增 通过');
-}
+      const snap = service.getVersion('wf1', 1)!;
+      expect(snap.definition.steps).toHaveLength(1);
+      expect(snap.definition.steps[0].name).toBe('Step 1');
+    });
+  });
 
-function testDeepCopy() {
-  beforeEach();
-  const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
-  service.createSnapshot(wf);
+  // ── getHistory / getLatest ─────────────────────────
 
-  // 修改原始工作流
-  wf.steps.push(makeStep('s2', 'Step 2'));
-  wf.steps[0].name = 'Modified';
+  describe('getHistory() & getLatest()', () => {
+    it('getHistory 应返回所有版本历史', () => {
+      const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
+      service.createSnapshot(wf, 'v1');
+      service.createSnapshot(wf, 'v2');
 
-  const snap = service.getVersion('wf1', 1)!;
-  console.assert(snap.definition.steps.length === 1, '快照不应受后续修改影响');
-  console.assert(snap.definition.steps[0].name === 'Step 1', '步骤名称应为原始值');
-  console.log('✅ 深拷贝隔离 通过');
-}
+      const history = service.getHistory('wf1');
+      expect(history).toHaveLength(2);
+      expect(history[0].version).toBe(1);
+      expect(history[1].version).toBe(2);
+    });
 
-// ── getHistory / getLatest ─────────────────────────
+    it('getLatest 应返回最新版本', () => {
+      const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
+      service.createSnapshot(wf, 'v1');
+      service.createSnapshot(wf, 'v2');
 
-function testGetHistory() {
-  beforeEach();
-  const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
-  service.createSnapshot(wf, 'v1');
-  service.createSnapshot(wf, 'v2');
+      expect(service.getLatest('wf1')?.version).toBe(2);
+      expect(service.getLatest('nonexistent')).toBeUndefined();
+    });
+  });
 
-  const history = service.getHistory('wf1');
-  console.assert(history.length === 2, '历史应有 2 条');
-  console.assert(history[0].version === 1, '第一条是 v1');
-  console.assert(history[1].version === 2, '第二条是 v2');
-  console.log('✅ getHistory 通过');
-}
+  // ── diff ───────────────────────────────────────────
 
-function testGetLatest() {
-  beforeEach();
-  const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
-  service.createSnapshot(wf, 'v1');
-  service.createSnapshot(wf, 'v2');
+  describe('diff()', () => {
+    it('相同内容不应有变更', () => {
+      const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
+      const v1 = service.createSnapshot(wf, 'v1');
+      const v2 = service.createSnapshot(wf, 'v2');
 
-  const latest = service.getLatest('wf1');
-  console.assert(latest?.version === 2, '最新版本应为 2');
+      const diff = service.diff(v1, v2);
+      expect(diff.hasChanges).toBe(false);
+      expect(diff.stepCountDelta).toBe(0);
+    });
 
-  const empty = service.getLatest('nonexistent');
-  console.assert(empty === undefined, '不存在的工作流应返回 undefined');
-  console.log('✅ getLatest 通过');
-}
+    it('应检测到新增步骤', () => {
+      const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
+      const v1 = service.createSnapshot(wf, 'v1');
 
-// ── diff ───────────────────────────────────────────
+      wf.steps.push(makeStep('s2', 'Step 2'));
+      const v2 = service.createSnapshot(wf, 'v2');
 
-function testDiffNoChange() {
-  beforeEach();
-  const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
-  const v1 = service.createSnapshot(wf, 'v1');
-  const v2 = service.createSnapshot(wf, 'v2');
+      const diff = service.diff(v1, v2);
+      expect(diff.hasChanges).toBe(true);
+      expect(diff.stepCountDelta).toBe(1);
+      const added = diff.stepDiffs.find((d) => d.change === 'added');
+      expect(added?.stepId).toBe('s2');
+    });
 
-  const diff = service.diff(v1, v2);
-  console.assert(diff.hasChanges === false, '相同内容不应有变更');
-  console.assert(diff.stepCountDelta === 0, '步骤数应不变');
-  console.log('✅ diff 无变更 通过');
-}
+    it('应检测到删除步骤', () => {
+      const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1'), makeStep('s2', 'Step 2')]);
+      const v1 = service.createSnapshot(wf, 'v1');
 
-function testDiffAddedStep() {
-  beforeEach();
-  const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
-  const v1 = service.createSnapshot(wf, 'v1');
+      wf.steps.pop();
+      const v2 = service.createSnapshot(wf, 'v2');
 
-  wf.steps.push(makeStep('s2', 'Step 2'));
-  const v2 = service.createSnapshot(wf, 'v2');
+      const diff = service.diff(v1, v2);
+      const removed = diff.stepDiffs.find((d) => d.change === 'removed');
+      expect(removed?.stepId).toBe('s2');
+      expect(diff.stepCountDelta).toBe(-1);
+    });
 
-  const diff = service.diff(v1, v2);
-  console.assert(diff.hasChanges === true, '应有变更');
-  console.assert(diff.stepCountDelta === 1, '步骤数增加 1');
-  const added = diff.stepDiffs.find((d) => d.change === 'added');
-  console.assert(added?.stepId === 's2', '应检测到新增步骤 s2');
-  console.log('✅ diff 新增步骤 通过');
-}
+    it('应检测到修改步骤', () => {
+      const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
+      const v1 = service.createSnapshot(wf, 'v1');
 
-function testDiffRemovedStep() {
-  beforeEach();
-  const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1'), makeStep('s2', 'Step 2')]);
-  const v1 = service.createSnapshot(wf, 'v1');
+      wf.steps[0].name = 'Step 1 Updated';
+      wf.steps[0].payload = { prompt: 'new-prompt' };
+      const v2 = service.createSnapshot(wf, 'v2');
 
-  wf.steps.pop();
-  const v2 = service.createSnapshot(wf, 'v2');
+      const diff = service.diff(v1, v2);
+      const modified = diff.stepDiffs.find((d) => d.change === 'modified');
+      expect(modified?.stepId).toBe('s1');
+      expect(modified?.fields).toContain('name');
+      expect(modified?.fields).toContain('payload');
+    });
 
-  const diff = service.diff(v1, v2);
-  const removed = diff.stepDiffs.find((d) => d.change === 'removed');
-  console.assert(removed?.stepId === 's2', '应检测到删除步骤 s2');
-  console.assert(diff.stepCountDelta === -1, '步骤数减少 1');
-  console.log('✅ diff 删除步骤 通过');
-}
+    it('元组引用也能检测变更', () => {
+      const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
+      service.createSnapshot(wf, 'v1');
 
-function testDiffModifiedStep() {
-  beforeEach();
-  const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
-  const v1 = service.createSnapshot(wf, 'v1');
+      wf.steps.push(makeStep('s2', 'Step 2'));
+      service.createSnapshot(wf, 'v2');
 
-  wf.steps[0].name = 'Step 1 Updated';
-  wf.steps[0].payload = { prompt: 'new-prompt' };
-  const v2 = service.createSnapshot(wf, 'v2');
+      const diff = service.diff(['wf1', 1], ['wf1', 2]);
+      expect(diff.hasChanges).toBe(true);
+    });
+  });
 
-  const diff = service.diff(v1, v2);
-  const modified = diff.stepDiffs.find((d) => d.change === 'modified');
-  console.assert(modified?.stepId === 's1', '应检测到修改步骤 s1');
-  console.assert(modified?.fields?.includes('name'), '应检测到 name 变更');
-  console.assert(modified?.fields?.includes('payload'), '应检测到 payload 变更');
-  console.log('✅ diff 修改步骤 通过');
-}
+  // ── rollback ───────────────────────────────────────
 
-function testDiffWithTupleRef() {
-  beforeEach();
-  const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
-  service.createSnapshot(wf, 'v1');
+  describe('rollback()', () => {
+    it('应回滚到指定版本', () => {
+      const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
+      service.createSnapshot(wf, 'v1');
 
-  wf.steps.push(makeStep('s2', 'Step 2'));
-  service.createSnapshot(wf, 'v2');
+      wf.steps.push(makeStep('s2', 'Step 2'));
+      wf.steps[0].name = 'Modified';
+      service.createSnapshot(wf, 'v2');
 
-  // 使用元组引用
-  const diff = service.diff(['wf1', 1], ['wf1', 2]);
-  console.assert(diff.hasChanges === true, '元组引用也能检测变更');
-  console.log('✅ diff 元组引用 通过');
-}
+      const restored = service.rollback('wf1', 1);
+      expect(restored.steps).toHaveLength(1);
+      expect(restored.steps[0].name).toBe('Step 1');
+    });
 
-// ── rollback ───────────────────────────────────────
+    it('不存在的版本应抛错', () => {
+      const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
+      service.createSnapshot(wf, 'v1');
 
-function testRollback() {
-  beforeEach();
-  const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
-  service.createSnapshot(wf, 'v1');
+      expect(() => service.rollback('wf1', 99)).toThrow('99');
+    });
+  });
 
-  wf.steps.push(makeStep('s2', 'Step 2'));
-  wf.steps[0].name = 'Modified';
-  service.createSnapshot(wf, 'v2');
+  // ── 多工作流隔离 ──────────────────────────────────
 
-  const restored = service.rollback('wf1', 1);
-  console.assert(restored.steps.length === 1, '回滚后步骤数应为 1');
-  console.assert(restored.steps[0].name === 'Step 1', '步骤名应恢复原始值');
-  console.log('✅ rollback 通过');
-}
+  it('多个工作流的历史应互相隔离', () => {
+    const wf1 = makeWorkflow('wf1', [makeStep('s1', 'W1 Step')]);
+    const wf2 = makeWorkflow('wf2', [makeStep('s1', 'W2 Step')]);
 
-function testRollbackInvalidVersion() {
-  beforeEach();
-  const wf = makeWorkflow('wf1', [makeStep('s1', 'Step 1')]);
-  service.createSnapshot(wf, 'v1');
+    service.createSnapshot(wf1, 'w1-v1');
+    service.createSnapshot(wf2, 'w2-v1');
 
-  let error: Error | undefined;
-  try {
-    service.rollback('wf1', 99);
-  } catch (e) {
-    error = e as Error;
-  }
-  console.assert(error !== undefined, '不存在的版本应抛错');
-  console.assert(error?.message.includes('99'), '错误信息应包含版本号');
-  console.log('✅ rollback 无效版本 通过');
-}
-
-// ── 多工作流隔离 ──────────────────────────────────
-
-function testMultiWorkflowIsolation() {
-  beforeEach();
-  const wf1 = makeWorkflow('wf1', [makeStep('s1', 'W1 Step')]);
-  const wf2 = makeWorkflow('wf2', [makeStep('s1', 'W2 Step')]);
-
-  service.createSnapshot(wf1, 'w1-v1');
-  service.createSnapshot(wf2, 'w2-v1');
-
-  const h1 = service.getHistory('wf1');
-  const h2 = service.getHistory('wf2');
-  console.assert(h1.length === 1, 'wf1 应有 1 条历史');
-  console.assert(h2.length === 1, 'wf2 应有 1 条历史');
-  console.assert(h1[0].definition.steps[0].name === 'W1 Step', 'wf1 步骤隔离');
-  console.log('✅ 多工作流隔离 通过');
-}
-
-// ── 运行所有测试 ──────────────────────────────────
-
-const tests = [
-  testCreateSnapshot,
-  testVersionAutoIncrement,
-  testDeepCopy,
-  testGetHistory,
-  testGetLatest,
-  testDiffNoChange,
-  testDiffAddedStep,
-  testDiffRemovedStep,
-  testDiffModifiedStep,
-  testDiffWithTupleRef,
-  testRollback,
-  testRollbackInvalidVersion,
-  testMultiWorkflowIsolation,
-];
-
-let passed = 0;
-let failed = 0;
-
-for (const test of tests) {
-  try {
-    test();
-    passed++;
-  } catch (err) {
-    failed++;
-    console.error(`❌ ${test.name} 失败:`, err);
-  }
-}
-
-console.log(`\n📊 WorkflowVersionService: ${passed} passed, ${failed} failed, ${tests.length} total`);
-
-if (failed > 0) {
-  process.exit(1);
-}
+    const h1 = service.getHistory('wf1');
+    const h2 = service.getHistory('wf2');
+    expect(h1).toHaveLength(1);
+    expect(h2).toHaveLength(1);
+    expect(h1[0].definition.steps[0].name).toBe('W1 Step');
+  });
+});

@@ -4,7 +4,7 @@
  * 验证 scheduleOnce / scheduleRecurring / cancel / shutdown 的核心逻辑
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { WorkflowScheduler } from '../services/workflow-scheduler.js';
 import { WorkflowExecutor, WorkflowDefinition } from '../services/workflow-executor.js';
 import { EventBus } from '../services/event-bus.js';
@@ -25,7 +25,7 @@ function createTestWorkflow(id = 'wf-test'): WorkflowDefinition {
 
 function createMockExecutor(): WorkflowExecutor {
   return {
-    execute: vi.fn().mockResolvedValue({
+    execute: jest.fn().mockResolvedValue({
       workflowId: 'wf-test',
       status: 'COMPLETED',
       steps: [],
@@ -33,8 +33,8 @@ function createMockExecutor(): WorkflowExecutor {
       finishedAt: new Date(),
       durationMs: 100,
     }),
-    registerEngine: vi.fn(),
-    cancel: vi.fn(),
+    registerEngine: jest.fn(),
+    cancel: jest.fn(),
   } as unknown as WorkflowExecutor;
 }
 
@@ -44,7 +44,7 @@ describe('WorkflowScheduler', () => {
   let eventBus: EventBus;
 
   beforeEach(() => {
-    vi.useFakeTimers();
+    jest.useFakeTimers();
     eventBus = EventBus.getInstance();
     executor = createMockExecutor();
     scheduler = new WorkflowScheduler(executor, eventBus);
@@ -52,7 +52,7 @@ describe('WorkflowScheduler', () => {
 
   afterEach(() => {
     scheduler.shutdown();
-    vi.useRealTimers();
+    jest.useRealTimers();
   });
 
   // ── scheduleOnce ─────────────────────────────────────
@@ -76,7 +76,7 @@ describe('WorkflowScheduler', () => {
 
       expect(executor.execute).not.toHaveBeenCalled();
 
-      await vi.advanceTimersByTimeAsync(1000);
+      await jest.advanceTimersByTimeAsync(1000);
 
       expect(executor.execute).toHaveBeenCalledTimes(1);
       expect(executor.execute).toHaveBeenCalledWith(wf, undefined);
@@ -86,7 +86,7 @@ describe('WorkflowScheduler', () => {
       const wf = createTestWorkflow();
       scheduler.scheduleOnce(wf, { delayMs: 100 });
 
-      await vi.advanceTimersByTimeAsync(100);
+      await jest.advanceTimersByTimeAsync(100);
 
       const info = scheduler.getSchedule('wf-test');
       expect(info!.status).toBe('completed');
@@ -130,15 +130,15 @@ describe('WorkflowScheduler', () => {
       scheduler.scheduleRecurring(wf, { intervalMs: 2000 });
 
       // 第一次执行
-      await vi.advanceTimersByTimeAsync(2000);
+      await jest.advanceTimersByTimeAsync(2000);
       expect(executor.execute).toHaveBeenCalledTimes(1);
 
       // 第二次执行
-      await vi.advanceTimersByTimeAsync(2000);
+      await jest.advanceTimersByTimeAsync(2000);
       expect(executor.execute).toHaveBeenCalledTimes(2);
 
       // 第三次执行
-      await vi.advanceTimersByTimeAsync(2000);
+      await jest.advanceTimersByTimeAsync(2000);
       expect(executor.execute).toHaveBeenCalledTimes(3);
     });
 
@@ -146,14 +146,14 @@ describe('WorkflowScheduler', () => {
       const wf = createTestWorkflow();
       scheduler.scheduleRecurring(wf, { intervalMs: 1000, maxExecutions: 2 });
 
-      await vi.advanceTimersByTimeAsync(1000);
+      await jest.advanceTimersByTimeAsync(1000);
       expect(executor.execute).toHaveBeenCalledTimes(1);
 
-      await vi.advanceTimersByTimeAsync(1000);
+      await jest.advanceTimersByTimeAsync(1000);
       expect(executor.execute).toHaveBeenCalledTimes(2);
 
       // 不应该有第三次
-      await vi.advanceTimersByTimeAsync(1000);
+      await jest.advanceTimersByTimeAsync(1000);
       expect(executor.execute).toHaveBeenCalledTimes(2);
 
       const info = scheduler.getSchedule('wf-test');
@@ -172,7 +172,7 @@ describe('WorkflowScheduler', () => {
       scheduler.scheduleRecurring(wf, { intervalMs: 5000, runImmediately: true });
 
       // setImmediate 触发
-      await vi.advanceTimersByTimeAsync(0);
+      await jest.advanceTimersByTimeAsync(0);
       expect(executor.execute).toHaveBeenCalledTimes(1);
     });
   });
@@ -193,12 +193,12 @@ describe('WorkflowScheduler', () => {
     it('应取消周期性调度并停止执行', async () => {
       scheduler.scheduleRecurring(createTestWorkflow(), { intervalMs: 2000 });
 
-      await vi.advanceTimersByTimeAsync(2000);
+      await jest.advanceTimersByTimeAsync(2000);
       expect(executor.execute).toHaveBeenCalledTimes(1);
 
       scheduler.cancel('wf-test');
 
-      await vi.advanceTimersByTimeAsync(2000);
+      await jest.advanceTimersByTimeAsync(2000);
       // 不应该再执行
       expect(executor.execute).toHaveBeenCalledTimes(1);
     });
@@ -222,7 +222,7 @@ describe('WorkflowScheduler', () => {
       expect(stats.cancelledCount).toBe(0);
 
       // 完成 wf-1
-      await vi.advanceTimersByTimeAsync(100);
+      await jest.advanceTimersByTimeAsync(100);
 
       const stats2 = scheduler.getStats();
       expect(stats2.completedCount).toBe(1);
@@ -247,7 +247,7 @@ describe('WorkflowScheduler', () => {
 
       scheduler.shutdown();
 
-      await vi.advanceTimersByTimeAsync(10000);
+      await jest.advanceTimersByTimeAsync(10000);
 
       expect(executor.execute).not.toHaveBeenCalled();
     });

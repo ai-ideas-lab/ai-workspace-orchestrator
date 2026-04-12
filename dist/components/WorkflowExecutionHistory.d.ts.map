@@ -1,0 +1,1 @@
+{"version":3,"file":"WorkflowExecutionHistory.d.ts","sourceRoot":"","sources":["../../frontend/src/components/WorkflowExecutionHistory.tsx"],"names":[],"mappings":"AAAA,OAAO,KAA8B,MAAM,OAAO,CAAC;AA4CnD,UAAU,6BAA6B;IACrC,UAAU,EAAE,MAAM,CAAC;IACnB,SAAS,CAAC,EAAE,MAAM,CAAC;CACpB;AAED,QAAA,MAAM,wBAAwB,EAAE,KAAK,CAAC,EAAE,CAAC,6BAA6B,CAuSrE,CAAC;AAEF,eAAe,wBAAwB,CAAC"}
