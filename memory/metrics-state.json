@@ -1,0 +1,28 @@
+{
+  "lastUpdate": "2026-04-12T15:52:00Z",
+  "metrics": {
+    "totalProjects": 11,
+    "activeProjects": 2,
+    "completedProjects": 8,
+    "inactiveProjects": 1,
+    "totalContributors": 11,
+    "avgCommitsPerProject24h": 0,
+    "avgCommitsPerProject7d": 8.27,
+    "mostActiveProject": "ai-workspace-orchestrator",
+    "highestGrowthProject": "ai-gardening-designer",
+    "collaborativeProjects": 1,
+    "singleContributorProjects": 10
+  },
+  "trends": {
+    "codeGrowthRate": "stable",
+    "commitActivity": "declining_24h_stable_7d", 
+    "projectStatus": "mature",
+    "collaborationLevel": "low"
+  },
+  "alerts": [
+    "24小时零提交项目增多",
+    "多项目协作模式需推广",
+    "部分项目需要重新激活"
+  ],
+  "nextUpdate": "2026-04-14T15:52:00Z"
+}
