@@ -25,7 +25,7 @@ function createBus(): EventBus {
 
 // ── 测试 1: on + emit 基本订阅与发布 ──────────────────────
 
-function testOnAndEmit() {
+describe('testOnAndEmit', () => {
   const bus = createBus();
   const received: OrchestratorEvent[] = [];
 
@@ -46,11 +46,12 @@ function testOnAndEmit() {
   assertEqual((received[0] as any).requestId, 'req_001', 'requestId');
   assert(received[0].timestamp instanceof Date, 'timestamp is Date');
   console.log('  ✅ testOnAndEmit passed');
+});
 }
 
 // ── 测试 2: unsubscribe 取消订阅 ──────────────────────────
 
-function testUnsubscribe() {
+describe('testUnsubscribe', () => {
   const bus = createBus();
   let count = 0;
 
@@ -64,11 +65,12 @@ function testUnsubscribe() {
   bus.emit({ type: 'engine.success', engineId: 'gpt-4', responseTimeMs: 100 });
   assertEqual(count, 1, 'count should stay 1 after unsubscribe');
   console.log('  ✅ testUnsubscribe passed');
+});
 }
 
 // ── 测试 3: onAny 通配符监听 ──────────────────────────────
 
-function testOnAny() {
+describe('testOnAny', () => {
   const bus = createBus();
   const allTypes: string[] = [];
 
@@ -83,11 +85,12 @@ function testOnAny() {
   assertEqual(allTypes[1], 'engine.failure', 'second event type');
   assertEqual(allTypes[2], 'circuit.state_changed', 'third event type');
   console.log('  ✅ testOnAny passed');
+});
 }
 
 // ── 测试 4: once 一次性订阅 ───────────────────────────────
 
-function testOnce() {
+describe('testOnce', () => {
   const bus = createBus();
   let count = 0;
 
@@ -98,11 +101,12 @@ function testOnce() {
 
   assertEqual(count, 1, 'once should only fire once');
   console.log('  ✅ testOnce passed');
+});
 }
 
 // ── 测试 5: 多个订阅者并行接收 ────────────────────────────
 
-function testMultipleListeners() {
+describe('testMultipleListeners', () => {
   const bus = createBus();
   const results: number[] = [];
 
@@ -115,11 +119,12 @@ function testMultipleListeners() {
   assertEqual(delivered, 3, 'delivered to 3 listeners');
   assertEqual(results.length, 3, '3 results collected');
   console.log('  ✅ testMultipleListeners passed');
+});
 }
 
 // ── 测试 6: 订阅者异常不影响其他订阅者 ────────────────────
 
-function testListenerErrorIsolation() {
+describe('testListenerErrorIsolation', () => {
   const bus = createBus();
   let secondCalled = false;
 
@@ -131,11 +136,12 @@ function testListenerErrorIsolation() {
   assert(secondCalled, 'second listener should still be called');
   assertEqual(delivered, 2, 'both listeners counted as delivered');
   console.log('  ✅ testListenerErrorIsolation passed');
+});
 }
 
 // ── 测试 7: 事件日志记录与查询 ────────────────────────────
 
-function testEventLog() {
+describe('testEventLog', () => {
   const bus = createBus();
 
   bus.emit({ type: 'request.enqueued', requestId: 'r1', taskType: 't', priority: 'HIGH' });
@@ -154,11 +160,12 @@ function testEventLog() {
 
   assertEqual(bus.totalEventsEmitted, 3, 'total events');
   console.log('  ✅ testEventLog passed');
+});
 }
 
 // ── 测试 8: 日志大小限制 ─────────────────────────────────
 
-function testMaxLogSize() {
+describe('testMaxLogSize', () => {
   const bus = new EventBus({ maxLogSize: 3 });
 
   for (let i = 0; i < 5; i++) {
@@ -174,7 +181,7 @@ function testMaxLogSize() {
 
 // ── 测试 9: getListenerCounts 统计 ─────────────────────────
 
-function testGetListenerCounts() {
+describe('testGetListenerCounts', () => {
   const bus = createBus();
 
   bus.on('request.enqueued', () => {});
@@ -191,7 +198,7 @@ function testGetListenerCounts() {
 
 // ── 测试 10: clearAll 清空一切 ────────────────────────────
 
-function testClearAll() {
+describe('testClearAll', () => {
   const bus = createBus();
 
   bus.on('request.enqueued', () => {});
@@ -210,7 +217,7 @@ function testClearAll() {
 
 // ── 测试 11: 单例模式 ─────────────────────────────────────
 
-function testSingleton() {
+describe('testSingleton', () => {
   EventBus.resetInstance();
   const a = EventBus.getInstance();
   const b = EventBus.getInstance();
@@ -224,7 +231,7 @@ function testSingleton() {
 
 // ── 测试 12: on + onAny 同时触发 ──────────────────────────
 
-function testOnAndOnAnyTogether() {
+describe('testOnAndOnAnyTogether', () => {
   const bus = createBus();
   let typedCount = 0;
   let anyCount = 0;
@@ -239,37 +246,5 @@ function testOnAndOnAnyTogether() {
   console.log('  ✅ testOnAndOnAnyTogether passed');
 }
 
-// ── 运行所有测试 ──────────────────────────────────────────
-
-const tests = [
-  testOnAndEmit,
-  testUnsubscribe,
-  testOnAny,
-  testOnce,
-  testMultipleListeners,
-  testListenerErrorIsolation,
-  testEventLog,
-  testMaxLogSize,
-  testGetListenerCounts,
-  testClearAll,
-  testSingleton,
-  testOnAndOnAnyTogether,
-];
-
-console.log('\n🧪 EventBus Tests\n');
-
-let passed = 0;
-let failed = 0;
-for (const test of tests) {
-  try {
-    test();
-    passed++;
-  } catch (err: any) {
-    console.error(`  ❌ ${test.name}: ${err.message}`);
-    failed++;
-  }
-}
-
-console.log(`\n📊 Results: ${passed} passed, ${failed} failed, ${tests.length} total\n`);
-// Removed process.exit(1) — it kills the Jest worker process.
-// Test failures are already logged above; Jest will report the suite status.
+// Jest tests will run automatically based on the describe blocks above
+// The test execution is handled by the Jest runner

@@ -245,6 +245,44 @@ describe('LoadBalancer', () => {
       const weightInfo = loadBalancer.getWeightInfo();
       expect(weightInfo[0].effectiveWeight).toBeGreaterThan(100);
     });
+
+    it('当所有引擎权重为 0 时应返回 null', () => {
+      // 注册多个但权重都为 0 的引擎
+      loadBalancer.registerEngine('zero-engine-1', 0);
+      loadBalancer.registerEngine('zero-engine-2', 0);
+      loadBalancer.registerEngine('zero-engine-3', 0);
+      
+      // 此时 totalWeight 应该为 0
+      const selected = loadBalancer.selectEngine();
+      expect(selected).toBeNull();
+    });
+
+    it('当引擎权重被更新为 0 时应返回 null', () => {
+      // 注册有正常权重的引擎
+      loadBalancer.registerEngine('normal-engine', 100);
+      
+      // 首先验证能正常选择
+      const firstSelection = loadBalancer.selectEngine();
+      expect(firstSelection).toBe('normal-engine');
+      
+      // 通过性能快照将权重降低到 0
+      const snapshots = [{
+        engineId: 'normal-engine',
+        avgResponseMs: 10000,
+        successRate: 0,
+        activeRequests: 100,
+      }];
+      
+      loadBalancer.updateWeights(snapshots);
+      
+      // 现在权重应该被设置为最小值 1，而不是 0
+      const weightInfo = loadBalancer.getWeightInfo();
+      expect(weightInfo[0].effectiveWeight).toBe(1);
+      
+      // 选择仍然应该工作
+      const secondSelection = loadBalancer.selectEngine();
+      expect(secondSelection).toBe('normal-engine');
+    });
   });
 
   describe('updateWeights()', () => {
@@ -554,6 +592,7 @@ describe('LoadBalancer', () => {
           avgResponseMs: 10000,
           successRate: 0.1,
           activeRequests: 100,
+          requestsInFlight: 50,
         },
       ];
       
@@ -579,8 +618,9 @@ declare global {
   }
 }
 
+// @ts-ignore
 expect.extend({
-  toBeEither(received, value1, value2) {
+  toBeEither(received: any, value1: any, value2: any) {
     const pass = received === value1 || received === value2;
     if (pass) {
       return {
