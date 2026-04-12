@@ -1,127 +1,86 @@
 # AI Workspace Orchestrator Performance Benchmark Report
 
-**Date:** 2026-04-12T16:58:14.040Z
-**Focus:** N+1 Query Issues and Performance Bottlenecks
-**Timeout Setting:** 3000ms
+**Date:** 2026-04-12T21:08:22.346Z
+**Mode:** ecommerce
+**Performance Grade:** A+ (Excellent)
 
-## Executive Summary
+## Overall Statistics
 
-### Overall System Health: Critical - System has broken endpoints
+| Metric | Value |
+|--------|-------|
+| Total Requests | 8600 |
+| Successful Requests | 7178 |
+| Failed Requests | 1422 |
+| Success Rate | 83.47% |
+| Average Response Time | 4.51ms |
+| Min Response Time | 0.52ms |
+| Max Response Time | 140.28ms |
+| P95 Response Time | 10.95ms |
+| P99 Response Time | 28.34ms |
 
-🚨 **Critical Issues (Immediate Action Required)**:
-- **Orders with Products**: 3/3 requests timed out due to N+1 query problems
+## Endpoint Analysis
 
-## Detailed Results
+### /api/users/3
+- Success Rate: 100.00%
+- Average Response Time: 4.15ms
+- Min Response Time: 0.52ms
+- Max Response Time: 137.77ms
 
-| Endpoint | Performance | Avg Time | Success Rate | Timeouts | Issues |
-|----------|-------------|----------|-------------|----------|--------|
-| Users with Orders | Excellent | 8.01ms | 100.0% | 0/3 | N+1 queries |
-| Orders with Products | Critical | 3000.00ms | 0.0% | 3/3 | Critical N+1 queries |
-| User Statistics | Excellent | 5.54ms | 100.0% | 0/3 | N+1 queries |
-| User 1 | Excellent | 2.99ms | 100.0% | 0/3 | None |
-| User 2 | Excellent | 2.46ms | 100.0% | 0/3 | None |
-| User 3 | Excellent | 2.25ms | 100.0% | 0/3 | None |
+### /api/users/1
+- Success Rate: 100.00%
+- Average Response Time: 3.90ms
+- Min Response Time: 0.52ms
+- Max Response Time: 108.53ms
 
-## N+1 Query Issues Deep Dive
+### /api/user-stats
+- Success Rate: 100.00%
+- Average Response Time: 4.03ms
+- Min Response Time: 0.71ms
+- Max Response Time: 97.71ms
 
-### Users with Orders
+### /api/users/2
+- Success Rate: 100.00%
+- Average Response Time: 3.98ms
+- Min Response Time: 0.53ms
+- Max Response Time: 77.04ms
 
-**Path:** /api/users-with-orders
+### /api/users-with-orders
+- Success Rate: 100.00%
+- Average Response Time: 6.52ms
+- Min Response Time: 1.54ms
+- Max Response Time: 140.28ms
 
-⚠️ **PERFORMANCE ISSUE** - N+1 queries detected:
+## Performance Analysis
 
-#### Impact:
-- Slower response times under load
-- Database connection overhead
-- Scalability concerns
+### Bottlenecks Identified:
+- Low success rate - check server configuration and error handling
+- High error rate - investigate error patterns
 
-#### Recommended Action:
-- Implement JOIN queries for better performance
-- Add database indexing on foreign keys
-- Consider caching for frequently accessed data
+### Recommendations:
+- Implement better error handling and retry mechanisms
+- Add request timeouts and proper error responses
+- Set up real-time performance monitoring and alerting
+- Implement comprehensive logging for debugging
+- Consider implementing A/B testing for performance optimizations
 
-### Orders with Products
+## Error Analysis
 
-**Path:** /api/orders-with-products
+### Recent Errors:
+- /api/orders-with-products: Request timeout (10003.32ms)
+- /api/orders-with-products: Request timeout (10002.82ms)
+- /api/orders-with-products: Request timeout (10002.73ms)
+- /api/orders-with-products: Request timeout (10001.67ms)
+- /api/orders-with-products: Request timeout (10001.35ms)
+- /api/orders-with-products: Request timeout (10000.35ms)
+- /api/orders-with-products: Request timeout (9999.99ms)
+- /api/orders-with-products: Request timeout (10002.49ms)
+- /api/orders-with-products: Request timeout (10003.06ms)
+- /api/orders-with-products: Request timeout (10001.86ms)
 
-🚨 **CRITICAL ISSUE** - This endpoint has severe N+1 query problems:
+## System Metrics
 
-#### Root Cause:
-- Multiple database queries executed for each parent record
-- Exponential performance degradation with data volume
-- Request timeouts causing complete endpoint failure
-
-#### Immediate Impact:
-- API calls fail completely
-- User experience severely degraded
-- System reliability compromised
-
-#### Recommended Fix:
-Replace with optimized SQL JOIN queries:
-```sql
--- Example fix for orders with products
-SELECT o.*, p.id as product_id, p.name as product_name, p.price
-FROM orders o
-LEFT JOIN order_items oi ON o.id = oi.order_id
-LEFT JOIN products p ON oi.product_id = p.id
-WHERE o.id = ?;
-```
-
-### User Statistics
-
-**Path:** /api/user-stats
-
-⚠️ **PERFORMANCE ISSUE** - N+1 queries detected:
-
-#### Impact:
-- Slower response times under load
-- Database connection overhead
-- Scalability concerns
-
-#### Recommended Action:
-- Implement JOIN queries for better performance
-- Add database indexing on foreign keys
-- Consider caching for frequently accessed data
-
-## Recommendations Matrix
-
-### Priority 1: Critical Fixes (Do This Now)
-
-1. **Fix Orders with Products**
-   - **Urgency**: Immediate - endpoint is completely broken
-   - **Effort**: Low - single query optimization
-   - **Impact**: High - restores API functionality
-   - **Estimated Time**: 30 minutes
-
-### Priority 2: Performance Optimizations
-
-### Priority 3: System Improvements
-
-1. **Add Database Indexing**
-   - Index foreign keys (user_id, order_id, product_id)
-   - Index frequently queried columns
-   - **Estimated Time**: 1 hour
-
-2. **Implement Connection Pooling**
-   - Reduce connection overhead
-   - Better resource utilization
-   - **Estimated Time**: 3-5 hours
-
-3. **Add Monitoring**
-   - Set up performance monitoring
-   - Add alerting for timeouts
-   - **Estimated Time**: 4-6 hours
-
-## Performance Metrics
-
-| Metric | Value | Status |
-|--------|-------|--------|
-| Average Response Time | 503.54ms | Fair |
-| Overall Success Rate | 83.3% | Needs Improvement |
-| Timeout Rate | 16.7% | Fair |
-| Endpoints with Issues | 1/6 | Critical - System has broken endpoints |
-
-## Conclusion
-
-The system has 1 critical endpoint(s) that are completely broken due to N+1 query issues. These must be fixed immediately to restore system functionality. The remaining endpoints are performing well, indicating this is a localized issue that can be resolved quickly.
+### Final Memory Usage:
+- RSS: 33.41 MB
+- Heap Used: 4.99 MB
+- Heap Total: 5.85 MB
 
