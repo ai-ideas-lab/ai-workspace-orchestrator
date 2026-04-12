@@ -41,8 +41,28 @@ class LoadBalancer {
   }
 
   /**
-   * 平滑加权轮询选引擎。
-   * 返回选中的引擎 ID，若无引擎则返回 null。
+   * 使用平滑加权轮询算法选择最适合的引擎
+   *
+   * 基于引擎的权重和当前状态，通过平滑加权轮询算法选择最优的引擎。
+   * 算法考虑了每个引擎的有效权重，并通过动态调整 currentWeight
+   * 确保负载在所有引擎之间均匀分布，同时尊重权重配置。
+   *
+   * @returns 选中的引擎ID字符串，如果没有可用的引擎则返回 null
+   * @throws 不抛出异常，方法内部处理所有错误情况
+   * @example
+   * // 注册引擎并选择
+   * loadBalancer.registerEngine('engine-1', 100);
+   * loadBalancer.registerEngine('engine-2', 200);
+   *
+   * // 选择引擎
+   * const selectedEngine = loadBalancer.selectEngine();
+   * console.log(selectedEngine); // 可能返回 'engine-1' 或 'engine-2'
+   *
+   * // 连续选择多次以观察负载分布
+   * for (let i = 0; i < 10; i++) {
+   *   const engine = loadBalancer.selectEngine();
+   *   console.log(`第${i + 1}次选择: ${engine}`);
+   * }
    */
   selectEngine(): string | null {
     if (this.engines.size === 0) return null;

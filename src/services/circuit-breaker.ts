@@ -53,7 +53,29 @@ export class CircuitBreaker {
     return this.engines.get(engineId)!;
   }
 
-  /** 是否允许向该引擎发送请求 */
+  /**
+   * 检查是否允许向指定引擎发送请求
+   *
+   * 根据熔断器状态决定是否允许请求通过。当引擎处于 CLOSED 状态时正常允许，
+   * HALF_OPEN 状态下允许有限数量的探测请求，OPEN 状态拒绝所有请求。
+   * 超过重置时间后，OPEN 状态会自动转换为 HALF_OPEN 进行恢复。
+   *
+   * @param engineId - 引擎的唯一标识符
+   * @returns true 表示允许发送请求，false 表示被熔断拒绝
+   * @throws 不抛出异常，方法内部处理所有错误情况
+   * @example
+   * // 允许请求的情况
+   * const canRequest = breaker.allowRequest('engine-1');
+   * if (canRequest) {
+   *   // 发送请求到 engine-1
+   * }
+   *
+   * // 引擎被熔断的情况
+   * const canRequest = breaker.allowRequest('engine-1');
+   * if (!canRequest) {
+   *   console.log('引擎正在熔断中，请求被拒绝');
+   * }
+   */
   allowRequest(engineId: string): boolean {
     const circuit = this.getOrCreate(engineId);
 
@@ -81,7 +103,31 @@ export class CircuitBreaker {
     return this.getOrCreate(engineId).state;
   }
 
-  /** 报告执行成功 */
+  /**
+   * 记录引擎执行成功的状态
+   *
+   * 当引擎成功处理请求后调用此方法。会重置失败计数，
+   * 将熔断状态设置为 CLOSED（正常），并清除半开尝试计数。
+   * 成功记录有助于熔断器自动恢复正常运行状态。
+   *
+   * @param engineId - 引擎的唯一标识符
+   * @returns 不返回值
+   * @throws 不抛出异常，方法内部处理所有错误情况
+   * @example
+   * // 记录引擎成功执行
+   * breaker.recordSuccess('engine-1');
+   * // 熔断器状态会重置为 CLOSED，失败计数归零
+   *
+   * // 在请求处理成功后调用
+   * try {
+   *   const result = await callEngine('engine-1', request);
+   *   breaker.recordSuccess('engine-1');
+   *   return result;
+   * } catch (error) {
+   *   breaker.recordFailure('engine-1');
+   *   throw error;
+   * }
+   */
   recordSuccess(engineId: string): void {
     const circuit = this.getOrCreate(engineId);
     circuit.successCount++;
