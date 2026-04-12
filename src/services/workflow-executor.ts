@@ -231,12 +231,43 @@ export class WorkflowExecutor {
 
   // ── 引擎注册代理 ──────────────────────────────────────
 
+  /**
+   * 注册AI引擎到工作流执行器
+   * 
+   * 将AI引擎注册到底层的请求队列中，使其能够参与工作流步骤的执行。
+   * 引擎的权重会影响负载均衡的优先级分配。
+   * 
+   * @param engineId 唯一的引擎标识符
+   * @param opts 引擎配置选项，包含权重等参数
+   * @example
+   * // 注册一个带权重的AI引擎
+   * executor.registerEngine('gpt-4', { weight: 100 });
+   * executor.registerEngine('claude-3', { weight: 80 });
+   *
+   * // 注册默认权重的引擎
+   * executor.registerEngine('gemini-pro');
+   */
   registerEngine(engineId: string, opts?: { weight?: number }): void {
     this.queue.registerEngine(engineId, opts);
   }
 
-  deregisterEngine(engineId: string): void {
-    this.queue.deregisterEngine(engineId);
+  /**
+   * 从工作流执行器中注销AI引擎
+   * 
+   * 移除已注册的AI引擎，该引擎将不再接收工作流步骤的执行任务。
+   * 所有活跃的请求不会中断，但新请求将不会被分配给该引擎。
+   * 
+   * @param engineId 要注销的引擎唯一标识符
+   * @returns 成功注销返回true，引擎不存在时返回false
+   * @example
+   * // 注销引擎
+   * const success = executor.deregisterEngine('old-engine');
+   * if (success) {
+   *   console.log('引擎已成功注销');
+   * }
+   */
+  deregisterEngine(engineId: string): boolean {
+    return this.queue.deregisterEngine(engineId);
   }
 
   // ── 私有方法 ──────────────────────────────────────────

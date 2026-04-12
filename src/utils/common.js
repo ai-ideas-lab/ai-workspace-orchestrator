@@ -144,33 +144,44 @@ function generateSimpleId(length = 8) {
   return Math.random().toString(36).substring(2, length + 2);
 }
 
+function isValidUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 /**
- * 验证URL格式
+ * 验证字符串是否为空或只包含空白字符
  * 
- * 检查输入字符串是否为有效的HTTP或HTTPS URL格式。
- * 使用URL构造函数进行验证，确保字符串符合URL标准。
+ * 检查输入字符串是否为null、undefined或只包含空格、制表符、换行符等空白字符。
+ * 常用于表单验证和数据处理前的输入检查。
  * 
- * @param url 待验证的URL字符串
- * @returns 如果是有效的HTTP/HTTPS URL返回true，否则返回false
+ * @param str 待验证的字符串
+ * @returns 如果为空或只包含空白字符返回true，否则返回false
  * @example
- * // 验证有效URL
- * console.log(isValidUrl('https://www.example.com')); // true
- * console.log(isValidUrl('http://localhost:3000')); // true
- * console.log(isValidUrl('https://api.example.com/v1/users')); // true
+ * // 验证空字符串
+ * console.log(isEmpty('')); // true
+ * console.log(isEmpty('   ')); // true
+ * console.log(isEmpty('\n\t ')); // true
  * 
- * // 验证无效URL
- * console.log(isValidUrl('ftp://example.com')); // false (仅支持HTTP/HTTPS)
- * console.log(isValidUrl('not-a-url')); // false
- * console.log(isValidUrl('')); // false
- * console.log(isValidUrl('https://')); // false (需要域名)
+ * // 验证非空字符串
+ * console.log(isEmpty('hello')); // false
+ * console.log(isEmpty('  hello  ')); // false
  * 
  * // 使用场景：表单验证
- * function validateUrlField(url) {
- *   if (!isValidUrl(url)) {
- *     throw new Error('请输入有效的网址');
+ * function validateRequiredField(value) {
+ *   if (isEmpty(value)) {
+ *     throw new Error('此字段不能为空');
  *   }
  * }
  */
+
+function isEmpty(str) {
+  return str == null || str.trim().length === 0;
+}
 
 module.exports = {
   formatDate,
@@ -178,5 +189,6 @@ module.exports = {
   throttle,
   isValidEmail,
   generateSimpleId,
-  isValidUrl
+  isValidUrl,
+  isEmpty
 };
