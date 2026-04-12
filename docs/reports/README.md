@@ -4,22 +4,16 @@
 
 ## 文档列表
 
-### 进化报告
-- evolution-progress.md - 进化进度报告
-- evolution_status_report.md - 进化状态报告
-- final-evolution-report.md - 最终进化报告
+### 开发报告
+- AI_IDEAS_DEV_REPORT.md - AI创意想法开发报告
+- ai-ideas-development-report.md - AI创意想法开发报告
+- development-report.md - 开发报告
+- development_progress_report.md - 开发进度报告
+- development_progress_update.md - 开发进度更新
+- final_ai_ideas_development_report.md - 最终AI创意想法开发报告
 
-### 成就报告
-- final-achievement-report.md - 最终成就报告
-- completion_report.md - 完成报告
-
-### 进度报告
-- progress_report.md - 进度报告
-- final-summary-report.md - 最终总结报告
-
-### PR合并报告
-- cron_pr_merge_report_*.md - 定时PR合并报告
-- pr_merge_report_*.md - PR合并报告
+### 状态报告
+- AI_IDEAS_STATUS_UPDATE.md - AI创意想法状态更新
 
 ## 生成时间
 自动生成：$(date '+%Y-%m-%d %H:%M:%S')

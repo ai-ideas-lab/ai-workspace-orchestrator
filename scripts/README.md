@@ -5,20 +5,25 @@
 ## 目录结构
 
 - **install/** - 安装脚本
-  - Docker、CLI工具、高级技能安装器
+  - setup-cron.sh - 定时任务设置脚本
 - **config/** - 配置脚本
-  - 项目配置、优化器
+  - setup-wolong-identity.sh - WOLONG身份设置脚本
 - **docker/** - Docker相关脚本
-  - Docker安装、项目管理
+  - 暂无脚本
 - **utils/** - 工具脚本
-  - 环境检查、验证工具
+  - maintain-home.sh - 主目录维护脚本
+  - review-and-merge-prs.sh - PR审核与合并脚本
+  - cron-tasks.sh - 定时任务脚本
 
 ## 使用方法
 
 所有脚本均在项目根目录执行：
 ```bash
-bash scripts/install/docker_installer.sh
-bash scripts/config/config_optimizer.sh
+bash scripts/install/setup-cron.sh
+bash scripts/config/setup-wolong-identity.sh
+bash scripts/utils/maintain-home.sh
+bash scripts/utils/review-and-merge-prs.sh
+bash scripts/utils/cron-tasks.sh
 ```
 
 ## 生成时间
