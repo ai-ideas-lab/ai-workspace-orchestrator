@@ -14,6 +14,19 @@ const INTENT_PATTERNS = {
 };
 
 /**
+ * Validate priority configuration
+ * @param {Object} user - User object
+ * @param {number} commandPriority - Command priority
+ * @returns {number} Validated priority value
+ */
+function getValidatedPriority(user, commandPriority) {
+    if (user?.role === 'admin') {
+        return PRIORITY_CONFIG.admin;
+    }
+    return commandPriority || PRIORITY_CONFIG.default;
+}
+
+/**
  * Extract intent from command text
  * @param {string} text - Command text
  * @returns {string} Detected intent
@@ -34,10 +47,7 @@ function extractIntent(text) {
  * @returns {number} Calculated priority
  */
 function calculatePriority(user, commandPriority) {
-    if (user?.role === 'admin') {
-        return PRIORITY_CONFIG.admin;
-    }
-    return commandPriority || PRIORITY_CONFIG.default;
+    return getValidatedPriority(user, commandPriority);
 }
 
 /**
@@ -50,7 +60,7 @@ function aiWorkflowProcessor(commands, context = {}) {
     return commands.map(cmd => ({
         ...cmd,
         intent: extractIntent(cmd.text),
-        priority: calculatePriority(context.user, cmd.priority),
+        priority: getValidatedPriority(context.user, cmd.priority),
         timestamp: new Date().toISOString(),
         status: 'queued'
     })).sort((a, b) => a.priority - b.priority);
