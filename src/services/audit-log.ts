@@ -203,49 +203,29 @@ export class AuditLogService {
    * 按条件查询审计日志，支持分页。
    */
   query(params: AuditQuery = {}): { entries: AuditEntry[]; total: number } {
-    let filtered = [...this.entries];
+    // 声明式过滤管道：每个元素 [条件, 过滤函数]
+    const filters: Array<[boolean, (e: AuditEntry) => boolean]> = [
+      // 按动作过滤（支持前缀匹配）
+      [!!params.action, params.action?.endsWith('.')
+        ? (e) => e.action.startsWith(params.action!)
+        : (e) => e.action === params.action],
+      // 按操作者
+      [!!params.actor, (e) => e.actor === params.actor],
+      // 按资源类型
+      [!!params.resourceType, (e) => e.resourceType === params.resourceType],
+      // 按资源 ID
+      [!!params.resourceId, (e) => e.resourceId === params.resourceId],
+      // 按严重级别
+      [!!params.severity, (e) => e.severity === params.severity],
+      // 按结果
+      [!!params.result, (e) => e.result === params.result],
+      // 按时间范围
+      [!!params.from, (e) => e.timestamp >= params.from!],
+      [!!params.to, (e) => e.timestamp <= params.to!],
+    ];
 
-    // 按动作过滤（支持前缀匹配）
-    if (params.action) {
-      if (params.action.endsWith('.')) {
-        filtered = filtered.filter((e) => e.action.startsWith(params.action!));
-      } else {
-        filtered = filtered.filter((e) => e.action === params.action);
-      }
-    }
-
-    // 按操作者
-    if (params.actor) {
-      filtered = filtered.filter((e) => e.actor === params.actor);
-    }
-
-    // 按资源类型
-    if (params.resourceType) {
-      filtered = filtered.filter((e) => e.resourceType === params.resourceType);
-    }
-
-    // 按资源 ID
-    if (params.resourceId) {
-      filtered = filtered.filter((e) => e.resourceId === params.resourceId);
-    }
-
-    // 按严重级别
-    if (params.severity) {
-      filtered = filtered.filter((e) => e.severity === params.severity);
-    }
-
-    // 按结果
-    if (params.result) {
-      filtered = filtered.filter((e) => e.result === params.result);
-    }
-
-    // 按时间范围
-    if (params.from) {
-      filtered = filtered.filter((e) => e.timestamp >= params.from!);
-    }
-    if (params.to) {
-      filtered = filtered.filter((e) => e.timestamp <= params.to!);
-    }
+    const activeFilters = filters.filter(([hasCondition]) => hasCondition).map(([, fn]) => fn);
+    const filtered = this.entries.filter((entry) => activeFilters.every((fn) => fn(entry)));
 
     const total = filtered.length;
     const offset = params.offset ?? 0;

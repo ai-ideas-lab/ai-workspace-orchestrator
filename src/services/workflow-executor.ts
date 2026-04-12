@@ -262,7 +262,11 @@ export class WorkflowExecutor {
         return;
       }
 
-      // 通过队列分配引擎
+      // 先入队再通过队列分配引擎
+      this.queue.enqueue(
+        { taskType: step.taskType, payload: step.payload },
+        step.priority ?? defaultPriority,
+      );
       const processResult = this.queue.processNext();
       if (!processResult) {
         // 无可用引擎 → 失败
