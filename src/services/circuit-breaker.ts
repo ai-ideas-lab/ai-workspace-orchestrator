@@ -11,27 +11,33 @@ export enum CircuitState {
   HALF_OPEN = 'HALF_OPEN', // 半开（试探恢复）
 }
 
-interface CircuitBreakerOptions {
-  /** 连续失败多少次触发熔断，默认 5 */
+interface CircuitBreakerConfig {
+  /** 连续失败多少次触发熔断（默认 5） */
   failureThreshold?: number;
-  /** 熔断后多久尝试恢复（ms），默认 30000 */
+  /** 熔断后冷却时间 ms（默认 30 000） */
   resetTimeoutMs?: number;
+  /** 半开状态下允许的探测请求数（默认 1） */
+  halfOpenMaxAttempts?: number;
 }
 
 interface EngineCircuit {
   state: CircuitState;
   failureCount: number;
   openedAt: number | null; // Date.now() when OPEN started
+  successCount: number;
+  halfOpenAttempts: number;
 }
 
 export class CircuitBreaker {
   private failureThreshold: number;
   private resetTimeoutMs: number;
+  private halfOpenMaxAttempts: number;
   private engines = new Map<string, EngineCircuit>();
 
-  constructor(opts: CircuitBreakerOptions = {}) {
-    this.failureThreshold = opts.failureThreshold ?? 5;
-    this.resetTimeoutMs = opts.resetTimeoutMs ?? 30_000;
+  constructor(config: CircuitBreakerConfig = {}) {
+    this.failureThreshold = config.failureThreshold ?? 5;
+    this.resetTimeoutMs = config.resetTimeoutMs ?? 30_000;
+    this.halfOpenMaxAttempts = config.halfOpenMaxAttempts ?? 1;
   }
 
   private getOrCreate(engineId: string): EngineCircuit {
@@ -40,6 +46,8 @@ export class CircuitBreaker {
         state: CircuitState.CLOSED,
         failureCount: 0,
         openedAt: null,
+        successCount: 0,
+        halfOpenAttempts: 0,
       });
     }
     return this.engines.get(engineId)!;
@@ -54,13 +62,14 @@ export class CircuitBreaker {
     }
 
     if (circuit.state === CircuitState.HALF_OPEN) {
-      return true; // 允许一次试探请求
+      return circuit.halfOpenAttempts < this.halfOpenMaxAttempts;
     }
 
     // OPEN → 检查是否该进入 HALF_OPEN
     if (circuit.openedAt && Date.now() - circuit.openedAt >= this.resetTimeoutMs) {
       circuit.state = CircuitState.HALF_OPEN;
       circuit.failureCount = 0;
+      circuit.halfOpenAttempts = 0;
       return true;
     }
 
@@ -75,15 +84,18 @@ export class CircuitBreaker {
   /** 报告执行成功 */
   recordSuccess(engineId: string): void {
     const circuit = this.getOrCreate(engineId);
+    circuit.successCount++;
     circuit.failureCount = 0;
     circuit.state = CircuitState.CLOSED;
     circuit.openedAt = null;
+    circuit.halfOpenAttempts = 0;
   }
 
   /** 报告执行失败 */
   recordFailure(engineId: string): void {
     const circuit = this.getOrCreate(engineId);
     circuit.failureCount++;
+    circuit.successCount = 0;
 
     if (circuit.failureCount >= this.failureThreshold) {
       circuit.state = CircuitState.OPEN;
@@ -94,5 +106,23 @@ export class CircuitBreaker {
   /** 重置某个引擎的熔断状态 */
   reset(engineId: string): void {
     this.engines.delete(engineId);
+  }
+
+  /** 重置所有 */
+  resetAll(): void {
+    this.engines.clear();
+  }
+
+  /** 获取所有被追踪引擎的状态（调试用） */
+  getAllStates(): Record<string, { state: CircuitState; failures: number; successes: number }> {
+    const result: Record<string, { state: CircuitState; failures: number; successes: number }> = {};
+    for (const [id, circuit] of this.engines) {
+      result[id] = {
+        state: circuit.state,
+        failures: circuit.failureCount,
+        successes: circuit.successCount,
+      };
+    }
+    return result;
   }
 }

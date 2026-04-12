@@ -1,0 +1,110 @@
+export declare class AIScheduler {
+    private registeredEngines;
+    private databaseService;
+    constructor();
+    registerEngine(engine: any): Promise<void>;
+    getRegisteredEngines(): any[];
+    selectBestEngine(taskType: string, requirements?: any): any;
+    executeTask(task: any): Promise<{
+        engine: any;
+        taskId: any;
+        status: string;
+        result: {
+            text: string;
+            tokens: number;
+            model: any;
+            code?: never;
+            language?: never;
+            confidence?: never;
+            sentiment?: never;
+            topics?: never;
+            summary?: never;
+            keyPoints?: never;
+            description?: never;
+            objects?: never;
+            mood?: never;
+            quality?: never;
+            result?: never;
+            timestamp?: never;
+        } | {
+            code: string;
+            language: any;
+            confidence: number;
+            text?: never;
+            tokens?: never;
+            model?: never;
+            sentiment?: never;
+            topics?: never;
+            summary?: never;
+            keyPoints?: never;
+            description?: never;
+            objects?: never;
+            mood?: never;
+            quality?: never;
+            result?: never;
+            timestamp?: never;
+        } | {
+            sentiment: string;
+            topics: string[];
+            summary: string;
+            keyPoints: string[];
+            text?: never;
+            tokens?: never;
+            model?: never;
+            code?: never;
+            language?: never;
+            confidence?: never;
+            description?: never;
+            objects?: never;
+            mood?: never;
+            quality?: never;
+            result?: never;
+            timestamp?: never;
+        } | {
+            description: string;
+            objects: string[];
+            mood: string;
+            quality: number;
+            text?: never;
+            tokens?: never;
+            model?: never;
+            code?: never;
+            language?: never;
+            confidence?: never;
+            sentiment?: never;
+            topics?: never;
+            summary?: never;
+            keyPoints?: never;
+            result?: never;
+            timestamp?: never;
+        } | {
+            result: string;
+            timestamp: string;
+            text?: never;
+            tokens?: never;
+            model?: never;
+            code?: never;
+            language?: never;
+            confidence?: never;
+            sentiment?: never;
+            topics?: never;
+            summary?: never;
+            keyPoints?: never;
+            description?: never;
+            objects?: never;
+            mood?: never;
+            quality?: never;
+        };
+        executionTime: number;
+        timestamp: string;
+    }>;
+    private mockExecuteTask;
+    getEngineStats(): {
+        totalEngines: number;
+        activeEngines: number;
+        totalUsage: any;
+        averageUsage: number;
+    };
+}
+export declare const aiScheduler: AIScheduler;
+//# sourceMappingURL=ai-scheduler.d.ts.map

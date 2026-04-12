@@ -10,10 +10,12 @@ export interface EnginePerformanceSnapshot {
   avgResponseMs: number;
   successRate: number;
   requestsInFlight: number;
+  activeRequests: number;
 }
 
 interface EngineEntry {
   engineId: string;
+  weight: number;
   effectiveWeight: number;
   currentWeight: number;
 }
@@ -21,14 +23,16 @@ interface EngineEntry {
 class LoadBalancer {
   private engines = new Map<string, EngineEntry>();
 
-  /** 注册引擎（可选初始权重，默认 100） */
-  registerEngine(engineId: string, weight?: number): void {
-    const w = weight ?? 100;
-    this.engines.set(engineId, {
-      engineId,
-      effectiveWeight: w,
-      currentWeight: 0,
-    });
+  /** 注册引擎（默认权重 100） */
+  registerEngine(engineId: string, weight: number = 100): void {
+    if (!this.engines.has(engineId)) {
+      this.engines.set(engineId, {
+        engineId,
+        weight,
+        effectiveWeight: weight,
+        currentWeight: 0,
+      });
+    }
   }
 
   /** 注销引擎 */
