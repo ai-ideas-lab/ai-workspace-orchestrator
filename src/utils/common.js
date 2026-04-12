@@ -183,6 +183,35 @@ function isEmpty(str) {
   return str == null || str.trim().length === 0;
 }
 
+/**
+ * 验证中国手机号码格式
+ * 
+ * 验证输入字符串是否符合中国大陆手机号码的格式规范。
+ * 支持常见的11位手机号码格式，以1开头，第二位为3-9。
+ * 
+ * @param phone 待验证的手机号码字符串
+ * @returns 如果格式正确返回 true，否则返回 false
+ * @example
+ * // 验证有效手机号
+ * console.log(isValidChinesePhone('13812345678')); // true
+ * console.log(isValidChinesePhone('15987654321')); // true
+ * console.log(isValidChinesePhone('18611112222')); // true
+ * 
+ * // 验证无效手机号
+ * console.log(isValidChinesePhone('12345678901')); // false (第二位不是3-9)
+ * console.log(isValidChinesePhone('1381234567'));  // false (位数不对)
+ * console.log(isValidChinesePhone('abc1234567'));  // false (包含非数字)
+ * console.log(isValidChinesePhone('138123456789')); // false (位数过多)
+ */
+function isValidChinesePhone(phone) {
+  if (typeof phone !== 'string') return false;
+  if (phone.length !== 11) return false;
+  if (!/^\d+$/.test(phone)) return false;
+  if (phone[0] !== '1') return false;
+  if (!/^[3-9]$/.test(phone[1])) return false;
+  return true;
+}
+
 module.exports = {
   formatDate,
   debounce,
@@ -190,5 +219,6 @@ module.exports = {
   isValidEmail,
   generateSimpleId,
   isValidUrl,
-  isEmpty
+  isEmpty,
+  isValidChinesePhone
 };
