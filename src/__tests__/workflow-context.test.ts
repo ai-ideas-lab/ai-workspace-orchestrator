@@ -4,45 +4,14 @@
 import { WorkflowContext } from '../services/workflow-context.js';
 import { EventBus } from '../services/event-bus.js';
 
-// ── 简单测试框架 ──────────────────────────────────────────
+describe('WorkflowContext', () => {
 
-interface TestCase {
-  name: string;
-  fn: () => void;
-}
 
-const tests: TestCase[] = [];
-let passed = 0;
-let failed = 0;
-
-function test(name: string, fn: () => void) {
-  tests.push({ name, fn });
-}
-
-function assert(condition: boolean, message?: string) {
-  if (!condition) throw new Error(message || 'Assertion failed');
-}
-
-function assertEqual(actual: unknown, expected: unknown, message?: string) {
-  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    throw new Error(
-      message || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
-    );
-  }
-}
-
-function assertDeepEqual(actual: unknown, expected: unknown, message?: string) {
-  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    throw new Error(
-      message ||
-        `Deep equal failed.\n  Expected: ${JSON.stringify(expected)}\n  Actual:   ${JSON.stringify(actual)}`,
-    );
-  }
-}
 
 // ── 步骤输出测试 ──────────────────────────────────────────
 
-test('setStepOutput / getStepOutput — 存取步骤输出', () => {
+describe('步骤输出测试', () => {
+  it('setStepOutput / getStepOutput — 存取步骤输出', () => {
   const ctx = new WorkflowContext('wf-1');
   ctx.setStepOutput('step-a', { score: 95, label: 'good' });
   const output = ctx.getStepOutput<{ score: number; label: string }>('step-a');
@@ -311,26 +280,11 @@ test('变更记录包含时间戳和 workflowId', () => {
 
 // ── 构造函数测试 ──────────────────────────────────────────
 
-test('workflowId 存储正确', () => {
+it('workflowId 存储正确', () => {
   const ctx = new WorkflowContext('my-workflow');
-  assertEqual(ctx.workflowId, 'my-workflow');
+  expect(ctx.workflowId).toBe('my-workflow');
 });
 
-// ── 运行所有测试 ──────────────────────────────────────────
+}); // end describe
 
-console.log('\n🧪 WorkflowContext Tests\n');
 
-for (const t of tests) {
-  try {
-    t.fn();
-    passed++;
-    console.log(`  ✅ ${t.name}`);
-  } catch (err) {
-    failed++;
-    console.log(`  ❌ ${t.name}`);
-    console.log(`     ${err instanceof Error ? err.message : err}`);
-  }
-}
-
-console.log(`\n📊 Results: ${passed} passed, ${failed} failed, ${tests.length} total\n`);
-// Removed process.exit(1) — it kills the Jest worker process.
