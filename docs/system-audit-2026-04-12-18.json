@@ -1,0 +1,60 @@
+{
+  "timestamp": "2026-04-12T18:04:00+08:00",
+  "audit_id": "aea3e796-7e0b-420c-913c-1053cb1bd211",
+  "summary": {
+    "normal_items": 4,
+    "fixed_items": 2,
+    "manual_intervention": 3,
+    "health_score": 7
+  },
+  "network_check": {
+    "curl_github": "timeout",
+    "dns_resolution": "ok"
+  },
+  "cron_health": {
+    "high_error_jobs": 2,
+    "fixed_jobs": [
+      {
+        "id": "191860ae-03f9-4126-94b7-09d8b2353800",
+        "name": "🐛 Bug修复专项 每4小时",
+        "fix": "降低thinking级别low，超时180s→120s"
+      },
+      {
+        "id": "f3860288-f042-4077-8442-9fc652de4368",
+        "name": "🔄 跨爪代码复用 每天18:00",
+        "fix": "简化任务描述，降低thinking级别low，超时300s→120s"
+      }
+    ]
+  },
+  "git_status": {
+    "workspace": "clean",
+    "sync_status": "unknown (network issue)"
+  },
+  "disk_usage": {
+    "filesystem": "/dev/disk1s5s1",
+    "used": "10Gi",
+    "available": "24Gi",
+    "capacity": "31%"
+  },
+  "process_monitoring": {
+    "critical_processes": [
+      {
+        "command": "openclaw-gateway",
+        "cpu_usage": "453%",
+        "running_time": "11209:39.84"
+      }
+    ]
+  },
+  "project_sampling": {
+    "project": "ai-email-manager",
+    "git_status": "ahead by 1 commit",
+    "readme": "exists",
+    "npm_audit": "failed - missing lockfile"
+  },
+  "recommendations": [
+    "Investigate openclaw-gateway high CPU usage",
+    "Network connectivity issues - check internet connection",
+    "Fix npm lockfile in ai-email-manager project",
+    "Monitor fixed cron jobs for improvement"
+  ]
+}
