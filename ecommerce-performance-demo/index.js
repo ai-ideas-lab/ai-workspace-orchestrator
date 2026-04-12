@@ -8,7 +8,7 @@ app.use(express.json());
 // Initialize database
 const db = new sqlite3.Database('./database.sqlite');
 
-// Create sample tables
+// Create sample tables with proper indexes
 db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,6 +41,11 @@ db.serialize(() => {
         FOREIGN KEY (product_id) REFERENCES products(id)
     )`);
     
+    // Add indexes for better performance
+    db.run(`CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON order_items(product_id)`);
+    
     // Insert sample data
     db.run(`INSERT OR IGNORE INTO users (name, email) VALUES 
         ('Alice Johnson', 'alice@example.com'),
@@ -69,170 +74,343 @@ db.serialize(() => {
         (3, 3, 1, 299.99)`);
 });
 
-// N+1 Problem: Get all users with their orders (inefficient)
+// OPTIMIZED: Get all users with their orders (fixed N+1 problem)
 app.get('/api/users-with-orders', (req, res) => {
-    db.all('SELECT * FROM users', (err, users) => {
+    // Use JOIN to get users with orders in a single query
+    const query = `
+        SELECT 
+            u.id as user_id, u.name as user_name, u.email,
+            o.id as order_id, o.order_date, o.total_amount,
+            oi.id as item_id, oi.product_id, oi.quantity, oi.price as item_price,
+            p.name as product_name, p.price as product_price
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        LEFT JOIN products p ON oi.product_id = p.id
+        ORDER BY u.id, o.id, oi.id
+    `;
+    
+    db.all(query, [], (err, rows) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
         
-        const usersWithOrders = [];
+        // Group results by user
+        const usersWithOrders = {};
         
-        // This creates N+1 queries - one for users, then one for each user's orders
-        users.forEach(user => {
-            db.all('SELECT * FROM orders WHERE user_id = ?', [user.id], (err, orders) => {
-                if (err) {
-                    return res.status(500).json({ error: err.message });
+        rows.forEach(row => {
+            if (!usersWithOrders[row.user_id]) {
+                usersWithOrders[row.user_id] = {
+                    id: row.user_id,
+                    name: row.user_name,
+                    email: row.email,
+                    orders: []
+                };
+            }
+            
+            if (row.order_id) {
+                // Check if order already exists to avoid duplicates
+                let order = usersWithOrders[row.user_id].orders.find(o => o.id === row.order_id);
+                if (!order) {
+                    order = {
+                        id: row.order_id,
+                        order_date: row.order_date,
+                        total_amount: row.total_amount,
+                        items: []
+                    };
+                    usersWithOrders[row.user_id].orders.push(order);
                 }
                 
-                // For each order, get order items (another N+1 problem)
-                const ordersWithItems = [];
-                orders.forEach(order => {
-                    db.all('SELECT * FROM order_items WHERE order_id = ?', [order.id], (err, items) => {
-                        if (err) {
-                            return res.status(500).json({ error: err.message });
-                        }
-                        
-                        ordersWithItems.push({
-                            ...order,
-                            items: items
-                        });
-                        
-                        // This callback structure makes it complex
-                        if (ordersWithItems.length === orders.length) {
-                            usersWithOrders.push({
-                                ...user,
-                                orders: ordersWithItems
-                            });
-                            
-                            // Check if we've processed all users
-                            if (usersWithOrders.length === users.length) {
-                                res.json(usersWithOrders);
-                            }
+                if (row.item_id) {
+                    order.items.push({
+                        id: row.item_id,
+                        product_id: row.product_id,
+                        quantity: row.quantity,
+                        price: row.item_price,
+                        product: {
+                            id: row.product_id,
+                            name: row.product_name,
+                            price: row.product_price
                         }
                     });
-                });
-            });
+                }
+            }
         });
+        
+        // Convert object to array
+        const result = Object.values(usersWithOrders);
+        res.json(result);
     });
 });
 
-// N+1 Problem: Get all orders with product details (inefficient)
+// OPTIMIZED: Get all orders with product details (fixed N+1 problem)
 app.get('/api/orders-with-products', (req, res) => {
-    db.all('SELECT * FROM orders', (err, orders) => {
+    // Use JOIN to get orders with product details in a single query
+    const query = `
+        SELECT 
+            o.id as order_id, o.user_id, o.order_date, o.total_amount,
+            oi.id as item_id, oi.product_id, oi.quantity, oi.price as item_price,
+            u.name as user_name,
+            p.name as product_name, p.price as product_price
+        FROM orders o
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        LEFT JOIN users u ON o.user_id = u.id
+        LEFT JOIN products p ON oi.product_id = p.id
+        ORDER BY o.id, oi.id
+    `;
+    
+    db.all(query, [], (err, rows) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
         
-        const ordersWithProducts = [];
+        // Group results by order
+        const ordersWithProducts = {};
         
-        // This creates N+1 queries - one for orders, then one for each order's items
-        orders.forEach(order => {
-            db.all('SELECT * FROM order_items WHERE order_id = ?', [order.id], (err, items) => {
-                if (err) {
-                    return res.status(500).json({ error: err.message });
-                }
-                
-                // For each item, get product details (another N+1 problem)
-                const itemsWithProducts = [];
-                items.forEach(item => {
-                    db.get('SELECT * FROM products WHERE id = ?', [item.product_id], (err, product) => {
-                        if (err) {
-                            return res.status(500).json({ error: err.message });
-                        }
-                        
-                        itemsWithProducts.push({
-                            ...item,
-                            product: product
-                        });
-                        
-                        // Complex callback structure
-                        if (itemsWithProducts.length === items.length) {
-                            ordersWithProducts.push({
-                                ...order,
-                                items: itemsWithProducts
-                            });
-                            
-                            // Check if we've processed all orders
-                            if (ordersWithProducts.length === orders.length) {
-                                res.json(ordersWithProducts);
-                            }
-                        }
-                    });
+        rows.forEach(row => {
+            if (!ordersWithProducts[row.order_id]) {
+                ordersWithProducts[row.order_id] = {
+                    id: row.order_id,
+                    user_id: row.user_id,
+                    user_name: row.user_name,
+                    order_date: row.order_date,
+                    total_amount: row.total_amount,
+                    items: []
+                };
+            }
+            
+            if (row.item_id) {
+                ordersWithProducts[row.order_id].items.push({
+                    id: row.item_id,
+                    product_id: row.product_id,
+                    quantity: row.quantity,
+                    price: row.item_price,
+                    product: {
+                        id: row.product_id,
+                        name: row.product_name,
+                        price: row.product_price
+                    }
                 });
-            });
+            }
         });
+        
+        // Convert object to array
+        const result = Object.values(ordersWithProducts);
+        res.json(result);
     });
 });
 
-// Another N+1 Problem: Get user order statistics
+// OPTIMIZED: Get user order statistics (fixed N+1 problem)
 app.get('/api/user-stats', (req, res) => {
-    db.all('SELECT * FROM users', (err, users) => {
+    // Use JOIN and aggregation to get stats in a single query
+    const query = `
+        SELECT 
+            u.id, u.name, u.email,
+            COUNT(o.id) as total_orders,
+            COALESCE(SUM(o.total_amount), 0) as total_spent,
+            CASE 
+                WHEN COUNT(o.id) > 0 THEN COALESCE(SUM(o.total_amount), 0) / COUNT(o.id)
+                ELSE 0 
+            END as average_order_value
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        GROUP BY u.id, u.name, u.email
+        ORDER BY u.id
+    `;
+    
+    db.all(query, [], (err, rows) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
         
-        const userStats = [];
+        // Format the result as expected
+        const userStats = rows.map(row => ({
+            user: {
+                id: row.id,
+                name: row.name,
+                email: row.email
+            },
+            total_orders: row.total_orders,
+            total_spent: row.total_spent,
+            average_order_value: row.average_order_value
+        }));
         
-        // N+1: One query for users, then one for each user's orders
-        users.forEach(user => {
-            db.all('SELECT * FROM orders WHERE user_id = ?', [user.id], (err, orders) => {
-                if (err) {
-                    return res.status(500).json({ error: err.message });
-                }
-                
-                const totalOrders = orders.length;
-                const totalSpent = orders.reduce((sum, order) => sum + parseFloat(order.total_amount), 0);
-                
-                userStats.push({
-                    user: user,
-                    total_orders: totalOrders,
-                    total_spent: totalSpent,
-                    average_order_value: totalOrders > 0 ? totalSpent / totalOrders : 0
-                });
-                
-                // Check if we've processed all users
-                if (userStats.length === users.length) {
-                    res.json(userStats);
-                }
-            });
-        });
+        res.json(userStats);
     });
 });
 
-// Helper function to get user by ID (potential N+1 problem in other endpoints)
+// OPTIMIZED: Get user by ID with orders (fixed N+1 problem)
 app.get('/api/users/:id', (req, res) => {
     const userId = req.params.id;
     
-    db.get('SELECT * FROM users WHERE id = ?', [userId], (err, user) => {
+    // Use JOIN to get user with orders in a single query
+    const query = `
+        SELECT 
+            u.id, u.name, u.email,
+            o.id as order_id, o.order_date, o.total_amount,
+            oi.id as item_id, oi.product_id, oi.quantity, oi.price as item_price,
+            p.name as product_name, p.price as product_price
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        LEFT JOIN products p ON oi.product_id = p.id
+        WHERE u.id = ?
+        ORDER BY o.id, oi.id
+    `;
+    
+    db.all(query, [userId], (err, rows) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
         
-        if (!user) {
+        if (rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
         
-        // This creates N+1 if called multiple times
-        db.all('SELECT * FROM orders WHERE user_id = ?', [user.id], (err, orders) => {
-            if (err) {
-                return res.status(500).json({ error: err.message });
+        // Group results by user
+        const user = {
+            id: rows[0].id,
+            name: rows[0].name,
+            email: rows[0].email,
+            orders: []
+        };
+        
+        rows.forEach(row => {
+            if (row.order_id) {
+                // Check if order already exists to avoid duplicates
+                let order = user.orders.find(o => o.id === row.order_id);
+                if (!order) {
+                    order = {
+                        id: row.order_id,
+                        order_date: row.order_date,
+                        total_amount: row.total_amount,
+                        items: []
+                    };
+                    user.orders.push(order);
+                }
+                
+                if (row.item_id) {
+                    order.items.push({
+                        id: row.item_id,
+                        product_id: row.product_id,
+                        quantity: row.quantity,
+                        price: row.item_price,
+                        product: {
+                            id: row.product_id,
+                            name: row.product_name,
+                            price: row.product_price
+                        }
+                    });
+                }
+            }
+        });
+        
+        res.json(user);
+    });
+});
+
+// Performance test endpoint
+app.get('/api/performance-test', (req, res) => {
+    const startTime = Date.now();
+    
+    // Test the optimized users-with-orders endpoint
+    db.all(`
+        SELECT 
+            u.id as user_id, u.name as user_name, u.email,
+            o.id as order_id, o.order_date, o.total_amount,
+            oi.id as item_id, oi.product_id, oi.quantity, oi.price as item_price,
+            p.name as product_name, p.price as product_price
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        LEFT JOIN products p ON oi.product_id = p.id
+        ORDER BY u.id, o.id, oi.id
+    `, [], (err, rows) => {
+        const endTime = Date.now();
+        const executionTime = endTime - startTime;
+        
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        
+        const usersWithOrders = {};
+        rows.forEach(row => {
+            if (!usersWithOrders[row.user_id]) {
+                usersWithOrders[row.user_id] = {
+                    id: row.user_id,
+                    name: row.user_name,
+                    email: row.email,
+                    orders: []
+                };
             }
             
-            res.json({
-                ...user,
-                orders: orders
-            });
+            if (row.order_id) {
+                let order = usersWithOrders[row.user_id].orders.find(o => o.id === row.order_id);
+                if (!order) {
+                    order = {
+                        id: row.order_id,
+                        order_date: row.order_date,
+                        total_amount: row.total_amount,
+                        items: []
+                    };
+                    usersWithOrders[row.user_id].orders.push(order);
+                }
+                
+                if (row.item_id) {
+                    order.items.push({
+                        id: row.item_id,
+                        product_id: row.product_id,
+                        quantity: row.quantity,
+                        price: row.item_price,
+                        product: {
+                            id: row.product_id,
+                            name: row.product_name,
+                            price: row.product_price
+                        }
+                    });
+                }
+            }
         });
+        
+        res.json({
+            execution_time_ms: executionTime,
+            records_processed: rows.length,
+            users_returned: Object.keys(usersWithOrders).length
+        });
+    });
+});
+
+// New endpoint to show database indexes
+app.get('/api/indexes', (req, res) => {
+    const query = `
+        SELECT 
+            m.tbl_name as table_name,
+            i.name as index_name,
+            il.name as column_name
+        FROM sqlite_master m
+        JOIN sqlite_master i ON m.tbl_name = i.tbl_name
+        JOIN sqlite_master il ON i.name = il.name
+        WHERE i.type = 'index'
+        AND m.type = 'table'
+        ORDER BY m.tbl_name, i.name
+    `;
+    
+    db.all(query, [], (err, indexes) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(indexes);
     });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-    console.log(`N+1 performance issues available at:`);
+    console.log(`N+1 performance issues FIXED at:`);
     console.log(`- GET /api/users-with-orders`);
     console.log(`- GET /api/orders-with-products`);
     console.log(`- GET /api/user-stats`);
     console.log(`- GET /api/users/:id`);
+    console.log(`Performance test at: GET /api/performance-test`);
+    console.log(`Database indexes at: GET /api/indexes`);
 });
