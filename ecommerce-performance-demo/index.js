@@ -43,6 +43,7 @@ db.serialize(() => {
     
     // Add indexes for better performance
     db.run(`CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_orders_user_date ON orders(user_id, order_date)`);
     db.run(`CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id)`);
     db.run(`CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON order_items(product_id)`);
     
