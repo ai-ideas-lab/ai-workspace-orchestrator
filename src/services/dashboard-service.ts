@@ -55,6 +55,15 @@ export interface EngineStatusCard {
   lastActivityAt: Date | null;
 }
 
+export interface ExecutionStats {
+  total: number;
+  success: number;
+  failed: number;
+  successRate: number;
+  avgDurationMs: number;
+  p95DurationMs: number;
+}
+
 export interface DashboardSummary {
   /** 采集时间 */
   generatedAt: Date;
@@ -268,6 +277,27 @@ export class DashboardService {
       threshold,
       triggeredAt,
     };
+  }
+
+  /**
+   * 聚合工作流执行统计：成功率、平均耗时、P95 延迟。
+   * 从最近 N 条指标快照中汇总各引擎数据，生成前端图表所需的趋势摘要。
+   */
+  getExecutionStats(snapshots: MetricsSnapshot[]): ExecutionStats {
+    const durations: number[] = [];
+    let success = 0, failed = 0;
+    for (const snap of snapshots) {
+      for (const em of Object.values(snap.engines)) {
+        success += em.successCount;
+        failed += em.failureCount;
+        if (em.avgResponseTimeMs > 0) durations.push(em.avgResponseTimeMs);
+      }
+    }
+    durations.sort((a, b) => a - b);
+    const p95 = durations.length > 0 ? durations[Math.floor(durations.length * 0.95)] : 0;
+    const avg = durations.length > 0 ? durations.reduce((s, v) => s + v, 0) / durations.length : 0;
+    const total = success + failed;
+    return { total, success, failed, successRate: total > 0 ? success / total : 1, avgDurationMs: avg, p95DurationMs: p95 };
   }
 
   private buildEngineCards(snapshot: MetricsSnapshot): EngineStatusCard[] {
