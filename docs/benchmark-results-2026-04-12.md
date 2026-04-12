@@ -1,6 +1,6 @@
 # AI Workspace Orchestrator Performance Benchmark Report
 
-**Date:** 2026-04-12T14:25:23.103Z
+**Date:** 2026-04-12T16:58:14.040Z
 **Focus:** N+1 Query Issues and Performance Bottlenecks
 **Timeout Setting:** 3000ms
 
@@ -15,11 +15,11 @@
 
 | Endpoint | Performance | Avg Time | Success Rate | Timeouts | Issues |
 |----------|-------------|----------|-------------|----------|--------|
-| Users with Orders | Excellent | 7.90ms | 100.0% | 0/3 | N+1 queries |
+| Users with Orders | Excellent | 8.01ms | 100.0% | 0/3 | N+1 queries |
 | Orders with Products | Critical | 3000.00ms | 0.0% | 3/3 | Critical N+1 queries |
-| User Statistics | Excellent | 5.03ms | 100.0% | 0/3 | N+1 queries |
-| User 1 | Excellent | 2.91ms | 100.0% | 0/3 | None |
-| User 2 | Excellent | 2.45ms | 100.0% | 0/3 | None |
+| User Statistics | Excellent | 5.54ms | 100.0% | 0/3 | N+1 queries |
+| User 1 | Excellent | 2.99ms | 100.0% | 0/3 | None |
+| User 2 | Excellent | 2.46ms | 100.0% | 0/3 | None |
 | User 3 | Excellent | 2.25ms | 100.0% | 0/3 | None |
 
 ## N+1 Query Issues Deep Dive
@@ -116,7 +116,7 @@ WHERE o.id = ?;
 
 | Metric | Value | Status |
 |--------|-------|--------|
-| Average Response Time | 503.42ms | Fair |
+| Average Response Time | 503.54ms | Fair |
 | Overall Success Rate | 83.3% | Needs Improvement |
 | Timeout Rate | 16.7% | Fair |
 | Endpoints with Issues | 1/6 | Critical - System has broken endpoints |

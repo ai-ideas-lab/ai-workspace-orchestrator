@@ -263,6 +263,42 @@ export function setupWarningListener(): void {
 }
 
 /**
+ * 监听未处理的异步操作错误
+ */
+export function setupUnhandledAsyncErrorListener(): void {
+  // 监听未处理的Promise拒绝（备用）
+  process.on('unhandledRejection', (reason, promise) => {
+    const err = new Error(`Unhandled Promise Rejection: ${String(reason)}`);
+    (err as any).isUnhandledRejection = true;
+    (err as any).promise = promise;
+    
+    console.error('未处理的Promise拒绝:', {
+      reason,
+      promise,
+      stack: err.stack,
+      timestamp: new Date().toISOString(),
+    });
+
+    // 如果不是生产环境，可以重新抛出以显示完整的错误堆栈
+    if (process.env.NODE_ENV !== 'production') {
+      throw err;
+    }
+  });
+
+  // 监听async函数中的未捕获错误
+  process.on('uncaughtException', (error) => {
+    console.error('未捕获的异常:', {
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString(),
+    });
+
+    // 关闭服务器并退出进程
+    process.exit(1);
+  });
+}
+
+/**
  * 设置全局错误监控
  */
 export function setupGlobalErrorMonitoring(): void {
@@ -274,6 +310,9 @@ export function setupGlobalErrorMonitoring(): void {
   
   // 设置警告监听
   setupWarningListener();
+  
+  // 设置未处理的异步操作错误监听
+  setupUnhandledAsyncErrorListener();
 }
 
 // 自定义错误类，用于标记未处理的Promise拒绝
