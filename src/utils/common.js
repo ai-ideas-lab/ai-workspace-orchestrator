@@ -1,19 +1,60 @@
-const _ = require('lodash');
-const { formatDate, isValidEmail } = require('../../shared/src/utils');
-
-// Utility function to debounce a function
-function debounce(func, wait = 500) {
-  return _.debounce(func, wait);
+// Local implementations to avoid missing dependencies
+function formatDate(date) {
+  return date.toISOString().split('T')[0];
 }
 
-// Utility function to throttle a function
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+// Utility function to debounce a function (simplified version)
+function debounce(func, wait = 500) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+// Utility function to throttle a function (simplified version)
 function throttle(func, limit = 1000) {
-  return _.throttle(func, limit);
+  let inThrottle;
+  return function() {
+    const args = arguments;
+    const context = this;
+    if (!inThrottle) {
+      func.apply(context, args);
+      inThrottle = true;
+      setTimeout(() => inThrottle = false, limit);
+    }
+  };
+}
+
+// Utility function to generate a simple unique ID
+function generateSimpleId(length = 8) {
+  return Math.random().toString(36).substring(2, length + 2);
+}
+
+// Utility function to validate URL format
+function isValidUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 module.exports = {
   formatDate,
   debounce,
   throttle,
-  isValidEmail
+  isValidEmail,
+  generateSimpleId,
+  isValidUrl
 };

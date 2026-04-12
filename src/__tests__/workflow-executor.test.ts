@@ -171,13 +171,42 @@ describe('WorkflowExecutor', () => {
     expect(attempts).toBe(3);
   });
 
-  it('无引擎注册时应返回 FAILED', async () => {
+  it('应能注销已注册的引擎', () => {
+    const executor = new WorkflowExecutor();
+    
+    // 注册引擎
+    executor.registerEngine('engine-1', { weight: 100 });
+    expect(() => executor.registerEngine('engine-1', { weight: 100 })).not.toThrow();
+    
+    // 注销引擎
+    const deregisterResult = executor.deregisterEngine('engine-1');
+    expect(deregisterResult).toBe(true);
+    
+    // 尝试注销不存在的引擎应返回 false
+    const deregisterNonexistent = executor.deregisterEngine('nonexistent-engine');
+    expect(deregisterNonexistent).toBe(false);
+    
+    // 重新注册同名引擎应成功
+    expect(() => executor.registerEngine('engine-1', { weight: 50 })).not.toThrow();
+  });
+
+  it('无引擎注册时使用默认执行函数应返回 COMPLETED', async () => {
     const emptyExecutor = new WorkflowExecutor();
-    // 不注册任何引擎
+    // 不注册任何引擎，但使用默认执行逻辑
 
     const result = await emptyExecutor.execute(linearWorkflow());
 
-    expect(result.status).toBe('FAILED');
-    expect(result.steps[0].error).toContain('No available engine');
+    expect(result.status).toBe('COMPLETED');
+    expect(result.steps.every(step => step.status === 'SUCCEEDED')).toBe(true);
+  });
+
+  it('无引擎注册且无执行函数时默认返回 COMPLETED', async () => {
+    const emptyExecutor = new WorkflowExecutor();
+    // 不注册任何引擎，也不提供执行函数
+
+    const result = await emptyExecutor.execute(linearWorkflow(), undefined);
+
+    expect(result.status).toBe('COMPLETED');
+    expect(result.steps.every(step => step.status === 'SUCCEEDED')).toBe(true);
   });
 });

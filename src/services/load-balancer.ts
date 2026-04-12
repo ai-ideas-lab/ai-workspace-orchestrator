@@ -32,6 +32,11 @@ class LoadBalancer {
         effectiveWeight: weight,
         currentWeight: 0,
       });
+    } else {
+      // 更新已存在引擎的权重
+      const entry = this.engines.get(engineId)!;
+      entry.weight = weight;
+      entry.effectiveWeight = weight;
     }
   }
 

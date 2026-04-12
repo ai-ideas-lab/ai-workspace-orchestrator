@@ -8,6 +8,7 @@ export interface WorkflowConfig {
   steps?: unknown;
   timeout?: unknown;
   retryLimit?: unknown;
+  environment?: unknown;
 }
 
 /**
@@ -38,5 +39,7 @@ export function validateConfig(cfg: WorkflowConfig): string[] {
     errors.push('timeout must be a positive number');
   if (cfg.retryLimit !== undefined && (typeof cfg.retryLimit !== 'number' || cfg.retryLimit < 0 || cfg.retryLimit > 10))
     errors.push('retryLimit must be between 0 and 10');
+  if (cfg.environment !== undefined && typeof cfg.environment !== 'string')
+    errors.push('environment must be a string');
   return errors;
 }

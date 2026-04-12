@@ -4,6 +4,7 @@
  */
 export function validateEnvironmentVariables(): string[] {
   const requiredVars = ["NODE_ENV", "PORT", "JWT_SECRET"];
+  const requiredVars = ['NODE_ENV', 'PORT', 'JWT_SECRET'];
   const errors: string[] = [];
   
   for (const varName of requiredVars) {
@@ -13,4 +14,5 @@ export function validateEnvironmentVariables(): string[] {
   }
   
   return errors;
+}
 }
