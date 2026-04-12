@@ -56,4 +56,16 @@ function aiWorkflowProcessor(commands, context = {}) {
     })).sort((a, b) => a.priority - b.priority);
 }
 
-module.exports = { aiWorkflowProcessor, extractIntent, calculatePriority };
+/**
+ * Validate workflow command structure
+ * @param {Object} command - Command to validate
+ * @returns {boolean} Validation result
+ */
+function validateCommand(command) {
+    return command && 
+           typeof command.text === 'string' && 
+           command.text.length > 0 &&
+           ['admin', 'user'].includes(command.role || 'user');
+}
+
+module.exports = { aiWorkflowProcessor, extractIntent, calculatePriority, validateCommand };
