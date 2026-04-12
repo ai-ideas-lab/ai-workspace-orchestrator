@@ -1,16 +1,9 @@
 const _ = require('lodash');
-const moment = require('moment');
 
-// Utility function to format a date
-function formatDate(date, format = 'YYYY-MM-DD') {
-  return moment(date).format(format);
-}
+// Import shared utilities
+const { formatDate, isValidEmail } = require('../shared/src/utils');
 
-// Function to validate an email
-function isValidEmail(email) {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-}
+// Additional utility functions specific to demo project
 
 // Function to generate a unique ID
 function generateUniqueId(prefix = 'id') {
