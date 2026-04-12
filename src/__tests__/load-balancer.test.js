@@ -112,7 +112,7 @@ describe('LoadBalancer', () => {
       const firstEntry = weightInfo.find(e => e.engineId === firstSelection);
       const otherEntry = weightInfo.find(e => e.engineId !== firstSelection);
       
-      expect(firstEntry.currentWeight).toBe(-200); // selected: weight - totalEffective
+      expect(firstEntry.currentWeight).toBe(-100); // selected: effectiveWeight - totalWeight
       expect(otherEntry.currentWeight).toBe(100);   // not selected: currentWeight remains
     });
 

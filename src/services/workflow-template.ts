@@ -181,9 +181,10 @@ export class WorkflowTemplateService {
     }
 
     // 渲染步骤 payload
+    const instanceId = randomUUID(); // 为每个实例生成唯一ID
     const renderedSteps: WorkflowStep[] = template.steps.map((step) => ({
       ...step,
-      id: `${step.id}_${Date.now()}`,
+      id: `${step.id}_${instanceId.slice(0, 8)}`, // 使用UUID前8位确保唯一性
       payload: this.renderPayload(step.payload, resolvedVars),
     }));
 

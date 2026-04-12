@@ -144,33 +144,73 @@ function generateSimpleId(length = 8) {
   return Math.random().toString(36).substring(2, length + 2);
 }
 
+function isValidUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 /**
- * 验证URL格式
+ * 验证字符串是否为空或只包含空白字符
  * 
- * 检查输入字符串是否为有效的HTTP或HTTPS URL格式。
- * 使用URL构造函数进行验证，确保字符串符合URL标准。
+ * 检查输入字符串是否为null、undefined或只包含空格、制表符、换行符等空白字符。
+ * 常用于表单验证和数据处理前的输入检查。
  * 
- * @param url 待验证的URL字符串
- * @returns 如果是有效的HTTP/HTTPS URL返回true，否则返回false
+ * @param str 待验证的字符串
+ * @returns 如果为空或只包含空白字符返回true，否则返回false
  * @example
- * // 验证有效URL
- * console.log(isValidUrl('https://www.example.com')); // true
- * console.log(isValidUrl('http://localhost:3000')); // true
- * console.log(isValidUrl('https://api.example.com/v1/users')); // true
+ * // 验证空字符串
+ * console.log(isEmpty('')); // true
+ * console.log(isEmpty('   ')); // true
+ * console.log(isEmpty('\n\t ')); // true
  * 
- * // 验证无效URL
- * console.log(isValidUrl('ftp://example.com')); // false (仅支持HTTP/HTTPS)
- * console.log(isValidUrl('not-a-url')); // false
- * console.log(isValidUrl('')); // false
- * console.log(isValidUrl('https://')); // false (需要域名)
+ * // 验证非空字符串
+ * console.log(isEmpty('hello')); // false
+ * console.log(isEmpty('  hello  ')); // false
  * 
  * // 使用场景：表单验证
- * function validateUrlField(url) {
- *   if (!isValidUrl(url)) {
- *     throw new Error('请输入有效的网址');
+ * function validateRequiredField(value) {
+ *   if (isEmpty(value)) {
+ *     throw new Error('此字段不能为空');
  *   }
  * }
  */
+
+function isEmpty(str) {
+  return str == null || str.trim().length === 0;
+}
+
+/**
+ * 验证中国手机号码格式
+ * 
+ * 验证输入字符串是否符合中国大陆手机号码的格式规范。
+ * 支持常见的11位手机号码格式，以1开头，第二位为3-9。
+ * 
+ * @param phone 待验证的手机号码字符串
+ * @returns 如果格式正确返回 true，否则返回 false
+ * @example
+ * // 验证有效手机号
+ * console.log(isValidChinesePhone('13812345678')); // true
+ * console.log(isValidChinesePhone('15987654321')); // true
+ * console.log(isValidChinesePhone('18611112222')); // true
+ * 
+ * // 验证无效手机号
+ * console.log(isValidChinesePhone('12345678901')); // false (第二位不是3-9)
+ * console.log(isValidChinesePhone('1381234567'));  // false (位数不对)
+ * console.log(isValidChinesePhone('abc1234567'));  // false (包含非数字)
+ * console.log(isValidChinesePhone('138123456789')); // false (位数过多)
+ */
+function isValidChinesePhone(phone) {
+  if (typeof phone !== 'string') return false;
+  if (phone.length !== 11) return false;
+  if (!/^\d+$/.test(phone)) return false;
+  if (phone[0] !== '1') return false;
+  if (!/^[3-9]$/.test(phone[1])) return false;
+  return true;
+}
 
 module.exports = {
   formatDate,
@@ -178,5 +218,7 @@ module.exports = {
   throttle,
   isValidEmail,
   generateSimpleId,
-  isValidUrl
+  isValidUrl,
+  isEmpty,
+  isValidChinesePhone
 };
