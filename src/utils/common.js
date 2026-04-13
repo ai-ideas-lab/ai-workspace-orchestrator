@@ -91,9 +91,9 @@ function debounce(func, wait = 500) {
  * 创建一个新函数，该函数在指定的时间间隔内最多执行一次。
  * 防止函数被频繁调用，常用于滚动事件、鼠标移动等高频触发场景。
  * 
- * @param func 要节流的原始函数
- * * @param limit 时间间隔（毫秒），默认 1000ms
- * @returns 节流后的函数
+ * @param {Function} func 要节流的原始函数
+ * @param {number} limit 时间间隔（毫秒），默认 1000ms
+ * @returns {Function} 节流后的函数
  * @example
  * // 使用节流处理滚动事件
  * const handleScroll = throttle(() => {
@@ -110,6 +110,13 @@ function debounce(func, wait = 500) {
  * document.addEventListener('mousemove', handleMouseMove);
  */
 function throttle(func, limit = 1000) {
+  if (typeof func !== 'function') {
+    throw new TypeError('第一个参数必须是函数');
+  }
+  if (typeof limit !== 'number' || limit <= 0) {
+    throw new TypeError('第二个参数必须是正数');
+  }
+  
   let inThrottle;
   return function() {
     const args = arguments;
@@ -117,7 +124,9 @@ function throttle(func, limit = 1000) {
     if (!inThrottle) {
       func.apply(context, args);
       inThrottle = true;
-      setTimeout(() => inThrottle = false, limit);
+      setTimeout(() => {
+        inThrottle = false;
+      }, limit);
     }
   };
 }

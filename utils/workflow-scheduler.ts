@@ -52,6 +52,8 @@ export async function scheduleWorkflowAgent(
   agentId: string,
   priority: 'high' | 'medium' | 'low'
 ): Promise<WorkflowResult> {
+  validateWorkflowId(workflowId);
+  
   const workflow = await db.workflow.findUnique({ 
     where: { id: workflowId } 
   });
@@ -62,4 +64,27 @@ export async function scheduleWorkflowAgent(
   if (!agent) throw new Error('Agent not available');
   
   return executeWorkflow(workflow, agent);
+}
+
+/**
+ * 验证工作流ID格式
+ * 检查工作流ID是否符合规范的格式要求
+ * @param workflowId - 要验证的工作流ID
+ * @returns 返回验证结果，true表示格式正确
+ * @throws Error - 当工作流ID格式无效时抛出异常
+ */
+export function validateWorkflowId(workflowId: string): boolean {
+  if (!workflowId || typeof workflowId !== 'string') {
+    throw new Error('Workflow ID is required and must be a string');
+  }
+  
+  if (workflowId.length < 3 || workflowId.length > 50) {
+    throw new Error('Workflow ID must be between 3 and 50 characters');
+  }
+  
+  if (!/^[a-zA-Z0-9_-]+$/.test(workflowId)) {
+    throw new Error('Workflow ID can only contain alphanumeric characters, hyphens, and underscores');
+  }
+  
+  return true;
 }

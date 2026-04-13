@@ -2,8 +2,8 @@
  * WorkflowVersionService 单元测试
  */
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { WorkflowVersionService } from '../services/workflow-version'.ts';
-import type { WorkflowDefinition, WorkflowStep } from '../services/workflow-executor'.ts';
+import { WorkflowVersionService } from '../services/workflow-version'';
+import type { WorkflowDefinition, WorkflowStep } from '../services/workflow-executor'';
 
 // ── 测试辅助 ──────────────────────────────────────
 
