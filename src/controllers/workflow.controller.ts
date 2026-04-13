@@ -13,6 +13,7 @@ import {
   errorResponse,
   validationErrorResponse,
 } from '../utils/responseUtils.js';
+import { AsyncErrorHandler, AsyncOperationContext } from '../utils/async-error-handler.ts';
 
 /**
  * WorkflowController - 工作流管理控制器
@@ -30,6 +31,21 @@ export class WorkflowController {
    * 获取工作流列表
    */
   async getWorkflows(req: Request, res: Response): Promise<void> {
+    const asyncContext: AsyncOperationContext = {
+      operation: 'get_workflows',
+      userId: req.user?.id,
+      sessionId: req.session?.id,
+      correlationId: req.requestId,
+      metadata: {
+        page: req.query.page,
+        limit: req.query.limit,
+        status: req.query.status,
+        search: req.query.search,
+      }
+    };
+
+    const asyncHandler = AsyncErrorHandler.getInstance();
+
     try {
       const { 
         page = 1, 
@@ -39,13 +55,17 @@ export class WorkflowController {
         search 
       } = req.query;
 
-      const result = await this.workflowService.getWorkflows({
-        page: Number(page),
-        limit: Number(limit),
-        status: status as string,
-        userId: userId as string,
-        search: search as string,
-      });
+      const result = await asyncHandler.executeWithRetry(
+        () => this.workflowService.getWorkflows({
+          page: Number(page),
+          limit: Number(limit),
+          status: status as string,
+          userId: userId as string,
+          search: search as string,
+        }),
+        asyncContext,
+        { maxRetries: 2, baseDelayMs: 500 }
+      );
 
       successResponse(res, result.data, '获取工作流列表成功', 200, {
         pagination: result.pagination,
@@ -196,6 +216,20 @@ export class WorkflowController {
    * 执行工作流
    */
   async executeWorkflow(req: Request, res: Response): Promise<void> {
+    const asyncContext: AsyncOperationContext = {
+      operation: 'execute_workflow',
+      userId: req.user?.id,
+      sessionId: req.session?.id,
+      correlationId: req.requestId,
+      metadata: {
+        workflowId: req.params.id,
+        inputVariables: req.body.inputVariables,
+        priority: req.body.priority,
+      }
+    };
+
+    const asyncHandler = AsyncErrorHandler.getInstance();
+
     try {
       const { id } = req.params;
       const { inputVariables, priority } = req.body;
@@ -205,10 +239,15 @@ export class WorkflowController {
         return;
       }
 
-      const execution = await this.workflowService.executeWorkflow(id, {
-        inputVariables: inputVariables || {},
-        priority,
-      });
+      // 使用超时保护的工作流执行
+      const execution = await asyncHandler.executeWithTimeout(
+        () => this.workflowService.executeWorkflow(id, {
+          inputVariables: inputVariables || {},
+          priority,
+        }),
+        30000, // 30秒超时
+        asyncContext
+      );
 
       logger.info(`工作流执行启动: ${id} -> ${execution.id}`);
 
