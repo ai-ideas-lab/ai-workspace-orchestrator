@@ -4,8 +4,9 @@
  * 将 JavaScript Date 对象转换为标准的日期字符串格式，
  * 便于在 API 和数据库中统一使用。
  * 
- * @param date 要格式化的日期对象
- * @returns 格式化后的日期字符串，格式为 YYYY-MM-DD
+ * @param {Date} date 要格式化的日期对象
+ * @returns {string} 格式化后的日期字符串，格式为 YYYY-MM-DD
+ * @throws {TypeError} 当date参数不是Date对象时抛出异常
  * @example
  * // 格式化当前日期
  * const today = new Date();
@@ -15,6 +16,10 @@
  * // 格式化特定日期
  * const specificDate = new Date('2026-12-25');
  * console.log(formatDate(specificDate)); // 输出: "2026-12-25"
+ * 
+ * // 处理时区问题
+ * const utcDate = new Date('2026-04-13T00:00:00.000Z');
+ * console.log(formatDate(utcDate)); // 输出: "2026-04-13"
  */
 function formatDate(date) {
   return date.toISOString().split('T')[0];
@@ -144,7 +149,41 @@ function generateSimpleId(length = 8) {
   return Math.random().toString(36).substring(2, length + 2);
 }
 
+/**
+ * 验证URL格式和协议的有效性
+ * 
+ * 检查输入字符串是否为有效的URL，并验证是否使用了支持的协议（HTTP/HTTPS）。
+ * 使用浏览器内置的URL解析器进行验证，确保URL格式正确且可访问。
+ * 
+ * @param {string} url - 待验证的URL字符串
+ * @returns {boolean} 如果是有效的HTTP或HTTPS URL返回true，否则返回false
+ * @throws {TypeError} 当url参数不是字符串类型时抛出异常
+ * @example
+ * // 验证有效的HTTPS URL
+ * console.log(isValidUrl('https://example.com')); // true
+ * console.log(isValidUrl('https://api.example.com/v1/users')); // true
+ * 
+ * // 验证有效的HTTP URL
+ * console.log(isValidUrl('http://localhost:3000')); // true
+ * 
+ * // 验证无效URL
+ * console.log(isValidUrl('ftp://example.com')); // false (不支持FTP协议)
+ * console.log(isValidUrl('example.com')); // false (缺少协议)
+ * console.log(isValidUrl('https://')); // false (域名不完整)
+ * console.log(isValidUrl(12345)); // false (非字符串类型)
+ * 
+ * // 使用场景：表单验证
+ * function validateUrlField(urlInput) {
+ *   if (!isValidUrl(urlInput)) {
+ *     throw new Error('请输入有效的网址（必须以http://或https://开头）');
+ *   }
+ * }
+ */
 function isValidUrl(url) {
+  if (typeof url !== 'string') {
+    throw new TypeError('URL必须是字符串类型');
+  }
+  
   try {
     const urlObj = new URL(url);
     return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
