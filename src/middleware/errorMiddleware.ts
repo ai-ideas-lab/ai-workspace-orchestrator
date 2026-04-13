@@ -5,8 +5,8 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { AppError, isAppError, isErrorOperational, getStatusCode, getUserMessage } from './errors.js';
-import { errorResponse, createRequestIdMiddleware } from './responseUtils.js';
+import { AppError, isAppError, isErrorOperational, getStatusCode, getUserMessage } from '../utils/errors.js';
+import { errorResponse, createRequestIdMiddleware } from '../utils/responseUtils.js';
 
 // 请求ID生成器
 export const requestIdMiddleware = createRequestIdMiddleware();
