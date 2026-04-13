@@ -54,5 +54,4 @@ function validateStringLength(str, minLength = 0, maxLength = Infinity) {
   return createValidationResult(true, '');
 }
 
-<<<<<<< HEAD
 module.exports = { validateStringLength };
