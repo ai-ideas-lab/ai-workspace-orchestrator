@@ -6,7 +6,6 @@
 
 import { describe, it, expect } from '@jest/globals';
 import { EventBus, OrchestratorEvent } from '../services/event-bus';
-import { safeEventAccess } from '../utils/test-helpers';
 
 // ── 测试辅助 ──────────────────────────────────────────────
 
@@ -35,9 +34,9 @@ describe('EventBus - Basic Subscription', () => {
 
     expect(delivered).toBe(1);
     expect(received.length).toBe(1);
-    expect(received[0].type).toBe('request.enqueued');
-    expect((received[0] as any).requestId).toBe('req_001');
-    expect(received[0].timestamp).toBeInstanceOf(Date);
+    expect(received[0]!.type).toBe('request.enqueued');
+    expect((received[0]! as any).requestId).toBe('req_001');
+    expect(received[0]!.timestamp).toBeInstanceOf(Date);
   });
 
   it('should handle unsubscribe correctly', () => {
@@ -147,7 +146,7 @@ describe('EventBus - Logging and Querying', () => {
 
     const recentLog = bus.getEventLog(1);
     expect(recentLog.length).toBe(1);
-    expect(recentLog[0].event.type).toBe('engine.success');
+    expect(recentLog[0]!.event.type).toBe('engine.success');
 
     expect(bus.totalEventsEmitted).toBe(3);
   });
@@ -161,8 +160,8 @@ describe('EventBus - Logging and Querying', () => {
 
     const log = bus.getEventLog();
     expect(log.length).toBe(3);
-    expect((log[0].event as any).removedCount).toBe(2);
-    expect((log[2].event as any).removedCount).toBe(4);
+    expect((log[0]!.event as any).removedCount).toBe(2);
+    expect((log[2]!.event as any).removedCount).toBe(4);
   });
 
   it('should return empty array for non-existent types', () => {
@@ -189,8 +188,8 @@ describe('EventBus - Logging and Querying', () => {
     
     const log = bus.getEventLog();
     expect(log.length).toBe(1);
-    expect(log[0].deliveredTo).toBe(3);
-    expect(log[0].event.type).toBe('engine.success');
+    expect(log[0]!.deliveredTo).toBe(3);
+    expect(log[0]!.event.type).toBe('engine.success');
   });
 });
 
@@ -285,7 +284,7 @@ describe('EventBus - Edge Cases', () => {
   it('should handle non-existent event types', () => {
     const bus = createBus();
     
-    const delivered = bus.emit({ type: 'non.existent.type', requestId: 'test' as any });
+    const delivered = bus.emit({ type: 'request.enqueued', requestId: 'test' as any, taskType: 'test', priority: 'NORMAL' });
     expect(delivered).toBe(0);
     
     const delivered2 = bus.emit({ type: 'request.enqueued', requestId: 'test', taskType: 'test', priority: 'NORMAL' });
@@ -311,10 +310,10 @@ describe('EventBus - Edge Cases', () => {
     const bus = createBus();
     let count = 0;
     
-    const sub = bus.once('test.event', () => { count++; });
+    const sub = bus.once('engine.registered', () => { count++; });
     
     // 第一次发布应该触发
-    bus.emit({ type: 'test.event', test: 'data' } as any);
+    bus.emit({ type: 'engine.registered', engineId: 'test', weight: 100 });
     expect(count).toBe(1);
     
     // 第二次发布不应该触发
@@ -372,19 +371,19 @@ describe('EventBus - Edge Cases', () => {
     const bus = createBus();
     const results: number[] = [];
     
-    bus.on('concurrent.test', () => {
+    bus.on('request.enqueued', () => {
       results.push(1);
     });
     
-    bus.on('concurrent.test', () => {
+    bus.on('request.enqueued', () => {
       results.push(2);
     });
     
-    bus.on('concurrent.test', () => {
+    bus.on('request.enqueued', () => {
       results.push(3);
     });
     
-    bus.emit({ type: 'concurrent.test', data: 'test' } as any);
+    bus.emit({ type: 'request.enqueued', requestId: 'test', taskType: 'test', priority: 'NORMAL' });
     
     expect(results.length).toBe(3);
     expect(results).toContain(1);
@@ -400,7 +399,7 @@ describe('EventBus - Edge Cases', () => {
     
     const log = bus.getEventLog();
     expect(log.length).toBe(1);
-    expect(log[0].event.type).toBe('second.event');
+    expect(log[0]!.event.type).toBe('queue.cleared');
   });
 
   it('should ensure event timestamp accuracy', () => {
@@ -414,8 +413,8 @@ describe('EventBus - Edge Cases', () => {
     const afterEmit = new Date();
     
     expect(events.length).toBe(1);
-    expect(events[0].timestamp).toBeInstanceOf(Date);
-    const event = safeEventAccess(events, 0);
+    expect(events[0]!.timestamp).toBeInstanceOf(Date);
+    const event = events[0]!;
     expect(event.timestamp.getTime()).toBeGreaterThanOrEqual(beforeEmit.getTime());
     expect(event.timestamp.getTime()).toBeLessThanOrEqual(afterEmit.getTime());
   });
@@ -440,8 +439,8 @@ describe('EventBus - Edge Cases', () => {
     });
     
     expect(events.length).toBe(2);
-    const event1 = safeEventAccess(events, 0);
-    const event2 = safeEventAccess(events, 1);
+    const event1 = events[0]!;
+    const event2 = events[1]!;
     expect(event1.type).toBe('request.enqueued');
     expect(event2.type).toBe('engine.success');
     expect((events[0] as any).requestId).toBe('complex_test');

@@ -84,7 +84,8 @@ export class CircuitBreaker {
     }
 
     if (circuit.state === CircuitState.HALF_OPEN) {
-      return circuit.halfOpenAttempts < this.halfOpenMaxAttempts;
+      circuit.halfOpenAttempts++;
+      return circuit.halfOpenAttempts <= this.halfOpenMaxAttempts;
     }
 
     // OPEN → 检查是否该进入 HALF_OPEN
@@ -140,6 +141,16 @@ export class CircuitBreaker {
   /** 报告执行失败 */
   recordFailure(engineId: string): void {
     const circuit = this.getOrCreate(engineId);
+
+    if (circuit.state === CircuitState.HALF_OPEN) {
+      // HALF_OPEN 状态下失败，直接进入 OPEN
+      circuit.state = CircuitState.OPEN;
+      circuit.openedAt = Date.now();
+      circuit.failureCount = 1; // 重置为1，避免计数器异常
+      circuit.halfOpenAttempts = 0;
+      return;
+    }
+
     circuit.failureCount++;
     circuit.successCount = 0;
 
