@@ -1,0 +1,92 @@
+{
+  "audit_time": "2026-04-13 18:02:00",
+  "audit_id": "aea3e796-7e0b-420c-913c-1053cb1bd211",
+  "auditor": "孔明",
+  "results": {
+    "network_connectivity": {
+      "github_http": "failed (timeout)",
+      "github_dns": "working",
+      "status": "partial",
+      "note": "DNS正常，HTTP连接超时"
+    },
+    "cron_health": {
+      "total_jobs": 44,
+      "error_jobs": 7,
+      "consecutive_errors": {
+        "timeout": 6,
+        "rate_limit": 1
+      },
+      "fixed_jobs": [
+        {
+          "id": "a351e53f-133c-4618-ab7d-6afbf0948fbc",
+          "name": "🧪 自动化测试增强 每3小时",
+          "issue": "timeout",
+          "fix": "timeout从300s减少到90s"
+        }
+      ]
+    },
+    "git_workspace": {
+      "main_workspace": "clean",
+      "project_issues": [
+        {
+          "project": "ai-appointment-manager",
+          "issue": "未提交更改",
+          "status": "pending"
+        }
+      ]
+    },
+    "disk_space": {
+      "usage": "31%",
+      "status": "normal",
+      "threshold": "85%"
+    },
+    "process_monitoring": {
+      "cpu_usage": "normal",
+      "highest_cpu": "openclaw-gateway (9.2%)",
+      "abnormal_processes": "none"
+    },
+    "project_health": {
+      "checked_project": "ai-appointment-manager",
+      "git_status": "未提交更改",
+      "security_vulnerabilities": 2,
+      "issues": [
+        "lodash高危漏洞",
+        "nodemailer高危漏洞"
+      ]
+    }
+  },
+  "fixes_applied": [
+    {
+      "job_id": "a351e53f-133c-4618-ab7d-6afbf0948fbc",
+      "action": "reduce_timeout",
+      "old_value": "300s",
+      "new_value": "90s"
+    }
+  ],
+  "issues_requiring_attention": [
+    {
+      "type": "network",
+      "severity": "medium",
+      "description": "GitHub HTTP连接超时",
+      "recommendation": "稍后重试或检查网络连接"
+    },
+    {
+      "type": "security",
+      "severity": "high", 
+      "description": "ai-appointment-manager存在2个高危漏洞",
+      "recommendation": "运行 npm audit fix --force"
+    },
+    {
+      "type": "git",
+      "severity": "low",
+      "description": "ai-appointment-manager有未提交更改",
+      "recommendation": "提交更改或丢弃修改"
+    }
+  ],
+  "summary": {
+    "normal_items": 3,
+    "fixed_items": 1,
+    "attention_items": 3,
+    "health_score": 7
+  }
+}
