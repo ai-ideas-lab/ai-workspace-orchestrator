@@ -14,7 +14,7 @@ import {
   WorkflowExecutor,
   WorkflowDefinition,
   WorkflowResult,
-} from '../services/workflow-executor'.ts';
+} from '../services/workflow-executor';
 
 // ── 辅助：创建线性工作流 ─────────────────────────────────
 
