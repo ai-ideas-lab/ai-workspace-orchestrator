@@ -2,2596 +2,1464 @@
 
 ## 概述
 
-AI Workspace Orchestrator 是一个企业级AI工作流自动化平台，通过自然语言界面智能调度多个AI引擎。本文档提供了基于实际代码实现的完整API接口说明，涵盖工作流管理、用户管理、AI引擎调度、执行监控、数据分析等核心功能。
+本文档详细描述了 AI Workspace Orchestrator 的所有 API 接口，包括工作流管理、执行、导入导出等功能。
 
-## API 基础信息
+## 基础信息
 
-- **基础URL**: `/api`
+- **基础URL**: `http://localhost:3000/api`
 - **内容类型**: `application/json`
 - **认证方式**: JWT Bearer Token
-- **响应格式**: JSON
 
----
+## 通用响应格式
 
-## 1. 健康检查 API
+### 成功响应
 
-### 1.1 系统健康状态
-
-**GET** `/api/health`
-
-检查系统整体运行状态，包括数据库连接和服务可用性。
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/health"
-```
-
-**响应示例**:
 ```json
 {
   "success": true,
-  "data": {
-    "status": "healthy",
-    "timestamp": "2026-04-13T04:10:00Z",
-    "version": "1.0.0",
-    "uptime": 86400,
-    "database": {
-      "status": "connected",
-      "latencyMs": 15
-    },
-    "memory": {
-      "used": "512MB",
-      "total": "2048MB",
-      "percentage": 25
-    },
-    "engines": [
-      {
-        "name": "text-generation",
-        "status": "healthy",
-        "latencyMs": 800
-      }
-    ]
-  },
-  "message": "系统运行正常"
+  "message": "操作成功",
+  "data": {},
+  "timestamp": "2026-04-13T08:10:00Z",
+  "requestId": "req-123456789"
 }
 ```
 
-**错误码**:
-- 500: 服务器内部错误
+### 错误响应
 
----
-
-## 2. 用户管理 API
-
-### 2.1 获取用户列表
-
-**GET** `/api/users`
-
-获取所有用户列表，支持分页。
-
-**查询参数**:
-- 无特定参数，返回所有用户
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/users" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```json
+{
+  "success": false,
+  "message": "错误描述",
+  "error": {
+    "code": "ERROR_CODE",
+    "details": "详细错误信息"
+  },
+  "timestamp": "2026-04-13T08:10:00Z",
+  "requestId": "req-123456789"
+}
 ```
 
-**响应示例**:
+## API 接口详情
+
+### 1. 健康检查
+
+**GET** `/health`
+
+检查服务运行状态。
+
+#### 请求参数
+
+无
+
+#### 响应示例
+
 ```json
 {
   "success": true,
+  "message": "服务运行正常",
+  "requestId": "req-123456789",
+  "timestamp": "2026-04-13T08:10:00Z",
+  "uptime": 1234.56
+}
+```
+
+#### 错误码
+
+- `500`: 服务内部错误
+
+---
+
+### 2. 获取工作流列表
+
+**GET** `/workflows`
+
+获取所有工作流列表，支持分页和筛选。
+
+#### 请求参数
+
+| 参数名 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| page | number | 否 | 页码，默认为1 |
+| limit | number | 否 | 每页数量，默认为10 |
+| status | string | 否 | 工作流状态筛选 |
+| userId | string | 否 | 用户ID筛选 |
+| search | string | 否 | 搜索关键词 |
+
+#### 请求示例
+
+```bash
+curl -X GET "http://localhost:3000/api/workflows?page=1&limit=10&status=ACTIVE" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+#### 响应示例
+
+```json
+{
+  "success": true,
+  "message": "获取工作流列表成功",
   "data": [
     {
-      "id": "usr_xxx",
-      "name": "张三",
-      "email": "zhangsan@example.com",
-      "role": "USER",
-      "createdAt": "2026-04-13T01:10:00Z",
-      "updatedAt": "2026-04-13T01:15:00Z"
-    }
-  ],
-  "message": "获取用户列表成功"
-}
-```
-
-**错误码**:
-- 401: 未授权
-- 500: 服务器内部错误
-
-### 2.2 获取用户详情
-
-**GET** `/api/users/{id}`
-
-获取指定用户的详细信息，包括其关联的工作流和执行记录。
-
-**路径参数**:
-- `id`: 用户ID
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/users/usr_xxx" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": "usr_xxx",
-    "name": "张三",
-    "email": "zhangsan@example.com",
-    "role": "USER",
-    "createdAt": "2026-04-13T01:10:00Z",
-    "updatedAt": "2026-04-13T01:15:00Z",
-    "workflows": [
-      {
-        "id": "wf_xxx",
-        "name": "AI内容生成流水线",
-        "status": "ACTIVE",
-        "createdAt": "2026-04-13T01:20:00Z"
-      }
-    ],
-    "executions": [
-      {
-        "id": "ex_xxx",
-        "status": "SUCCESS",
-        "createdAt": "2026-04-13T01:25:00Z"
-      }
-    ]
-  },
-  "message": "获取用户详情成功"
-}
-```
-
-**错误码**:
-- 401: 未授权
-- 404: 用户不存在
-- 500: 服务器内部错误
-
-### 2.3 创建用户
-
-**POST** `/api/users`
-
-创建新用户账户。
-
-**请求参数**:
-```json
-{
-  "name": "string",
-  "email": "string",
-  "role": "USER|ADMIN"
-}
-```
-
-**请求示例**:
-```bash
-curl -X POST "http://localhost:3000/api/users" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
-  -d '{
-    "name": "李四",
-    "email": "lisi@example.com",
-    "role": "USER"
-  }'
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": "usr_yyy",
-    "name": "李四",
-    "email": "lisi@example.com",
-    "role": "USER",
-    "createdAt": "2026-04-13T02:00:00Z",
-    "updatedAt": "2026-04-13T02:00:00Z"
-  },
-  "message": "用户创建成功"
-}
-```
-
-**错误码**:
-- 400: 邮箱格式错误
-- 401: 未授权
-- 409: 邮箱已存在
-- 500: 服务器内部错误
-
-### 2.4 更新用户
-
-**PUT** `/api/users/{id}`
-
-更新现有用户信息。
-
-**路径参数**:
-- `id`: 用户ID
-
-**请求参数**:
-```json
-{
-  "name": "string",
-  "email": "string",
-  "role": "USER|ADMIN"
-}
-```
-
-**请求示例**:
-```bash
-curl -X PUT "http://localhost:3000/api/users/usr_xxx" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
-  -d '{
-    "name": "张三更新",
-    "email": "zhangsan.updated@example.com"
-  }'
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": "usr_xxx",
-    "name": "张三更新",
-    "email": "zhangsan.updated@example.com",
-    "role": "USER",
-    "updatedAt": "2026-04-13T02:10:00Z"
-  },
-  "message": "用户更新成功"
-}
-```
-
-**错误码**:
-- 400: 邮箱格式错误
-- 401: 未授权
-- 404: 用户不存在
-- 409: 邮箱已被其他用户使用
-- 500: 服务器内部错误
-
-### 2.5 删除用户
-
-**DELETE** `/api/users/{id}`
-
-删除指定用户。
-
-**路径参数**:
-- `id`: 用户ID
-
-**请求示例**:
-```bash
-curl -X DELETE "http://localhost:3000/api/users/usr_xxx" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": null,
-  "message": "用户删除成功"
-}
-```
-
-**错误码**:
-- 401: 未授权
-- 404: 用户不存在
-- 500: 服务器内部错误
-
-### 2.6 获取用户统计
-
-**GET** `/api/users/{id}/stats`
-
-获取指定用户的统计信息。
-
-**路径参数**:
-- `id`: 用户ID
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/users/usr_xxx/stats" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "totalWorkflows": 5,
-    "totalExecutions": 25,
-    "successfulExecutions": 23,
-    "failedExecutions": 2,
-    "successRate": 92.0,
-    "lastActivityAt": "2026-04-13T02:15:00Z"
-  },
-  "message": "获取用户统计信息成功"
-}
-```
-
-**错误码**:
-- 401: 未授权
-- 404: 用户不存在
-- 500: 服务器内部错误
-
----
-
-## 3. 工作流管理 API
-
-### 3.1 获取工作流列表
-
-**GET** `/api/workflows`
-
-获取所有工作流列表。
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/workflows" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "wf_xxx",
-      "name": "AI内容生成流水线",
-      "description": "自动生成SEO优化的博客文章",
+      "id": "workflow-001",
+      "name": "用户数据同步工作流",
+      "description": "定期同步用户数据到数据库",
       "status": "ACTIVE",
       "config": {
         "steps": [
           {
-            "id": "research",
-            "name": "市场调研",
-            "type": "text-generation",
-            "config": {"prompt": "调研市场趋势"},
-            "dependencies": []
+            "type": "HTTP",
+            "url": "https://api.example.com/users",
+            "method": "GET"
           }
-        ],
-        "variables": {}
+        ]
       },
-      "steps": [
-        {
-          "id": "research",
-          "name": "市场调研",
-          "type": "text-generation",
-          "config": {"prompt": "调研市场趋势"},
-          "order": 0,
-          "dependencies": []
-        }
-      ],
-      "executions": [
-        {
-          "id": "ex_xxx",
-          "status": "COMPLETED",
-          "createdAt": "2026-04-13T01:20:00Z"
-        }
-      ],
-      "createdAt": "2026-04-13T01:10:00Z",
-      "updatedAt": "2026-04-13T01:15:00Z"
-    }
-  ],
-  "count": 1,
-  "message": "获取工作流列表成功"
-}
-```
-
-**错误码**:
-- 401: 未授权
-- 500: 服务器内部错误
-
-### 3.2 创建工作流
-
-**POST** `/api/workflows`
-
-创建新的工作流。
-
-**请求参数**:
-```json
-{
-  "name": "string",
-  "description": "string",
-  "steps": [
-    {
-      "name": "string",
-      "type": "text-generation|api-call|data-processing",
-      "config": {},
-      "dependencies": []
-    }
-  ],
-  "trigger": {}
-}
-```
-
-**请求示例**:
-```bash
-curl -X POST "http://localhost:3000/api/workflows" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
-  -d '{
-    "name": "AI内容生成流水线",
-    "description": "自动生成SEO优化的博客文章",
-    "steps": [
-      {
-        "name": "市场调研",
-        "type": "text-generation",
-        "config": {"prompt": "调研 {{topic}} 市场现状和趋势"},
-        "dependencies": []
-      },
-      {
-        "name": "文章大纲",
-        "type": "text-generation", 
-        "config": {"prompt": "基于调研结果，为 {{topic}} 创建详细大纲"},
-        "dependencies": ["市场调研"]
-      }
-    ],
-    "trigger": {"type": "manual"}
-  }'
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": "wf_yyy",
-    "name": "AI内容生成流水线",
-    "description": "自动生成SEO优化的博客文章",
-    "config": {
-      "steps": [
-        {
-          "id": "research",
-          "name": "市场调研",
-          "type": "text-generation",
-          "config": {"prompt": "调研市场趋势"},
-          "order": 0,
-          "dependencies": []
-        }
-      ],
-      "trigger": {"type": "manual"}
-    },
-    "steps": [
-      {
-        "id": "research",
-        "name": "市场调研",
-        "type": "text-generation",
-        "config": {"prompt": "调研市场趋势"},
-        "order": 0,
-        "dependencies": []
-      }
-    ],
-    "createdAt": "2026-04-13T02:20:00Z",
-    "updatedAt": "2026-04-13T02:20:00Z"
-  },
-  "message": "工作流创建成功"
-}
-```
-
-**错误码**:
-- 400: 请求参数错误
-- 401: 未授权
-- 500: 服务器内部错误
-
-### 3.3 执行工作流
-
-**POST** `/api/workflows/{workflowId}/execute`
-
-启动指定工作流的执行。
-
-**路径参数**:
-- `workflowId`: 工作流ID
-
-**请求参数**:
-```json
-{
-  "inputData": {},
-  "userId": "string"
-}
-```
-
-**请求示例**:
-```bash
-curl -X POST "http://localhost:3000/api/workflows/wf_xxx/execute" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
-  -d '{
-    "inputData": {
-      "topic": "人工智能",
-      "length": "2000"
-    },
-    "userId": "usr_xxx"
-  }'
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": "ex_zzz",
-    "workflowId": "wf_xxx",
-    "status": "RUNNING",
-    "inputData": {
-      "topic": "人工智能",
-      "length": "2000"
-    },
-    "userId": "usr_xxx",
-    "startedAt": "2026-04-13T02:25:00Z"
-  },
-  "message": "工作流执行启动成功"
-}
-```
-
-**错误码**:
-- 400: 请求参数错误
-- 401: 未授权
-- 404: 工作流不存在
-- 500: 服务器内部错误
-
-### 3.4 获取工作流执行历史
-
-**GET** `/api/workflows/{workflowId}/executions`
-
-获取指定工作流的执行历史。
-
-**路径参数**:
-- `workflowId`: 工作流ID
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/workflows/wf_xxx/executions" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "ex_xxx",
-      "workflowId": "wf_xxx",
-      "status": "COMPLETED",
-      "inputData": {
-        "topic": "人工智能"
-      },
-      "steps": [
-        {
-          "id": "step_xxx",
-          "name": "市场调研",
-          "status": "COMPLETED",
-          "order": 0,
-          "execution": {
-            "id": "exec_step_xxx",
-            "status": "COMPLETED",
-            "output": {"result": "调研结果..."},
-            "error": null
-          }
-        }
-      ],
-      "createdAt": "2026-04-13T01:20:00Z"
-    }
-  ],
-  "count": 1,
-  "message": "获取执行历史成功"
-}
-```
-
-**错误码**:
-- 401: 未授权
-- 404: 工作流不存在
-- 500: 服务器内部错误
-
----
-
-## 4. AI引擎管理 API
-
-### 4.1 获取所有AI引擎
-
-**GET** `/api/ai-engines`
-
-获取系统中所有可用的AI引擎列表。
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/ai-engines" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "text-generation",
-      "name": "文本生成引擎",
-      "description": "用于生成各类文本内容",
-      "capabilities": ["文章写作", "创意生成", "摘要"],
-      "status": "HEALTHY",
-      "model": "GPT-4"
-    },
-    {
-      "id": "api-integration",
-      "name": "API集成引擎", 
-      "description": "用于调用外部API服务",
-      "capabilities": ["REST API调用", "数据转换", "第三方集成"],
-      "status": "HEALTHY",
-      "model": "Claude-3"
-    }
-  ],
-  "count": 2,
-  "message": "获取AI引擎列表成功"
-}
-```
-
-**错误码**:
-- 401: 未授权
-- 500: 服务器内部错误
-
-### 4.2 执行AI任务
-
-**POST** `/api/ai-engines/{engineId}/execute`
-
-使用指定AI引擎执行任务。
-
-**路径参数**:
-- `engineId`: AI引擎ID
-
-**请求参数**:
-```json
-{
-  "task": "string",
-  "options": {}
-}
-```
-
-**请求示例**:
-```bash
-curl -X POST "http://localhost:3000/api/ai-engines/text-generation/execute" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
-  -d '{
-    "task": "为人工智能主题写一篇1000字的文章",
-    "options": {
-      "temperature": 0.7,
-      "maxTokens": 1500,
-      "promptTemplate": "专业文章写作模板"
-    }
-  }'
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "taskId": "task_xxx",
-    "result": {
-      "content": "人工智能（AI）是指由机器展现的智能...",
-      "wordCount": 1200,
-      "topics": ["AI发展", "机器学习", "未来趋势"],
-      "confidence": 0.95
-    },
-    "executionTime": 2500,
-    "engine": "text-generation",
-    "timestamp": "2026-04-13T02:30:00Z"
-  },
-  "error": null,
-  "executionTime": 3200,
-  "message": "AI任务执行成功"
-}
-```
-
-**错误响应**:
-```json
-{
-  "success": false,
-  "data": null,
-  "error": "引擎不可用",
-  "executionTime": 100,
-  "message": "AI任务执行失败"
-}
-```
-
-**错误码**:
-- 400: 任务参数缺失
-- 401: 未授权
-- 404: AI引擎不存在
-- 500: 服务器内部错误
-
----
-
-## 5. 执行管理 API
-
-### 5.1 获取执行步骤详情
-
-**GET** `/api/executions/{executionId}/steps`
-
-获取指定执行的所有步骤详情。
-
-**路径参数**:
-- `executionId`: 执行ID
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/executions/ex_xxx/steps" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "step_xxx",
-      "name": "市场调研",
-      "order": 0,
-      "status": "COMPLETED",
-      "step": {
-        "id": "research",
-        "name": "市场调研",
-        "type": "text-generation",
-        "config": {"prompt": "调研市场趋势"}
-      },
-      "execution": {
-        "id": "exec_step_xxx",
-        "status": "COMPLETED",
-        "output": {
-          "result": "市场调研完成，发现AI市场增长迅速...",
-          "wordCount": 500,
-          "keyFindings": ["市场增长", "技术成熟", "需求旺盛"]
-        },
-        "error": null,
-        "durationMs": 1500
-      }
-    },
-    {
-      "id": "step_yyy", 
-      "name": "文章大纲",
-      "order": 1,
-      "status": "RUNNING",
-      "step": {
-        "id": "outline",
-        "name": "文章大纲",
-        "type": "text-generation",
-        "config": {"prompt": "基于调研结果创建大纲"}
-      },
-      "execution": null
-    }
-  ],
-  "count": 2,
-  "message": "获取执行步骤详情成功"
-}
-```
-
-**错误码**:
-- 401: 未授权
-- 404: 执行不存在
-- 500: 服务器内部错误
-
-### 5.2 获取执行历史
-
-**GET** `/api/executions/history`
-
-获取所有执行历史的分页列表。
-
-**查询参数**:
-- `page`: 页码，默认1
-- `limit`: 每页数量，默认20
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/executions/history?page=1&limit=10" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "ex_xxx",
-      "workflowId": "wf_xxx",
-      "workflow": {
-        "id": "wf_xxx",
-        "name": "AI内容生成流水线"
-      },
-      "status": "COMPLETED",
-      "inputData": {
-        "topic": "人工智能"
-      },
-      "steps": [
-        {
-          "id": "step_xxx",
-          "name": "市场调研",
-          "status": "COMPLETED",
-          "order": 0
-        }
-      ],
-      "createdAt": "2026-04-13T02:35:00Z"
+      "variables": {},
+      "userId": "user-001",
+      "createdAt": "2026-04-13T08:10:00Z",
+      "updatedAt": "2026-04-13T08:10:00Z"
     }
   ],
   "pagination": {
     "page": 1,
     "limit": 10,
     "total": 25,
-    "pages": 3
+    "totalPages": 3
   },
-  "message": "获取执行历史成功"
+  "timestamp": "2026-04-13T08:10:00Z"
 }
 ```
 
-**错误码**:
-- 401: 未授权
-- 500: 服务器内部错误
+#### 错误码
+
+- `401`: 未授权
+- `500`: 服务器内部错误
 
 ---
 
-## 6. 数据分析 API
+### 3. 创建工作流
 
-### 6.1 获取系统指标
+**POST** `/workflows`
 
-**GET** `/api/analytics/metrics`
+创建新的工作流。
 
-收集系统运行指标，包括性能、资源使用等。
+#### 请求参数
 
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/analytics/metrics" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
+| 参数名 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| name | string | 是 | 工作流名称 |
+| description | string | 否 | 工作流描述 |
+| config | object | 是 | 工作流配置 |
+| variables | object | 否 | 变量定义 |
+| userId | string | 否 | 用户ID |
 
-**响应示例**:
+#### 请求示例
+
 ```json
 {
-  "success": true,
-  "data": {
-    "cpu": {
-      "usage": 45.2,
-      "cores": 8,
-      "temperature": 65
-    },
-    "memory": {
-      "used": "12GB",
-      "total": "32GB", 
-      "percentage": 37.5
-    },
-    "disk": {
-      "used": "150GB",
-      "total": "500GB",
-      "percentage": 30
-    },
-    "network": {
-      "incoming": "1.2MB/s",
-      "outgoing": "0.8MB/s"
-    },
-    "uptime": 86400,
-    "timestamp": "2026-04-13T02:40:00Z"
-  },
-  "timestamp": "2026-04-13T02:40:00Z",
-  "message": "收集系统指标成功"
-}
-```
-
-**错误码**:
-- 401: 未授权
-- 500: 服务器内部错误
-
-### 6.2 获取指标历史
-
-**GET** `/api/analytics/metrics/history`
-
-获取历史系统指标数据。
-
-**查询参数**:
-- `limit`: 返回记录数量，默认20
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/analytics/metrics/history?limit=50" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "timestamp": "2026-04-13T02:35:00Z",
-      "cpu": {"usage": 43.1, "temperature": 63},
-      "memory": {"usage": "11.8GB", "percentage": 36.9},
-      "disk": {"usage": "149GB", "percentage": 29.8}
-    }
-  ],
-  "count": 20,
-  "timestamp": "2026-04-13T02:40:00Z",
-  "message": "获取指标历史成功"
-}
-```
-
-**错误码**:
-- 401: 未授权
-- 500: 服务器内部错误
-
-### 6.3 获取工作流统计
-
-**GET** `/api/analytics/workflows`
-
-获取工作流相关的统计分析数据。
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/analytics/workflows" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "totalWorkflows": 15,
-    "activeWorkflows": 12,
-    "draftWorkflows": 3,
-    "averageSteps": 3.2,
-    "mostUsedTypes": {
-      "text-generation": 8,
-      "api-call": 5,
-      "data-processing": 2
-    },
-    "performance": {
-      "averageExecutionTime": 45000,
-      "successRate": 0.95,
-      "slowestWorkflow": "数据清洗流水线"
+  "name": "订单处理工作流",
+  "description": "自动处理新订单",
+  "config": {
+    "steps": [
+      {
+        "type": "HTTP",
+        "name": "验证订单",
+        "url": "https://api.example.com/validate",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "timeout": 30000
+      },
+      {
+        "type": "AI",
+        "name": "智能分析",
+        "model": "gpt-4",
+        "prompt": "分析订单风险等级"
+      },
+      {
+        "type": "DATABASE",
+        "name": "保存订单",
+        "table": "orders",
+        "operation": "INSERT"
+      }
+    ],
+    "variables": {
+      "order_id": "${step1.response.id}",
+      "status": "PROCESSING"
     }
   },
-  "timestamp": "2026-04-13T02:42:00Z",
-  "message": "获取工作流统计成功"
-}
-```
-
-**错误码**:
-- 401: 未授权
-- 500: 服务器内部错误
-
-### 6.4 获取系统摘要
-
-**GET** `/api/analytics/summary`
-
-获取系统整体运行摘要。
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/analytics/summary" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "system": {
-      "status": "HEALTHY",
-      "uptime": "24h",
-      "version": "1.0.0"
-    },
-    "workflows": {
-      "total": 15,
-      "executionsToday": 45,
-      "successRate": 94.2,
-      "averageDuration": 42.3
-    },
-    "engines": {
-      "total": 4,
-      "active": 4,
-      "averageResponseTime": 850
-    },
-    "users": {
-      "total": 8,
-      "activeToday": 3
-    }
-  },
-  "timestamp": "2026-04-13T02:45:00Z",
-  "message": "获取系统摘要成功"
-}
-```
-
-**错误码**:
-- 401: 未授权
-- 500: 服务器内部错误
-
-### 6.5 模拟执行统计
-
-**POST** `/api/analytics/simulate-execution`
-
-用于测试和分析的模拟执行统计。
-
-**请求参数**:
-```json
-{
-  "workflowId": "string",
-  "status": "running|completed|failed|pending",
-  "executionTime": "number"
-}
-```
-
-**请求示例**:
-```bash
-curl -X POST "http://localhost:3000/api/analytics/simulate-execution" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
-  -d '{
-    "workflowId": "wf_xxx",
-    "status": "completed",
-    "executionTime": 45000
-  }'
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "message": "工作流执行模拟成功",
-  "data": {
-    "workflowId": "wf_xxx",
-    "status": "completed",
-    "executionTime": 45000,
-    "timestamp": "2026-04-13T02:50:00Z"
+  "variables": {
+    "priority": "HIGH",
+    "retry_count": 3
   }
 }
 ```
 
-**错误码**:
-- 400: 缺少必需字段或状态无效
-- 401: 未授权
-- 500: 服务器内部错误
+#### 响应示例
 
-### 6.6 获取用户工作流统计
-
-**GET** `/api/analytics/user-stats/{userId}`
-
-获取指定用户的工作流使用统计。
-
-**路径参数**:
-- `userId`: 用户ID
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/analytics/user-stats/usr_xxx" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
 ```json
 {
   "success": true,
+  "message": "工作流创建成功",
   "data": {
-    "userId": "usr_xxx",
-    "totalWorkflows": 5,
-    "totalExecutions": 25,
-    "successfulExecutions": 23,
-    "failedExecutions": 2,
-    "averageExecutionTime": 38000,
-    "mostUsedWorkflows": [
+    "id": "workflow-002",
+    "name": "订单处理工作流",
+    "description": "自动处理新订单",
+    "status": "DRAFT",
+    "config": {
+      "steps": [
+        {
+          "type": "HTTP",
+          "name": "验证订单",
+          "url": "https://api.example.com/validate",
+          "method": "POST"
+        }
+      ]
+    },
+    "variables": {
+      "priority": "HIGH",
+      "retry_count": 3
+    },
+    "userId": "user-001",
+    "createdAt": "2026-04-13T08:10:00Z",
+    "updatedAt": "2026-04-13T08:10:00Z"
+  },
+  "timestamp": "2026-04-13T08:10:00Z"
+}
+```
+
+#### 错误码
+
+- `400`: 请求参数错误
+- `401`: 未授权
+- `409`: 工作流名称已存在
+- `500`: 服务器内部错误
+
+---
+
+### 4. 获取工作流详情
+
+**GET** `/workflows/:id`
+
+获取指定工作流的详细信息。
+
+#### 路径参数
+
+| 参数名 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| id | string | 是 | 工作流ID |
+
+#### 请求示例
+
+```bash
+curl -X GET "http://localhost:3000/api/workflows/workflow-002" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+#### 响应示例
+
+```json
+{
+  "success": true,
+  "message": "获取工作流详情成功",
+  "data": {
+    "id": "workflow-002",
+    "name": "订单处理工作流",
+    "description": "自动处理新订单",
+    "status": "ACTIVE",
+    "config": {
+      "steps": [
+        {
+          "type": "HTTP",
+          "name": "验证订单",
+          "url": "https://api.example.com/validate",
+          "method": "POST",
+          "timeout": 30000,
+          "retryPolicy": {
+            "maxAttempts": 3,
+            "delay": 1000
+          }
+        },
+        {
+          "type": "AI",
+          "name": "智能分析",
+          "model": "gpt-4",
+          "prompt": "分析订单风险等级",
+          "temperature": 0.7
+        },
+        {
+          "type": "DATABASE",
+          "name": "保存订单",
+          "table": "orders",
+          "operation": "INSERT",
+          "fields": {
+            "order_id": "${step1.response.id}",
+            "status": "${step2.analysis.risk_level}",
+            "created_at": "${timestamp}"
+          }
+        }
+      ],
+      "timeout": 300000,
+      "errorHandling": {
+        "continueOnError": true,
+        "errorStep": "notification"
+      }
+    },
+    "variables": {
+      "priority": "HIGH",
+      "retry_count": 3,
+      "auto_approve": false
+    },
+    "userId": "user-001",
+    "executions": [
       {
-        "workflowId": "wf_xxx",
-        "usageCount": 10,
-        "successRate": 0.9
+        "id": "exec-001",
+        "status": "COMPLETED",
+        "startedAt": "2026-04-13T08:10:00Z",
+        "completedAt": "2026-04-13T08:15:00Z",
+        "result": "订单处理成功"
       }
     ],
-    "lastActivityAt": "2026-04-13T02:45:00Z"
+    "createdAt": "2026-04-13T08:10:00Z",
+    "updatedAt": "2026-04-13T08:10:00Z"
   },
-  "timestamp": "2026-04-13T02:50:00Z",
-  "message": "获取用户工作流统计成功"
+  "timestamp": "2026-04-13T08:10:00Z"
 }
 ```
 
-**错误码**:
-- 401: 未授权
-- 404: 用户不存在
-- 500: 服务器内部错误
+#### 错误码
 
-### 6.7 获取执行趋势
-
-**GET** `/api/analytics/trends`
-
-获取工作流执行趋势数据。
-
-**查询参数**:
-- `days`: 统计天数，默认7
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/analytics/trends?days=30" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "date": "2026-04-12",
-      "executions": 15,
-      "successful": 14,
-      "failed": 1,
-      "successRate": 93.3
-    }
-  ],
-  "period": "30 days",
-  "count": 30,
-  "timestamp": "2026-04-13T02:52:00Z",
-  "message": "获取执行趋势成功"
-}
-```
-
-**错误码**:
-- 401: 未授权
-- 500: 服务器内部错误
-
-### 6.8 获取工作流使用统计
-
-**GET** `/api/analytics/workflow-usage`
-
-获取各工作流的使用频率统计。
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/analytics/workflow-usage" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "workflowId": "wf_xxx",
-      "workflowName": "AI内容生成流水线",
-      "usageCount": 45,
-      "successRate": 0.93,
-      "averageDuration": 42000,
-      "lastUsedAt": "2026-04-13T02:45:00Z"
-    }
-  ],
-  "count": 10,
-  "timestamp": "2026-04-13T02:55:00Z",
-  "message": "获取工作流使用统计成功"
-}
-```
-
-**错误码**:
-- 401: 未授权
-- 500: 服务器内部错误
-
-### 6.9 获取成功率排名
-
-**GET** `/api/analytics/success-ranking`
-
-获取工作流成功率排名。
-
-**查询参数**:
-- `limit`: 返回数量限制，默认10
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/analytics/success-ranking?limit=5" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "rank": 1,
-      "workflowId": "wf_xxx",
-      "workflowName": "数据验证流水线",
-      "successRate": 0.98,
-      "totalExecutions": 50,
-      "successfulExecutions": 49
-    }
-  ],
-  "limit": 5,
-  "count": 5,
-  "timestamp": "2026-04-13T03:00:00Z",
-  "message": "获取成功率排名成功"
-}
-```
-
-**错误码**:
-- 401: 未授权
-- 500: 服务器内部错误
+- `400`: 工作流ID不能为空
+- `404`: 工作流不存在
+- `401`: 未授权
+- `500`: 服务器内部错误
 
 ---
 
-## 7. 统计汇总 API
+### 5. 更新工作流
 
-### 7.1 获取执行统计汇总
+**PUT** `/workflows/:id`
 
-**GET** `/api/stats/summary`
+更新指定工作流的信息。
 
-获取系统执行统计的总体汇总信息。
+#### 路径参数
 
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/stats/summary" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+| 参数名 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| id | string | 是 | 工作流ID |
+
+#### 请求参数
+
+| 参数名 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| name | string | 否 | 工作流名称 |
+| description | string | 否 | 工作流描述 |
+| config | object | 否 | 工作流配置 |
+| variables | object | 否 | 变量定义 |
+| status | string | 否 | 工作流状态 |
+
+#### 请求示例
+
+```json
+{
+  "name": "订单处理工作流 v2",
+  "description": "增强版订单处理流程",
+  "status": "ACTIVE",
+  "config": {
+    "steps": [
+      {
+        "type": "HTTP",
+        "name": "验证订单",
+        "url": "https://api.example.com/validate",
+        "method": "POST"
+      },
+      {
+        "type": "AI",
+        "name": "增强智能分析",
+        "model": "gpt-4-turbo",
+        "prompt": "深度分析订单风险和用户价值"
+      }
+    ]
+  },
+  "variables": {
+    "priority": "HIGH",
+    "retry_count": 5,
+    "auto_approve": true
+  }
+}
 ```
 
-**响应示例**:
+#### 响应示例
+
 ```json
 {
   "success": true,
+  "message": "工作流更新成功",
   "data": {
-    "workflows": {
-      "total": 15,
-      "active": 12,
-      "draft": 3
+    "id": "workflow-002",
+    "name": "订单处理工作流 v2",
+    "description": "增强版订单处理流程",
+    "status": "ACTIVE",
+    "config": {
+      "steps": [
+        {
+          "type": "HTTP",
+          "name": "验证订单",
+          "url": "https://api.example.com/validate",
+          "method": "POST"
+        },
+        {
+          "type": "AI",
+          "name": "增强智能分析",
+          "model": "gpt-4-turbo",
+          "prompt": "深度分析订单风险和用户价值"
+        }
+      ]
     },
-    "executions": {
-      "total": 1250,
-      "today": 45,
-      "thisWeek": 320,
-      "thisMonth": 1250
+    "variables": {
+      "priority": "HIGH",
+      "retry_count": 5,
+      "auto_approve": true
     },
-    "success": {
-      "total": 1188,
-      "today": 42,
-      "rate": 0.9504
-    },
-    "failed": {
-      "total": 62,
-      "today": 3,
-      "rate": 0.0496
-    },
-    "performance": {
-      "averageDurationMs": 45000,
-      "p95DurationMs": 120000,
-      "fastestExecution": 8000,
-      "slowestExecution": 300000
-    },
-    "engines": {
-      "total": 4,
-      "active": 4,
-      "averageResponseTimeMs": 850
-    }
+    "userId": "user-001",
+    "createdAt": "2026-04-13T08:10:00Z",
+    "updatedAt": "2026-04-13T08:15:00Z"
   },
-  "message": "获取执行统计汇总成功"
+  "timestamp": "2026-04-13T08:15:00Z"
 }
 ```
 
-**错误码**:
-- 401: 未授权
-- 500: 服务器内部错误
+#### 错误码
+
+- `400`: 工作流ID不能为空
+- `404`: 工作流不存在
+- `401`: 未授权
+- `409`: 工作流名称已存在
+- `500`: 服务器内部错误
 
 ---
 
-## 8. 性能对比 API
+### 6. 删除工作流
 
-### 8.1 获取优化版用户列表
+**DELETE** `/workflows/:id`
 
-**GET** `/api/users/optimized`
+删除指定工作流。
 
-获取用户列表的优化版本，包含优化查询和缓存。
+#### 路径参数
 
-**请求示例**:
+| 参数名 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| id | string | 是 | 工作流ID |
+
+#### 请求示例
+
 ```bash
-curl -X GET "http://localhost:3000/api/users/optimized" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+curl -X DELETE "http://localhost:3000/api/workflows/workflow-002" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
-**响应示例**:
+#### 响应示例
+
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "id": "usr_xxx",
-      "name": "张三",
-      "email": "zhangsan@example.com",
-      "role": "USER",
-      "createdAt": "2026-04-13T01:10:00Z",
-      "postCount": 5,
-      "lastLoginAt": "2026-04-13T02:00:00Z"
-    }
-  ],
-  "message": "获取用户列表成功（优化版本）"
+  "message": "工作流删除成功",
+  "data": null,
+  "timestamp": "2026-04-13T08:15:00Z"
 }
 ```
 
-**错误码**:
-- 401: 未授权
-- 500: 服务器内部错误
+#### 错误码
 
-### 8.2 获取原始版用户列表
+- `400`: 工作流ID不能为空
+- `404`: 工作流不存在
+- `401`: 未授权
+- `500`: 服务器内部错误
 
-**GET** `/api/users/original`
+---
 
-获取用户列表的原始版本，用于性能对比。
+### 7. 克隆工作流
 
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/users/original" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+**POST** `/workflows/:id/clone`
+
+复制指定工作流创建新版本。
+
+#### 路径参数
+
+| 参数名 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| id | string | 是 | 源工作流ID |
+
+#### 请求参数
+
+| 参数名 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| name | string | 否 | 新工作流名称 |
+
+#### 请求示例
+
+```json
+{
+  "name": "订单处理工作流 - 副本"
+}
 ```
 
-**响应示例**:
+#### 响应示例
+
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "id": "usr_xxx",
-      "name": "张三",
-      "email": "zhangsan@example.com",
-      "role": "USER",
-      "createdAt": "2026-04-13T01:10:00Z"
-    }
-  ],
-  "message": "获取用户列表成功（原始版本）"
+  "message": "工作流克隆成功",
+  "data": {
+    "id": "workflow-003",
+    "name": "订单处理工作流 - 副本",
+    "description": "自动处理新订单",
+    "status": "DRAFT",
+    "config": {
+      "steps": [
+        {
+          "type": "HTTP",
+          "name": "验证订单",
+          "url": "https://api.example.com/validate",
+          "method": "POST"
+        },
+        {
+          "type": "AI",
+          "name": "增强智能分析",
+          "model": "gpt-4-turbo",
+          "prompt": "深度分析订单风险和用户价值"
+        }
+      ]
+    },
+    "variables": {
+      "priority": "HIGH",
+      "retry_count": 5,
+      "auto_approve": true
+    },
+    "userId": "user-001",
+    "sourceWorkflowId": "workflow-002",
+    "sourceWorkflowName": "订单处理工作流 v2",
+    "createdAt": "2026-04-13T08:15:00Z",
+    "updatedAt": "2026-04-13T08:15:00Z"
+  },
+  "timestamp": "2026-04-13T08:15:00Z"
 }
 ```
 
-**错误码**:
-- 401: 未授权
-- 500: 服务器内部错误
+#### 错误码
 
-### 8.3 文章搜索
+- `400`: 请求参数错误
+- `404`: 源工作流不存在
+- `401`: 未授权
+- `500`: 服务器内部错误
 
-**GET** `/api/posts/search`
+---
 
-搜索文章内容。
+### 8. 执行工作流
 
-**查询参数**:
-- `q`: 搜索关键词（必需）
+**POST** `/workflows/:id/execute`
 
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/posts/search?q=人工智能" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+执行指定工作流。
+
+#### 路径参数
+
+| 参数名 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| id | string | 是 | 工作流ID |
+
+#### 请求参数
+
+| 参数名 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| inputVariables | object | 否 | 输入变量 |
+| priority | string | 否 | 执行优先级 |
+
+#### 请求示例
+
+```json
+{
+  "inputVariables": {
+    "order_id": "ORD-2026-001",
+    "customer_id": "CUST-001",
+    "amount": 299.99,
+    "currency": "CNY"
+  },
+  "priority": "HIGH"
+}
 ```
 
-**响应示例**:
+#### 响应示例
+
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "id": "post_xxx",
-      "title": "人工智能的未来发展趋势",
-      "content": "人工智能技术正在快速发展...",
-      "author": "张三",
-      "createdAt": "2026-04-13T01:00:00Z",
-      "relevanceScore": 0.95
-    }
-  ],
-  "message": "搜索"人工智能"成功"
+  "message": "工作流执行启动成功",
+  "data": {
+    "id": "exec-002",
+    "workflowId": "workflow-002",
+    "workflowName": "订单处理工作流 v2",
+    "status": "RUNNING",
+    "priority": "HIGH",
+    "inputVariables": {
+      "order_id": "ORD-2026-001",
+      "customer_id": "CUST-001",
+      "amount": 299.99,
+      "currency": "CNY"
+    },
+    "startedAt": "2026-04-13T08:15:00Z",
+    "estimatedDuration": 300000,
+    "steps": [
+      {
+        "id": "step-1",
+        "name": "验证订单",
+        "status": "PENDING",
+        "type": "HTTP",
+        "url": "https://api.example.com/validate",
+        "method": "POST",
+        "timeout": 30000
+      },
+      {
+        "id": "step-2",
+        "name": "增强智能分析",
+        "status": "PENDING",
+        "type": "AI",
+        "model": "gpt-4-turbo",
+        "prompt": "深度分析订单风险和用户价值"
+      },
+      {
+        "id": "step-3",
+        "name": "保存订单",
+        "status": "PENDING",
+        "type": "DATABASE",
+        "table": "orders",
+        "operation": "INSERT"
+      }
+    ],
+    "progress": 0,
+    "requestId": "exec-req-123456789"
+  },
+  "timestamp": "2026-04-13T08:15:00Z"
 }
 ```
 
-**错误码**:
-- 400: 搜索关键词不能为空
-- 401: 未授权
-- 500: 服务器内部错误
+#### 错误码
+
+- `400`: 工作流ID不能为空
+- `404`: 工作流不存在
+- `422`: 工作流状态不正确（如已删除）
+- `401`: 未授权
+- `429`: 工作流执行队列已满
+- `500`: 服务器内部错误
+
+---
+
+### 9. 获取工作流执行历史
+
+**GET** `/workflows/:id/executions`
+
+获取指定工作流的执行历史记录。
+
+#### 路径参数
+
+| 参数名 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| id | string | 是 | 工作流ID |
+
+#### 请求参数
+
+| 参数名 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| page | number | 否 | 页码，默认为1 |
+| limit | number | 否 | 每页数量，默认为10 |
+| status | string | 否 | 执行状态筛选 |
+| startDate | string | 否 | 开始日期 (ISO 8601) |
+| endDate | string | 否 | 结束日期 (ISO 8601) |
+
+#### 请求示例
+
+```bash
+curl -X GET "http://localhost:3000/api/workflows/workflow-002/executions?page=1&limit=10&status=COMPLETED&startDate=2026-04-13T00:00:00Z&endDate=2026-04-13T23:59:59Z" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+#### 响应示例
+
+```json
+{
+  "success": true,
+  "message": "获取执行历史成功",
+  "data": [
+    {
+      "id": "exec-002",
+      "workflowId": "workflow-002",
+      "workflowName": "订单处理工作流 v2",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "inputVariables": {
+        "order_id": "ORD-2026-001",
+        "customer_id": "CUST-001",
+        "amount": 299.99,
+        "currency": "CNY"
+      },
+      "output": {
+        "result": "SUCCESS",
+        "order_status": "PROCESSING",
+        "risk_level": "LOW"
+      },
+      "steps": [
+        {
+          "id": "step-1",
+          "name": "验证订单",
+          "status": "COMPLETED",
+          "duration": 1250,
+          "result": {
+            "valid": true,
+            "order_id": "ORD-2026-001"
+          }
+        },
+        {
+          "id": "step-2",
+          "name": "增强智能分析",
+          "status": "COMPLETED",
+          "duration": 3500,
+          "result": {
+            "risk_level": "LOW",
+            "customer_value": "HIGH",
+            "recommendations": ["立即处理", "优先配送"]
+          }
+        },
+        {
+          "id": "step-3",
+          "name": "保存订单",
+          "status": "COMPLETED",
+          "duration": 800,
+          "result": {
+            "inserted_id": "ORD-2026-001",
+            "timestamp": "2026-04-13T08:15:00Z"
+          }
+        }
+      ],
+      "startedAt": "2026-04-13T08:15:00Z",
+      "completedAt": "2026-04-13T08:19:30Z",
+      "duration": 275000,
+      "errorCount": 0,
+      "requestId": "exec-req-123456789"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 25,
+    "totalPages": 3
+  },
+  "timestamp": "2026-04-13T08:15:00Z"
+}
+```
+
+#### 错误码
+
+- `400`: 工作流ID不能为空
+- `404`: 工作流不存在
+- `401`: 未授权
+- `500`: 服务器内部错误
+
+---
+
+### 10. 验证工作流配置
+
+**POST** `/workflows/validate`
+
+验证工作流配置的语法和逻辑。
+
+#### 请求参数
+
+| 参数名 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| config | object | 是 | 工作流配置 |
+
+#### 请求示例
+
+```json
+{
+  "config": {
+    "steps": [
+      {
+        "type": "HTTP",
+        "name": "验证订单",
+        "url": "https://api.example.com/validate",
+        "method": "POST",
+        "timeout": 30000,
+        "retryPolicy": {
+          "maxAttempts": 3,
+          "delay": 1000
+        }
+      },
+      {
+        "type": "AI",
+        "name": "智能分析",
+        "model": "gpt-4",
+        "prompt": "分析订单风险等级",
+        "temperature": 0.7
+      },
+      {
+        "type": "DATABASE",
+        "name": "保存订单",
+        "table": "orders",
+        "operation": "INSERT",
+        "fields": {
+          "order_id": "${step1.response.id}",
+          "status": "${step2.analysis.risk_level}",
+          "created_at": "${timestamp}"
+        }
+      }
+    ],
+    "timeout": 300000,
+    "errorHandling": {
+      "continueOnError": true,
+      "errorStep": "notification"
+    }
+  }
+}
+```
+
+#### 响应示例
+
+**验证成功:**
+
+```json
+{
+  "success": true,
+  "message": "工作流配置验证成功",
+  "data": {
+    "valid": true,
+    "warnings": [],
+    "steps": [
+      {
+        "id": "step-1",
+        "name": "验证订单",
+        "type": "HTTP",
+        "status": "VALID",
+        "validation": {
+          "urlAccessible": true,
+          "methodSupported": true,
+          "timeoutValid": true
+        }
+      },
+      {
+        "id": "step-2",
+        "name": "智能分析",
+        "type": "AI",
+        "status": "VALID",
+        "validation": {
+          "modelSupported": true,
+          "temperatureValid": true
+        }
+      },
+      {
+        "id": "step-3",
+        "name": "保存订单",
+        "type": "DATABASE",
+        "status": "VALID",
+        "validation": {
+          "tableExists": true,
+          "operationSupported": true,
+          "fieldMappingComplete": true
+        }
+      }
+    ],
+    "variables": {
+      "timestamp": "自动生成",
+      "step1.response.id": "HTTP响应引用",
+      "step2.analysis.risk_level": "AI输出引用"
+    },
+    "estimatedDuration": "2-5 分钟"
+  },
+  "timestamp": "2026-04-13T08:20:00Z"
+}
+```
+
+**验证失败:**
+
+```json
+{
+  "success": false,
+  "message": "工作流配置验证失败",
+  "data": {
+    "valid": false,
+    "errors": [
+      {
+        "step": "step-2",
+        "field": "prompt",
+        "message": "AI提示词不能为空",
+        "code": "PROMPT_REQUIRED"
+      },
+      {
+        "step": "step-3",
+        "field": "table",
+        "message": "数据表名称格式不正确",
+        "code": "INVALID_TABLE_NAME"
+      },
+      {
+        "field": "timeout",
+        "message": "超时时间不能超过 600000 毫秒",
+        "code": "TIMEOUT_TOO_LARGE"
+      }
+    ],
+    "warnings": [
+      {
+        "step": "step-1",
+        "field": "retryPolicy",
+        "message": "重试策略中的延迟时间小于推荐值",
+        "code": "RETRY_DELAY_TOO_SMALL"
+      }
+    ]
+  },
+  "timestamp": "2026-04-13T08:20:00Z"
+}
+```
+
+#### 错误码
+
+- `400`: 工作流配置不能为空
+- `422`: 工作流配置验证失败
+- `401`: 未授权
+- `500`: 服务器内部错误
+
+---
+
+### 11. 获取工作流执行路径
+
+**POST** `/workflows/execution-path`
+
+预览工作流的执行路径和时间预估。
+
+#### 请求参数
+
+| 参数名 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| config | object | 是 | 工作流配置 |
+
+#### 请求示例
+
+```json
+{
+  "config": {
+    "steps": [
+      {
+        "type": "HTTP",
+        "name": "获取用户信息",
+        "url": "https://api.example.com/users/${userId}",
+        "method": "GET",
+        "timeout": 10000
+      },
+      {
+        "type": "AI",
+        "name": "分析用户行为",
+        "model": "gpt-4",
+        "prompt": "分析用户购买历史和行为模式"
+      },
+      {
+        "type": "HTTP",
+        "name": "更新推荐",
+        "url": "https://api.example.com/recommendations",
+        "method": "POST",
+        "body": {
+          "user_id": "${step1.response.id}",
+          "preferences": "${step2.analysis.preferences}"
+        }
+      }
+    ],
+    "variables": {
+      "userId": "user-001"
+    }
+  }
+}
+```
+
+#### 响应示例
+
+```json
+{
+  "success": true,
+  "message": "获取执行路径成功",
+  "data": {
+    "executionPath": [
+      {
+        "stepId": "step-1",
+        "stepName": "获取用户信息",
+        "stepType": "HTTP",
+        "estimatedDuration": 1500,
+        "dependencies": [],
+        "parallelizable": false
+      },
+      {
+        "stepId": "step-2",
+        "stepName": "分析用户行为",
+        "stepType": "AI",
+        "estimatedDuration": 4500,
+        "dependencies": ["step-1"],
+        "parallelizable": false,
+        "inputVariables": ["${step1.response.id}", "${step1.response.history}"]
+      },
+      {
+        "stepId": "step-3",
+        "stepName": "更新推荐",
+        "stepType": "HTTP",
+        "estimatedDuration": 2000,
+        "dependencies": ["step-2"],
+        "parallelizable": false,
+        "inputVariables": ["${step2.analysis.preferences}", "${step2.analysis.score}"]
+      }
+    ],
+    "totalEstimatedDuration": 8000,
+    "criticalPath": ["step-1", "step-2", "step-3"],
+    "bottleneckSteps": [
+      {
+        "stepId": "step-2",
+        "reason": "AI模型推理时间较长",
+        "impact": "延迟整个执行过程"
+      }
+    ],
+    "optimizationSuggestions": [
+      "将步骤1和步骤2的请求并行处理",
+      "考虑使用AI模型缓存来减少推理时间",
+      "为HTTP步骤添加缓存机制"
+    ],
+    "resourceRequirements": {
+      "cpu": "中等",
+      "memory": "低",
+      "network": "中高",
+      "concurrent_limit": 1
+    }
+  },
+  "timestamp": "2026-04-13T08:25:00Z"
+}
+```
+
+#### 错误码
+
+- `400`: 工作流配置不能为空
+- `422`: 工作流配置分析失败
+- `401`: 未授权
+- `500`: 服务器内部错误
+
+---
+
+### 12. 导出工作流
+
+**GET** `/workflows/:id/export`
+
+将指定工作流导出为JSON格式。
+
+#### 路径参数
+
+| 参数名 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| id | string | 是 | 工作流ID |
+
+#### 请求示例
+
+```bash
+curl -X GET "http://localhost:3000/api/workflows/workflow-002/export" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+#### 响应示例
+
+```json
+{
+  "success": true,
+  "message": "工作流导出成功",
+  "data": {
+    "workflow": {
+      "id": "workflow-002",
+      "name": "订单处理工作流 v2",
+      "description": "增强版订单处理流程",
+      "status": "ACTIVE",
+      "config": {
+        "steps": [
+          {
+            "type": "HTTP",
+            "name": "验证订单",
+            "url": "https://api.example.com/validate",
+            "method": "POST",
+            "timeout": 30000,
+            "retryPolicy": {
+              "maxAttempts": 3,
+              "delay": 1000
+            },
+            "headers": {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer ${token}"
+            }
+          },
+          {
+            "type": "AI",
+            "name": "增强智能分析",
+            "model": "gpt-4-turbo",
+            "prompt": "深度分析订单风险和用户价值",
+            "temperature": 0.7,
+            "maxTokens": 1000
+          },
+          {
+            "type": "DATABASE",
+            "name": "保存订单",
+            "table": "orders",
+            "operation": "INSERT",
+            "fields": {
+              "order_id": "${step1.response.id}",
+              "customer_id": "${input.customer_id}",
+              "amount": "${input.amount}",
+              "status": "PROCESSING",
+              "risk_level": "${step2.analysis.risk_level}",
+              "created_at": "${timestamp}",
+              "updated_at": "${timestamp}"
+            }
+          }
+        ],
+        "timeout": 300000,
+        "errorHandling": {
+          "continueOnError": true,
+          "errorStep": "notification",
+          "maxRetries": 2
+        },
+        "variables": {
+          "timestamp": "自动生成",
+          "token": "${env.API_TOKEN}"
+        }
+      },
+      "variables": {
+        "priority": "HIGH",
+        "retry_count": 5,
+        "auto_approve": true,
+        "notifications": {
+          "email": "admin@example.com",
+          "slack": "#alerts"
+        }
+      },
+      "tags": ["order", "processing", "risk-management"],
+      "version": "1.2.0",
+      "metadata": {
+        "createdBy": "user-001",
+        "lastUpdatedBy": "user-001",
+        "exportedAt": "2026-04-13T08:30:00Z"
+      }
+    },
+    "exportInfo": {
+      "exportedAt": "2026-04-13T08:30:00Z",
+      "version": "1.0.0",
+      "format": "JSON",
+      "includedData": ["workflow", "variables", "config", "metadata"]
+    }
+  },
+  "timestamp": "2026-04-13T08:30:00Z"
+}
+```
+
+#### 错误码
+
+- `400`: 工作流ID不能为空
+- `404`: 工作流不存在
+- `401`: 未授权
+- `500`: 服务器内部错误
+
+---
+
+### 13. 导入工作流
+
+**POST** `/workflows/import`
+
+从JSON数据导入工作流。
+
+#### 请求参数
+
+| 参数名 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| workflow | object | 是 | 工作流数据 |
+| options | object | 否 | 导入选项 |
+
+#### 请求示例
+
+```json
+{
+  "workflow": {
+    "name": "用户注册工作流",
+    "description": "新用户注册和验证流程",
+    "config": {
+      "steps": [
+        {
+          "type": "HTTP",
+          "name": "验证邮箱",
+          "url": "https://api.example.com/validate-email",
+          "method": "POST",
+          "body": {
+            "email": "${input.email}"
+          }
+        },
+        {
+          "type": "AI",
+          "name": "风险评估",
+          "model": "gpt-4",
+          "prompt": "分析新用户注册风险",
+          "temperature": 0.3
+        },
+        {
+          "type": "DATABASE",
+          "name": "创建用户",
+          "table": "users",
+          "operation": "INSERT",
+          "fields": {
+            "email": "${input.email}",
+            "name": "${input.name}",
+            "status": "ACTIVE",
+            "created_at": "${timestamp}",
+            "ip_address": "${input.ip_address}",
+            "risk_score": "${step2.analysis.score}"
+          }
+        },
+        {
+          "type": "EMAIL",
+          "name": "发送欢迎邮件",
+          "to": "${input.email}",
+          "template": "welcome",
+          "subject": "欢迎加入我们的平台"
+        }
+      ],
+      "timeout": 120000,
+      "errorHandling": {
+        "continueOnError": true,
+        "errorStep": "log_error"
+      }
+    },
+    "variables": {
+      "max_retry_attempts": 3,
+      "require_email_verification": true,
+      "welcome_email_enabled": true
+    },
+    "tags": ["user", "registration", "verification"],
+    "metadata": {
+      "source": "export",
+      "version": "1.0.0"
+    }
+  },
+  "options": {
+    "name": "用户注册工作流 v2",
+    "draft": true,
+    "overwrite": false
+  }
+}
+```
+
+#### 响应示例
+
+```json
+{
+  "success": true,
+  "message": "工作流导入成功",
+  "data": {
+    "id": "workflow-004",
+    "name": "用户注册工作流 v2",
+    "description": "新用户注册和验证流程",
+    "status": "DRAFT",
+    "config": {
+      "steps": [
+        {
+          "type": "HTTP",
+          "name": "验证邮箱",
+          "url": "https://api.example.com/validate-email",
+          "method": "POST",
+          "body": {
+            "email": "${input.email}"
+          }
+        },
+        {
+          "type": "AI",
+          "name": "风险评估",
+          "model": "gpt-4",
+          "prompt": "分析新用户注册风险",
+          "temperature": 0.3
+        },
+        {
+          "type": "DATABASE",
+          "name": "创建用户",
+          "table": "users",
+          "operation": "INSERT",
+          "fields": {
+            "email": "${input.email}",
+            "name": "${input.name}",
+            "status": "ACTIVE",
+            "created_at": "${timestamp}",
+            "ip_address": "${input.ip_address}",
+            "risk_score": "${step2.analysis.score}"
+          }
+        },
+        {
+          "type": "EMAIL",
+          "name": "发送欢迎邮件",
+          "to": "${input.email}",
+          "template": "welcome",
+          "subject": "欢迎加入我们的平台"
+        }
+      ],
+      "timeout": 120000,
+      "errorHandling": {
+        "continueOnError": true,
+        "errorStep": "log_error"
+      }
+    },
+    "variables": {
+      "max_retry_attempts": 3,
+      "require_email_verification": true,
+      "welcome_email_enabled": true
+    },
+    "tags": ["user", "registration", "verification"],
+    "metadata": {
+      "source": "import",
+      "version": "2.0.0",
+      "importedAt": "2026-04-13T08:35:00Z",
+      "originalId": "workflow-export-123"
+    },
+    "userId": "user-001",
+    "createdAt": "2026-04-13T08:35:00Z",
+    "updatedAt": "2026-04-13T08:35:00Z"
+  },
+  "summary": {
+    "importedSteps": 4,
+    "importedVariables": 3,
+    "importedTags": 3,
+    "importTime": 2500,
+    "validationStatus": "PASSED",
+    "notes": ["工作流以草稿状态创建", "建议测试后再激活"]
+  },
+  "timestamp": "2026-04-13T08:35:00Z"
+}
+```
+
+#### 错误码
+
+- `400`: 请求体中缺少workflow数据
+- `422`: 工作流数据无效
+- `409`: 工作流名称已存在（当设置overwrite为false时）
+- `401`: 未授权
+- `500`: 服务器内部错误
 
 ---
 
 ## 错误码说明
 
-| 状态码 | 说明 |
-|--------|------|
-| 200 | 请求成功 |
-| 201 | 创建成功 |
-| 400 | 请求参数错误 |
-| 401 | 未授权（令牌无效） |
-| 403 | 禁止访问（权限不足） |
-| 404 | 资源不存在 |
-| 409 | 资源冲突（如名称已存在） |
-| 422 | 验证错误 |
-| 429 | 请求过于频繁 |
-| 500 | 服务器内部错误 |
-| 503 | 服务不可用 |
+| HTTP状态码 | 错误码 | 说明 |
+|-----------|--------|------|
+| 400 | BAD_REQUEST | 请求参数错误 |
+| 401 | UNAUTHORIZED | 未授权或JWT令牌无效 |
+| 404 | NOT_FOUND | 资源不存在 |
+| 409 | CONFLICT | 资源冲突（如工作流名称重复） |
+| 422 | UNPROCESSABLE_ENTITY | 请求格式正确但语义错误 |
+| 429 | TOO_MANY_REQUESTS | 请求过于频繁或队列已满 |
+| 500 | INTERNAL_SERVER_ERROR | 服务器内部错误 |
 
----
+## 认证要求
 
-## 认证说明
-
-所有API请求（除健康检查外）都需要在请求头中包含有效的JWT令牌：
+所有API端点（除了健康检查）都需要在请求头中包含有效的JWT令牌：
 
 ```
-Authorization: Bearer <your-jwt-token>
+Authorization: Bearer YOUR_JWT_TOKEN
 ```
 
-令牌获取方式：
-1. 调用登录接口获取访问令牌
-2. 令牌默认24小时有效
-3. 过期后需要重新登录获取新令牌
-
----
-
-## 数据模型
-
-### 用户 (User)
-```typescript
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: 'USER' | 'ADMIN';
-  createdAt: Date;
-  updatedAt: Date;
-}
-```
-
-### 工作流 (Workflow)
-```typescript
-interface Workflow {
-  id: string;
-  name: string;
-  description: string;
-  config: WorkflowConfig;
-  steps: WorkflowStep[];
-  executions: Execution[];
-  createdAt: Date;
-  updatedAt: Date;
-}
-```
+## 数据类型定义
 
 ### 工作流配置 (WorkflowConfig)
+
 ```typescript
 interface WorkflowConfig {
   steps: WorkflowStep[];
-  trigger: TriggerConfig;
+  timeout?: number;
+  errorHandling?: ErrorHandlingConfig;
+  variables?: Record<string, string>;
 }
-```
 
-### 工作流步骤 (WorkflowStep)
-```typescript
 interface WorkflowStep {
-  id: string;
+  type: 'HTTP' | 'AI' | 'DATABASE' | 'EMAIL' | 'NOTIFICATION';
   name: string;
-  type: 'text-generation' | 'api-call' | 'data-processing';
-  config: Record<string, unknown>;
-  order: number;
-  dependencies: string[];
+  description?: string;
+  timeout?: number;
+  retryPolicy?: RetryPolicy;
+  [key: string]: any; // 其他特定类型的参数
+}
+
+interface ErrorHandlingConfig {
+  continueOnError?: boolean;
+  errorStep?: string;
+  maxRetries?: number;
+}
+
+interface RetryPolicy {
+  maxAttempts: number;
+  delay: number;
+  backoffMultiplier?: number;
 }
 ```
 
-### 执行 (Execution)
+### 工作流执行记录 (ExecutionRecord)
+
 ```typescript
-interface Execution {
+interface ExecutionRecord {
   id: string;
   workflowId: string;
-  workflow: Workflow;
-  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
-  inputData: Record<string, unknown>;
+  workflowName: string;
+  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  inputVariables: Record<string, any>;
+  output?: Record<string, any>;
   steps: ExecutionStep[];
-  createdAt: Date;
+  startedAt: Date;
+  completedAt?: Date;
+  duration?: number;
+  errorCount: number;
+  requestId: string;
 }
-```
 
-### 执行步骤 (ExecutionStep)
-```typescript
 interface ExecutionStep {
   id: string;
   name: string;
-  order: number;
-  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
-  step: WorkflowStep;
-  execution?: ExecutionStepDetails;
-}
-```
-
-### 执行步骤详情 (ExecutionStepDetails)
-```typescript
-interface ExecutionStepDetails {
-  id: string;
-  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
-  output?: Record<string, unknown>;
+  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
+  duration?: number;
+  result?: any;
   error?: string;
-  durationMs?: number;
 }
 ```
 
-### AI引擎 (AIEngine)
-```typescript
-interface AIEngine {
-  id: string;
-  name: string;
-  description: string;
-  capabilities: string[];
-  status: 'HEALTHY' | 'UNHEALTHY' | 'MAINTENANCE';
-  model: string;
-}
-```
+## 性能指标
 
-### 系统指标 (SystemMetrics)
-```typescript
-interface SystemMetrics {
-  cpu: {
-    usage: number;
-    cores: number;
-    temperature: number;
-  };
-  memory: {
-    used: string;
-    total: string;
-    percentage: number;
-  };
-  disk: {
-    used: string;
-    total: string;
-    percentage: number;
-  };
-  network: {
-    incoming: string;
-    outgoing: string;
-  };
-  uptime: number;
-}
-```
+- **API响应时间**: < 200ms (正常情况下)
+- **工作流执行启动**: < 50ms
+- **工作流查询响应**: < 100ms
+- **并发工作流执行**: 根据服务器配置，通常为 10-100
+- **最大工作流超时**: 600000ms (10分钟)
 
----
+## 限制
 
-## 更新日志
-
-### v1.0.0 (2026-04-13)
-- 初始版本发布
-- 实现完整的用户管理API
-- 实现工作流管理核心功能
-- 实现AI引擎调度API
-- 实现执行管理API
-- 实现数据分析API
-- 实现性能对比API
-- 支持JWT认证和权限控制
-- 提供完整的健康检查和监控功能
-
----
+- **单次工作流配置大小**: 10MB
+- **单次请求参数大小**: 10MB
+- **工作流步骤数量**: 最多50个步骤
+- **工作流执行时间**: 最长10分钟
+- **历史记录保留时间**: 30天
+- **API请求频率**: 每分钟100次
 
 ## 版本历史
 
-### v1.0.0 (2026-04-13)
-- 首次发布，包含完整的API文档
-- 基于实际代码实现的所有端点
-- 支持工作流全生命周期管理
-- 集成AI引擎调度系统
-- 提供实时监控和分析功能
+- **v1.0.0** - 初始版本，包含基础工作流管理功能
+- **v1.1.0** - 添加工作流导入导出功能
+- **v1.2.0** - 增强AI步骤支持和执行路径预览
+- **v1.3.0** - 添加工作流克隆和批量操作功能
 
----
+## 支持与反馈
 
-## 7. 执行历史管理 API
+如有问题或建议，请通过以下方式联系：
 
-### 7.1 创建执行记录
-
-**POST** `/api/executions`
-
-创建新的工作流执行记录，用于跟踪工作流的执行状态和结果。
-
-**请求参数**:
-```json
-{
-  "workflowId": "wrk_123456789",
-  "status": "running",
-  "triggerData": {
-    "source": "webhook",
-    "timestamp": "2026-04-13T04:26:00Z"
-  },
-  "result": {},
-  "errorMessage": "",
-  "executionTimeMs": 0
-}
-```
-
-**请求示例**:
-```bash
-curl -X POST "http://localhost:3000/api/executions" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "workflowId": "wrk_123456789",
-    "status": "running",
-    "triggerData": {
-      "source": "webhook",
-      "timestamp": "2026-04-13T04:26:00Z"
-    }
-  }'
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": "exe_123456789",
-    "workflowId": "wrk_123456789",
-    "status": "running",
-    "triggerData": {
-      "source": "webhook",
-      "timestamp": "2026-04-13T04:26:00Z"
-    },
-    "createdAt": "2026-04-13T04:26:00Z",
-    "updatedAt": "2026-04-13T04:26:00Z"
-  },
-  "message": "执行记录创建成功"
-}
-```
-
-**错误码**:
-- 400: 请求参数格式错误
-- 401: 未授权
-- 500: 服务器内部错误
-
----
-
-### 7.2 获取执行记录列表
-
-**GET** `/api/executions`
-
-获取执行记录列表，支持分页和筛选条件。
-
-**查询参数**:
-- `workflowId`: 工作流ID (可选)
-- `status`: 执行状态 (可选，可选值: running, completed, failed, cancelled)
-- `page`: 页码，默认1
-- `limit`: 每页数量，默认10，最大100
-- `startDate`: 开始时间 (ISO格式，可选)
-- `endDate`: 结束时间 (ISO格式，可选)
-- `userId`: 用户ID (可选)
-- `sortBy`: 排序字段，默认created_at，可选: created_at, started_at
-- `sortOrder`: 排序方式，默认desc，可选: asc, desc
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/executions?workflowId=wrk_123456789&status=running&page=1&limit=10" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "exe_123456789",
-      "workflowId": "wrk_123456789",
-      "status": "running",
-      "triggerData": {
-        "source": "webhook",
-        "timestamp": "2026-04-13T04:26:00Z"
-      },
-      "result": {},
-      "errorMessage": "",
-      "executionTimeMs": 5000,
-      "createdAt": "2026-04-13T04:26:00Z",
-      "updatedAt": "2026-04-13T04:26:00Z"
-    }
-  ],
-  "message": "获取执行记录列表成功"
-}
-```
-
-**错误码**:
-- 400: 查询参数格式错误
-- 401: 未授权
-- 500: 服务器内部错误
-
----
-
-### 7.3 获取单个执行记录
-
-**GET** `/api/executions/:id`
-
-根据执行记录ID获取详细信息。
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/executions/exe_123456789" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": "exe_123456789",
-    "workflowId": "wrk_123456789",
-    "status": "completed",
-    "triggerData": {
-      "source": "webhook",
-      "timestamp": "2026-04-13T04:26:00Z"
-    },
-    "result": {
-      "output": "任务完成",
-      "processedItems": 100
-    },
-    "errorMessage": "",
-    "executionTimeMs": 8500,
-    "createdAt": "2026-04-13T04:26:00Z",
-    "updatedAt": "2026-04-13T04:26:00Z"
-  },
-  "message": "获取执行记录详情成功"
-}
-```
-
-**错误码**:
-- 404: 执行记录不存在
-- 401: 未授权
-- 500: 服务器内部错误
-
----
-
-### 7.4 更新执行记录
-
-**PUT** `/api/executions/:id`
-
-更新执行记录的状态和相关信息。
-
-**请求参数**:
-```json
-{
-  "status": "completed",
-  "result": {
-    "output": "任务完成",
-    "processedItems": 100
-  },
-  "errorMessage": "",
-  "executionTimeMs": 8500
-}
-```
-
-**请求示例**:
-```bash
-curl -X PUT "http://localhost:3000/api/executions/exe_123456789" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "status": "completed",
-    "result": {
-      "output": "任务完成",
-      "processedItems": 100
-    },
-    "executionTimeMs": 8500
-  }'
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": "exe_123456789",
-    "workflowId": "wrk_123456789",
-    "status": "completed",
-    "triggerData": {},
-    "result": {
-      "output": "任务完成",
-      "processedItems": 100
-    },
-    "errorMessage": "",
-    "executionTimeMs": 8500,
-    "createdAt": "2026-04-13T04:26:00Z",
-    "updatedAt": "2026-04-13T04:30:00Z"
-  },
-  "message": "执行记录更新成功"
-}
-```
-
-**错误码**:
-- 400: 请求参数格式错误
-- 404: 执行记录不存在
-- 401: 未授权
-- 500: 服务器内部错误
-
----
-
-### 7.5 删除执行记录
-
-**DELETE** `/api/executions/:id`
-
-删除指定的执行记录。
-
-**请求示例**:
-```bash
-curl -X DELETE "http://localhost:3000/api/executions/exe_123456789" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": null,
-  "message": "执行记录删除成功"
-}
-```
-
-**错误码**:
-- 404: 执行记录不存在
-- 401: 未授权
-- 500: 服务器内部错误
-
----
-
-### 7.6 获取执行统计信息
-
-**GET** `/api/executions/stats`
-
-获取工作流执行的统计信息，包括总数、成功率、平均执行时间等。
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/executions/stats" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "totalExecutions": 1250,
-    "completedExecutions": 1100,
-    "failedExecutions": 100,
-    "runningExecutions": 50,
-    "averageExecutionTime": 8500,
-    "successRate": 88.0,
-    "totalExecutionTime": 9625000,
-    "executionsByDay": [
-      {
-        "date": "2026-04-13",
-        "count": 50,
-        "success": 45
-      }
-    ]
-  },
-  "message": "获取执行统计信息成功"
-}
-```
-
-**错误码**:
-- 401: 未授权
-- 500: 服务器内部错误
-
----
-
-### 7.7 创建执行步骤记录
-
-**POST** `/api/executions/:id/steps`
-
-为指定执行记录创建步骤执行记录。
-
-**请求参数**:
-```json
-{
-  "stepId": "step_123456789",
-  "status": "running",
-  "inputData": {
-    "param1": "value1",
-    "param2": "value2"
-  },
-  "outputData": {},
-  "errorMessage": "",
-  "durationMs": 1000
-}
-```
-
-**请求示例**:
-```bash
-curl -X POST "http://localhost:3000/api/executions/exe_123456789/steps" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "stepId": "step_123456789",
-    "status": "completed",
-    "inputData": {
-      "param1": "value1"
-    },
-    "outputData": {
-      "result": "处理完成"
-    },
-    "durationMs": 1200
-  }'
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": "step_exe_123456789",
-    "executionId": "exe_123456789",
-    "stepId": "step_123456789",
-    "status": "completed",
-    "inputData": {
-      "param1": "value1"
-    },
-    "outputData": {
-      "result": "处理完成"
-    },
-    "errorMessage": "",
-    "durationMs": 1200,
-    "createdAt": "2026-04-13T04:26:00Z",
-    "updatedAt": "2026-04-13T04:26:00Z"
-  },
-  "message": "执行步骤创建成功"
-}
-```
-
-**错误码**:
-- 400: 请求参数格式错误
-- 404: 执行记录不存在
-- 401: 未授权
-- 500: 服务器内部错误
-
----
-
-## 8. 告警管理 API
-
-### 8.1 获取告警列表
-
-**GET** `/api/alerts`
-
-获取系统告警列表，支持按状态筛选。
-
-**查询参数**:
-- `status`: 告警状态 (可选，可选值: active, resolved, all)
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/alerts?status=active" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "alert_123456789",
-      "name": "CPU使用率过高",
-      "description": "系统CPU使用率超过90%",
-      "status": "active",
-      "severity": "warning",
-      "metric": "cpu",
-      "threshold": 90,
-      "condition": "greater_than",
-      "value": 95.5,
-      "createdAt": "2026-04-13T04:26:00Z",
-      "updatedAt": "2026-04-13T04:26:00Z"
-    }
-  ],
-  "count": 1,
-  "timestamp": "2026-04-13T04:26:00Z"
-}
-```
-
-**错误码**:
-- 500: 服务器内部错误
-
----
-
-### 8.2 获取告警摘要
-
-**GET** `/api/alerts/summary`
-
-获取告警的统计摘要信息。
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/alerts/summary" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "totalAlerts": 25,
-    "activeAlerts": 8,
-    "resolvedAlerts": 17,
-    "criticalAlerts": 2,
-    "warningAlerts": 5,
-    "infoAlerts": 1,
-    "alertsBySeverity": {
-      "critical": 2,
-      "warning": 5,
-      "info": 1
-    }
-  },
-  "timestamp": "2026-04-13T04:26:00Z"
-}
-```
-
-**错误码**:
-- 500: 服务器内部错误
-
----
-
-### 8.3 解决告警
-
-**POST** `/api/alerts/:id/resolve`
-
-将指定的告警标记为已解决状态。
-
-**请求示例**:
-```bash
-curl -X POST "http://localhost:3000/api/alerts/alert_123456789/resolve" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "message": "Alert alert_123456789 resolved successfully",
-  "timestamp": "2026-04-13T04:26:00Z"
-}
-```
-
-**错误码**:
-- 404: 告警不存在或已解决
-- 500: 服务器内部错误
-
----
-
-### 8.4 解决所有告警
-
-**POST** `/api/alerts/resolve-all`
-
-将所有活动告警批量标记为已解决。
-
-**请求示例**:
-```bash
-curl -X POST "http://localhost:3000/api/alerts/resolve-all" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "message": "8 alerts resolved successfully",
-  "resolvedCount": 8,
-  "timestamp": "2026-04-13T04:26:00Z"
-}
-```
-
-**错误码**:
-- 500: 服务器内部错误
-
----
-
-### 8.5 获取告警规则列表
-
-**GET** `/api/alerts/rules`
-
-获取所有告警规则配置。
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/alerts/rules" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "rule_123456789",
-      "name": "CPU使用率监控",
-      "description": "监控CPU使用率是否超过阈值",
-      "metric": "cpu",
-      "threshold": 80,
-      "condition": "greater_than",
-      "severity": "warning",
-      "enabled": true,
-      "createdAt": "2026-04-13T04:26:00Z",
-      "updatedAt": "2026-04-13T04:26:00Z"
-    }
-  ],
-  "count": 1,
-  "timestamp": "2026-04-13T04:26:00Z"
-}
-```
-
-**错误码**:
-- 500: 服务器内部错误
-
----
-
-### 8.6 创建告警规则
-
-**POST** `/api/alerts/rules`
-
-创建新的告警规则。
-
-**请求参数**:
-```json
-{
-  "name": "内存使用率监控",
-  "description": "监控内存使用率是否超过阈值",
-  "metric": "memory",
-  "threshold": 85,
-  "condition": "greater_than",
-  "severity": "critical",
-  "enabled": true
-}
-```
-
-**请求示例**:
-```bash
-curl -X POST "http://localhost:3000/api/alerts/rules" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "内存使用率监控",
-    "description": "监控内存使用率是否超过阈值",
-    "metric": "memory",
-    "threshold": 85,
-    "condition": "greater_than",
-    "severity": "critical",
-    "enabled": true
-  }'
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": "rule_987654321",
-    "name": "内存使用率监控",
-    "description": "监控内存使用率是否超过阈值",
-    "metric": "memory",
-    "threshold": 85,
-    "condition": "greater_than",
-    "severity": "critical",
-    "enabled": true,
-    "createdAt": "2026-04-13T04:26:00Z",
-    "updatedAt": "2026-04-13T04:26:00Z"
-  },
-  "message": "Alert rule created successfully",
-  "timestamp": "2026-04-13T04:26:00Z"
-}
-```
-
-**错误码**:
-- 400: 缺少必填字段或参数格式错误
-- 500: 服务器内部错误
-
-**有效字段说明**:
-- `metric`: 监控指标，可选值: cpu, memory, responseTime, activeWorkflows, activeConnections
-- `condition`: 比较条件，可选值: greater_than, less_than
-- `severity`: 告警级别，可选值: info, warning, error, critical
-
----
-
-### 8.7 更新告警规则
-
-**PUT** `/api/alerts/rules/:id`
-
-更新指定的告警规则。
-
-**请求示例**:
-```bash
-curl -X PUT "http://localhost:3000/api/alerts/rules/rule_123456789" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "threshold": 75,
-    "severity": "warning",
-    "enabled": false
-  }'
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "message": "Alert rule rule_123456789 updated successfully",
-  "timestamp": "2026-04-13T04:26:00Z"
-}
-```
-
-**错误码**:
-- 404: 告警规则不存在
-- 500: 服务器内部错误
-
----
-
-### 8.8 删除告警规则
-
-**DELETE** `/api/alerts/rules/:id`
-
-删除指定的告警规则。
-
-**请求示例**:
-```bash
-curl -X DELETE "http://localhost:3000/api/alerts/rules/rule_123456789" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "message": "Alert rule rule_123456789 deleted successfully",
-  "timestamp": "2026-04-13T04:26:00Z"
-}
-```
-
-**错误码**:
-- 404: 告警规则不存在
-- 500: 服务器内部错误
-
----
-
-### 8.9 清除告警历史
-
-**DELETE** `/api/alerts/history`
-
-清除告警历史记录，可选择保留最近的记录。
-
-**查询参数**:
-- `keepRecent`: 保留最近的N条记录 (可选)
-
-**请求示例**:
-```bash
-curl -X DELETE "http://localhost:3000/api/alerts/history?keepRecent=100" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "message": "Alert history cleared successfully",
-  "timestamp": "2026-04-13T04:26:00Z"
-}
-```
-
-**错误码**:
-- 500: 服务器内部错误
-
----
-
-### 8.10 获取系统健康状态
-
-**GET** `/api/alerts/health`
-
-获取系统整体健康状态评估。
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/alerts/health" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "health": "excellent",
-    "timestamp": "2026-04-13T04:26:00Z",
-    "status": "system is running excellently"
-  }
-}
-```
-
-**健康状态说明**:
-- `excellent`: 系统运行优秀
-- `good`: 系统运行正常
-- `warning`: 系统有一些问题，建议监控
-- `critical`: 系统有严重问题，需要立即关注
-
-**错误码**:
-- 500: 服务器内部错误
-
----
-
-### 8.11 执行系统监控
-
-**POST** `/api/alerts/monitor`
-
-手动触发系统监控，模拟系统指标采集。
-
-**请求示例**:
-```bash
-curl -X POST "http://localhost:3000/api/alerts/monitor" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "message": "System monitoring completed",
-  "data": {
-    "monitoredMetrics": {
-      "cpu": 75.2,
-      "memory": 62.8,
-      "responseTime": 342,
-      "activeWorkflows": 12,
-      "activeConnections": 89
-    },
-    "timestamp": "2026-04-13T04:26:00Z"
-  }
-}
-```
-
-**错误码**:
-- 500: 服务器内部错误
-
----
-
-## 9. 分析统计 API
-
-### 9.1 收集系统指标
-
-**GET** `/api/analytics/metrics`
-
-实时收集系统运行指标数据。
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/analytics/metrics" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "cpu": {
-      "usage": 75.2,
-      "cores": 8,
-      "temperature": 65.5
-    },
-    "memory": {
-      "used": "12.5GB",
-      "total": "32GB",
-      "percentage": 39.1
-    },
-    "disk": {
-      "used": "450GB",
-      "total": "1TB",
-      "percentage": 45.0
-    },
-    "network": {
-      "incoming": "1.2MB/s",
-      "outgoing": "0.8MB/s"
-    },
-    "uptime": 86400
-  },
-  "timestamp": "2026-04-13T04:26:00Z"
-}
-```
-
-**错误码**:
-- 500: 服务器内部错误
-
----
-
-### 9.2 获取指标历史
-
-**GET** `/api/analytics/metrics/history`
-
-获取系统指标的历史记录。
-
-**查询参数**:
-- `limit`: 返回记录数量，默认20
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/analytics/metrics/history?limit=50" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "timestamp": "2026-04-13T04:20:00Z",
-      "cpu": {
-        "usage": 72.3,
-        "cores": 8,
-        "temperature": 64.2
-      },
-      "memory": {
-        "used": "12.3GB",
-        "total": "32GB",
-        "percentage": 38.4
-      }
-    }
-  ],
-  "count": 50,
-  "timestamp": "2026-04-13T04:26:00Z"
-}
-```
-
-**错误码**:
-- 500: 服务器内部错误
-
----
-
-### 9.3 获取工作流统计
-
-**GET** `/api/analytics/workflows`
-
-获取工作流相关的统计信息。
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/analytics/workflows" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "totalWorkflows": 150,
-    "activeWorkflows": 25,
-    "completedWorkflows": 110,
-    "failedWorkflows": 15,
-    "averageExecutionTime": 8500,
-    "successRate": 88.0,
-    "workflowsByStatus": {
-      "ACTIVE": 25,
-      "COMPLETED": 110,
-      "FAILED": 15
-    },
-    "executionsByDay": [
-      {
-        "date": "2026-04-13",
-        "executions": 50,
-        "completed": 44,
-        "failed": 6
-      }
-    ]
-  },
-  "timestamp": "2026-04-13T04:26:00Z"
-}
-```
-
-**错误码**:
-- 500: 服务器内部错误
-
----
-
-### 9.4 获取系统摘要
-
-**GET** `/api/analytics/summary`
-
-获取系统运行的整体摘要信息。
-
-**请求示例**:
-```bash
-curl -X GET "http://localhost:3000/api/analytics/summary" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "systemInfo": {
-      "version": "1.0.0",
-      "uptime": 86400,
-      "lastRestart": "2026-04-13T00:00:00Z"
-    },
-    "performance": {
-      "avgResponseTime": 342,
-      "cpuUsage": 75.2,
-      "memoryUsage": 39.1,
-      "diskUsage": 45.0
-    },
-    "workflows": {
-      "total": 150,
-      "active": 25,
-      "successRate": 88.0
-    },
-    "alerts": {
-      "total": 25,
-      "active": 8,
-      "critical": 2
-    },
-    "engines": {
-      "total": 5,
-      "healthy": 4,
-      "unhealthy": 1
-    }
-  },
-  "timestamp": "2026-04-13T04:26:00Z"
-}
-```
-
-**错误码**:
-- 500: 服务器内部错误
-
----
-
-### 9.5 模拟工作流执行
-
-**POST** `/api/analytics/simulate-execution`
-
-模拟工作流执行，用于测试和分析目的。
-
-**请求参数**:
-```json
-{
-  "workflowId": "wrk_123456789",
-  "status": "completed",
-  "executionTime": 8500
-}
-```
-
-**请求示例**:
-```bash
-curl -X POST "http://localhost:3000/api/analytics/simulate-execution" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "workflowId": "wrk_123456789",
-    "status": "completed",
-    "executionTime": 8500
-  }'
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "message": "Workflow execution simulated successfully",
-  "data": {
-    "workflowId": "wrk_123456789",
-    "status": "completed",
-    "executionTime": 8500,
-    "timestamp": "2026-04-13T04:26:00Z"
-  }
-}
-```
-
-**错误码**:
-- 400: 缺少必填字段或参数格式错误
-- 500: 服务器内部错误
-
-**有效状态值**:
-- running: 正在运行
-- completed: 已完成
-- failed: 失败
-- pending: 等待中
-
----
-
-## 联系方式
-
-如有问题或建议，请联系开发团队：
 - 邮箱: support@ai-workspace-orchestrator.com
+- GitHub Issues: https://github.com/ai-ideas-lab/ai-workspace-orchestrator/issues
 - 文档: https://docs.ai-workspace-orchestrator.com
-- 社区: https://community.ai-workspace-orchestrator.com
-- GitHub: https://github.com/ai-ideas-lab/ai-workspace-orchestrator
+
+---
+
+*本文档最后更新时间：2026-04-13 08:10 UTC*

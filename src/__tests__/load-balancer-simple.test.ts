@@ -11,10 +11,10 @@ describe('LoadBalancer - Simple Tests', () => {
     const weightInfo = loadBalancer.getWeightInfo();
     
     expect(weightInfo).toHaveLength(1);
-    expect(weightInfo[0].engineId).toBe('test-engine');
-    expect(weightInfo[0].weight).toBe(100);
-    expect(weightInfo[0].effectiveWeight).toBe(100);
-    expect(weightInfo[0].currentWeight).toBe(0);
+    expect(weightInfo[0]?.engineId).toBe('test-engine');
+    expect(weightInfo[0]?.weight).toBe(100);
+    expect(weightInfo[0]?.effectiveWeight).toBe(100);
+    expect(weightInfo[0]?.currentWeight).toBe(0);
   });
 
   test('should register engine with custom weight', () => {
@@ -22,9 +22,9 @@ describe('LoadBalancer - Simple Tests', () => {
     const weightInfo = loadBalancer.getWeightInfo();
     
     expect(weightInfo).toHaveLength(1);
-    expect(weightInfo[0].engineId).toBe('test-engine-2');
-    expect(weightInfo[0].weight).toBe(200);
-    expect(weightInfo[0].effectiveWeight).toBe(200);
+    expect(weightInfo[0]?.engineId).toBe('test-engine-2');
+    expect(weightInfo[0]?.weight).toBe(200);
+    expect(weightInfo[0]?.effectiveWeight).toBe(200);
   });
 
   test('should select null when no engines registered', () => {
@@ -42,7 +42,7 @@ describe('LoadBalancer - Simple Tests', () => {
     loadBalancer.registerEngine('negative-engine', -50);
     const weightInfo = loadBalancer.getWeightInfo();
     
-    expect(weightInfo[0].effectiveWeight).toBe(1); // Minimum weight
+    expect(weightInfo[0]?.effectiveWeight).toBe(1); // Minimum weight
   });
 
   test('should update weights correctly', () => {
@@ -62,7 +62,7 @@ describe('LoadBalancer - Simple Tests', () => {
     const weightInfo = loadBalancer.getWeightInfo();
     
     // Expected: 100 + (0.95 * 40) - (50/400) - 2 = 100 + 38 - 0.125 - 2 = 135.875
-    expect(weightInfo[0].effectiveWeight).toBeCloseTo(135.875, 1);
+    expect(weightInfo[0]?.effectiveWeight).toBeCloseTo(135.875, 1);
   });
 
   test('should get weight info', () => {
