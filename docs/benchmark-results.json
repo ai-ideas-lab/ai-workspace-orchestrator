@@ -1,0 +1,102 @@
+{
+  "timestamp": "2026-04-13T20:51:06.351Z",
+  "summary": {
+    "totalEndpoints": 6,
+    "functionalEndpoints": 0,
+    "failedEndpoints": 6,
+    "overallSuccessRate": 0,
+    "avgResponseTime": null
+  },
+  "detailedResults": [
+    {
+      "endpoint": "/api/users-with-orders",
+      "successRate": 0,
+      "avgTime": null,
+      "maxTime": null,
+      "minTime": null,
+      "timeouts": 5,
+      "errors": [
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "endpoint": "/api/orders-with-products",
+      "successRate": 0,
+      "avgTime": null,
+      "maxTime": null,
+      "minTime": null,
+      "timeouts": 5,
+      "errors": [
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "endpoint": "/api/user-stats",
+      "successRate": 0,
+      "avgTime": null,
+      "maxTime": null,
+      "minTime": null,
+      "timeouts": 5,
+      "errors": [
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "endpoint": "/api/users/1",
+      "successRate": 0,
+      "avgTime": null,
+      "maxTime": null,
+      "minTime": null,
+      "timeouts": 5,
+      "errors": [
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "endpoint": "/api/users/2",
+      "successRate": 0,
+      "avgTime": null,
+      "maxTime": null,
+      "minTime": null,
+      "timeouts": 5,
+      "errors": [
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "endpoint": "/api/users/3",
+      "successRate": 0,
+      "avgTime": null,
+      "maxTime": null,
+      "minTime": null,
+      "timeouts": 5,
+      "errors": [
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    }
+  ]
+}
