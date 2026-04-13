@@ -1,270 +1,370 @@
 /**
- * Database Error Handler - 数据库错误处理中间件
+ * Database Error Handler - 数据库错误处理器
  * 
- * 提供专门的数据库错误处理和重试机制，确保数据库操作的安全性和可靠性。
+ * 集成Prisma错误处理，提供统一的数据库错误分类和处理
  */
 
 import { Prisma } from '@prisma/client';
-import { AppError, SystemError, DatabaseError, ValidationError } from '../utils/errors.js';
+import { AppError, DatabaseError, SystemError, ValidationError } from './errors.js';
+import { logger } from './enhanced-error-logger.js';
 
+export interface DatabaseErrorContext {
+  operation: string;
+  table: string;
+  query?: string;
+  parameters?: Record<string, unknown>;
+  userId?: string;
+  correlationId?: string;
+}
+
+/**
+ * 数据库错误处理器
+ */
 export class DatabaseErrorHandler {
-  private static instance: DatabaseErrorHandler;
-  private retryCount: number = 3;
-  private retryDelay: number = 1000; // 1秒
-
-  static getInstance(): DatabaseErrorHandler {
-    if (!DatabaseErrorHandler.instance) {
-      DatabaseErrorHandler.instance = new DatabaseErrorHandler();
-    }
-    return DatabaseErrorHandler.instance;
-  }
-
   /**
-   * 处理Prisma错误
+   * 处理Prisma错误并转换为应用错误
    */
-  handlePrismaError(error: unknown): AppError {
+  static handlePrismaError(
+    error: unknown,
+    context: DatabaseErrorContext
+  ): AppError {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      return this.handleKnownPrismaError(error);
+      return this.handleKnownPrismaError(error, context);
     } else if (error instanceof Prisma.PrismaClientValidationError) {
-      return new ValidationError(
-        '数据库验证错误：数据格式不正确',
-        undefined,
-        { 
-          originalError: error.message,
-          stack: error.stack 
-        }
-      );
+      return this.handleValidationError(error, context);
     } else if (error instanceof Prisma.PrismaClientRustPanicError) {
-      return new SystemError(
-        '数据库核心错误：请检查数据库连接',
-        'Prisma',
-        { 
-          originalError: error.message,
-          stack: error.stack 
-        }
-      );
-    } else if (error instanceof Prisma.PrismaClientInitializationError) {
-      return new SystemError(
-        '数据库初始化失败：数据库连接配置错误',
-        'Prisma',
-        { 
-          originalError: error.message,
-          stack: error.stack 
-        }
-      );
+      return this.handleRustPanicError(error, context);
     } else if (error instanceof Prisma.PrismaClientUnknownRequestError) {
-      return new SystemError(
-        '数据库未知错误：请检查请求格式',
-        'Prisma',
-        { 
-          originalError: error.message,
-          stack: error.stack 
-        }
-      );
+      return this.handleUnknownRequestError(error, context);
     } else {
-      return new DatabaseError(
-        `数据库操作失败: ${error instanceof Error ? error.message : String(error)}`,
-        { 
-          originalError: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined 
-        }
-      );
+      return this.handleGenericError(error, context);
     }
   }
 
   /**
-   * 处理已知的Prisma错误
+   * 处理已知的Prisma请求错误
    */
-  private handleKnownPrismaError(error: Prisma.PrismaClientKnownRequestError): AppError {
-    switch (error.code) {
-      case 'P2002': // 唯一约束冲突
-        const field = error.meta?.target ? `字段 ${error.meta.target}` : '唯一字段';
-        return new ConflictError(
-          `${field} 已存在`,
+  private static handleKnownPrismaError(
+    error: Prisma.PrismaClientKnownRequestError,
+    context: DatabaseErrorContext
+  ): AppError {
+    const errorCode = error.code;
+    const meta = error.meta;
+
+    logger.error('Prisma已知错误:', {
+      code: errorCode,
+      meta,
+      context,
+      stack: error.stack,
+    });
+
+    switch (errorCode) {
+      case 'P2002':
+        // 唯一约束冲突
+        const field = (meta?.target as string[])?.[0] || '字段';
+        return new ValidationError(
+          `${field}已存在，请使用其他值`,
+          field,
           { 
-            field: error.meta?.target,
-            tableName: error.meta?.target,
-            originalError: error.message 
+            code: errorCode,
+            table: context.table,
+            target: meta?.target,
           }
         );
 
-      case 'P2003': // 外键约束失败
+      case 'P2003':
+        // 外键约束失败
+        const relationField = (meta?.field_name as string) || '关联字段';
         return new ValidationError(
-          '外键约束失败：关联数据不存在',
-          undefined,
+          `关联的${relationField}不存在`,
+          relationField,
           { 
-            relationName: error.meta?.relationName,
-            fieldName: error.meta?.field_name,
-            originalError: error.message 
+            code: errorCode,
+            table: context.table,
+            relationField: meta?.field_name,
           }
         );
 
-      case 'P2025': // 记录未找到
-        const model = error.meta?.modelName || '记录';
-        return new ValidationError(
-          `${model} 不存在`,
-          undefined,
+      case 'P2025':
+        // 记录未找到
+        const modelName = (meta?.model_name as string) || '记录';
+        return new AppError(
+          `${modelName}不存在`,
+          404,
+          'RECORD_NOT_FOUND',
+          true,
           { 
-            modelName: error.meta?.modelName,
-            originalError: error.message 
+            code: errorCode,
+            model: meta?.model_name,
+            cause: meta?.cause,
+          },
+          `请求的${modelName}不存在`
+        );
+
+      case 'P2016':
+        // 记录已被删除
+        const deletedModel = (meta?.model_name as string) || '记录';
+        return new AppError(
+          `${deletedModel}已被删除或不存在`,
+          404,
+          'RECORD_DELETED',
+          true,
+          { 
+            code: errorCode,
+            model: meta?.model_name,
+          },
+          `请求的${deletedModel}不存在或已被删除`
+        );
+
+      case 'P2022':
+        // 数据库连接问题
+        return new SystemError(
+          '数据库连接失败',
+          'database',
+          { 
+            code: errorCode,
+            originalError: error.message,
+            context,
           }
         );
 
-      case 'P2014': // 外键约束失败
-        return new ValidationError(
-          '外键约束失败：无效的引用',
-          undefined,
+      case 'P2001':
+        // 查询结果为空
+        return new AppError(
+          '查询结果为空',
+          404,
+          'QUERY_EMPTY',
+          true,
           { 
-            relationName: error.meta?.relationName,
-            originalError: error.message 
-          }
+            code: errorCode,
+            table: context.table,
+          },
+          '未找到匹配的记录'
         );
 
-      case 'P2016': // 连接查询失败
-        return new ValidationError(
-          '关联查询失败：数据完整性问题',
-          undefined,
-          { 
-            originalError: error.message 
-          }
-        );
-
-      case 'P2000': // 字段太长
-        const field2 = error.meta?.field_name || '字段';
-        return new ValidationError(
-          `${field2} 长度超过限制`,
-          field2,
-          { 
-            fieldName: error.meta?.field_name,
-            length: error.meta?.length,
-            originalError: error.message 
-          }
-        );
-
-      case 'P2001': // 记录未找到（查询）
-        return new ValidationError(
-          '查询的记录不存在',
-          undefined,
-          { 
-            originalError: error.message 
+      case 'P2010':
+        // 查询错误
+        return new DatabaseError(
+          `数据库查询错误: ${error.message}`,
+          {
+            code: errorCode,
+            table: context.table,
+            query: context.query,
+            originalError: error.message,
           }
         );
 
       default:
-        // 其他Prisma错误码
+        // 其他已知错误
         return new DatabaseError(
-          `数据库操作错误 [${error.code}]: ${error.message}`,
-          'Prisma',
-          { 
-            errorCode: error.code,
-            meta: error.meta,
-            originalError: error.message 
+          `数据库操作失败: ${error.message}`,
+          {
+            code: errorCode,
+            table: context.table,
+            operation: context.operation,
+            originalError: error.message,
           }
         );
     }
   }
 
   /**
-   * 带重试的数据库操作
+   * 处理Prisma验证错误
    */
-  async withRetry<T>(
+  private static handleValidationError(
+    error: Prisma.PrismaClientValidationError,
+    context: DatabaseErrorContext
+  ): AppError {
+    logger.error('Prisma验证错误:', {
+      message: error.message,
+      context,
+      stack: error.stack,
+    });
+
+    return new ValidationError(
+      '数据验证失败',
+      undefined,
+      {
+        operation: context.operation,
+        table: context.table,
+        validationError: error.message,
+      }
+    );
+  }
+
+  /**
+   * 处理Prisma Rust panic错误
+   */
+  private static handleRustPanicError(
+    error: Prisma.PrismaClientRustPanicError,
+    context: DatabaseErrorContext
+  ): AppError {
+    logger.error('Prisma Rust panic错误:', {
+      message: error.message,
+      context,
+      stack: error.stack,
+    });
+
+    return new SystemError(
+      '数据库内部错误，请稍后重试',
+      'database',
+      {
+        code: 'RUST_PANIC',
+        table: context.table,
+        operation: context.operation,
+        originalError: error.message,
+      }
+    );
+  }
+
+  /**
+   * 处理未知的Prisma请求错误
+   */
+  private static handleUnknownRequestError(
+    error: Prisma.PrismaClientUnknownRequestError,
+    context: DatabaseErrorContext
+  ): AppError {
+    logger.error('Prisma未知请求错误:', {
+      message: error.message,
+      context,
+      stack: error.stack,
+    });
+
+    return new DatabaseError(
+      `数据库未知错误: ${error.message}`,
+      {
+        operation: context.operation,
+        table: context.table,
+        originalError: error.message,
+      }
+    );
+  }
+
+  /**
+   * 处理通用错误
+   */
+  private static handleGenericError(
+    error: unknown,
+    context: DatabaseErrorContext
+  ): AppError {
+    logger.error('数据库通用错误:', {
+      error,
+      context,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+
+    return new DatabaseError(
+      '数据库操作失败',
+      {
+        operation: context.operation,
+        table: context.table,
+        originalError: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      }
+    );
+  }
+
+  /**
+   * 包装数据库操作，自动处理错误
+   */
+  static wrapDatabaseOperation<T>(
     operation: () => Promise<T>,
-    operationName: string = 'database operation'
+    context: DatabaseErrorContext
   ): Promise<T> {
-    let lastError: Error;
+    return operation().catch((error) => {
+      const appError = this.handlePrismaError(error, context);
+      throw appError;
+    });
+  }
 
-    for (let attempt = 1; attempt <= this.retryCount; attempt++) {
+  /**
+   * 批量数据库操作，部分失败继续执行
+   */
+  static async executeBatchWithPartialFailure<T>(
+    operations: Array<{
+      id: string;
+      operation: () => Promise<T>;
+      context: DatabaseErrorContext;
+    }>,
+    overallContext: DatabaseErrorContext
+  ): Promise<{
+    successes: Array<{ id: string; result: T }>;
+    failures: Array<{ id: string; error: AppError }>;
+  }> {
+    const successes: Array<{ id: string; result: T }> = [];
+    const failures: Array<{ id: string; error: AppError }> = [];
+
+    const promises = operations.map(async ({ id, operation, context }) => {
       try {
-        return await operation();
+        const result = await this.wrapDatabaseOperation(operation, {
+          ...overallContext,
+          ...context,
+          operation: `${overallContext.operation}[${id}]`,
+        });
+        successes.push({ id, result });
       } catch (error) {
-        lastError = error as Error;
-        
-        // 如果是已知错误，直接抛出，不重试
-        if (error instanceof Prisma.PrismaClientKnownRequestError) {
-          if (['P2002', 'P2014', 'P2025'].includes(error.code)) {
-            throw this.handlePrismaError(error);
-          }
-        }
-
-        // 其他错误可以重试
-        if (attempt < this.retryCount) {
-          const delay = this.retryDelay * attempt; // 指数退避
-          console.warn(`${operationName} 失败，${delay}ms 后重试 (尝试 ${attempt}/${this.retryCount}):`, lastError.message);
-          
-          await new Promise(resolve => setTimeout(resolve, delay));
+        if (error instanceof AppError) {
+          failures.push({ id, error });
         } else {
-          console.error(`${operationName} 最终失败:`, lastError);
-          throw this.handlePrismaError(error);
+          const appError = this.handleGenericError(error, context);
+          failures.push({ id, error: appError });
         }
       }
-    }
+    });
 
-    throw this.handlePrismaError(lastError);
+    await Promise.all(promises);
+    return { successes, failures };
   }
 
   /**
-   * 批量数据库操作的错误处理
+   * 检查错误是否为数据库相关错误
    */
-  async withBatchRetry<T>(
-    operations: Array<{ name: string; operation: () => Promise<T> }>,
-    batchSize: number = 5
-  ): Promise<{ results: T[]; errors: Array<{ name: string; error: AppError }> }> {
-    const results: T[] = [];
-    const errors: Array<{ name: string; error: AppError }> = [];
-
-    for (let i = 0; i < operations.length; i += batchSize) {
-      const batch = operations.slice(i, i + batchSize);
-      
-      const batchPromises = batch.map(async ({ name, operation }) => {
-        try {
-          const result = await this.withRetry(operation, name);
-          results.push(result);
-          return { name, result, error: null };
-        } catch (error) {
-          const appError = error instanceof AppError ? error : this.handlePrismaError(error);
-          errors.push({ name, error: appError });
-          return { name, result: null, error: appError };
-        }
-      });
-
-      await Promise.all(batchPromises);
-    }
-
-    return { results, errors };
+  static isDatabaseError(error: unknown): boolean {
+    return error instanceof Prisma.PrismaClientKnownRequestError ||
+           error instanceof Prisma.PrismaClientValidationError ||
+           error instanceof Prisma.PrismaClientRustPanicError ||
+           error instanceof Prisma.PrismaClientUnknownRequestError;
   }
 
   /**
-   * 设置重试配置
+   * 检查错误是否为可重试的数据库错误
    */
-  setRetryConfig(count: number, delay: number): void {
-    this.retryCount = Math.max(1, count);
-    this.retryDelay = Math.max(100, delay);
+  static isRetryableDatabaseError(error: unknown): boolean {
+    if (!this.isDatabaseError(error)) {
+      return false;
+    }
+
+    const prismaError = error as Prisma.PrismaClientKnownRequestError;
+    
+    // 可重试的错误类型
+    const retryableCodes = [
+      'P2022', // 数据库连接问题
+      'P2010', // 查询错误
+      'P2000', // 通用约束错误
+    ];
+
+    return retryableCodes.includes(prismaError.code);
   }
 }
 
-// 导出单例实例
-export const dbErrorHandler = DatabaseErrorHandler.getInstance();
+// 导出数据库错误处理装饰器
+export function withDatabaseErrorHandling(
+  context: DatabaseErrorContext
+) {
+  return function <T extends (...args: any[]) => Promise<any>>(
+    target: any,
+    propertyName: string,
+    descriptor: TypedPropertyDescriptor<T>
+  ) {
+    const method = descriptor.value!;
 
-/**
- * 数据库操作装饰器
- */
-export function withDatabaseRetry<T>(
-  operation: () => Promise<T>,
-  operationName?: string
-): Promise<T> {
-  return dbErrorHandler.withRetry(operation, operationName);
-}
+    descriptor.value = (async function(this: any, ...args: any[]) {
+      return DatabaseErrorHandler.wrapDatabaseOperation(
+        () => method.apply(this, args),
+        context
+      );
+    }) as any;
 
-/**
- * 带错误处理的数据库查询包装器
- */
-export async function safeDatabaseQuery<T>(
-  query: () => Promise<T>,
-  errorMessage: string = '数据库查询失败'
-): Promise<T> {
-  try {
-    return await query();
-  } catch (error) {
-    throw dbErrorHandler.handlePrismaError(error);
-  }
+    return descriptor;
+  };
 }

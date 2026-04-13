@@ -223,6 +223,58 @@ function isEmpty(str) {
 }
 
 /**
+ * 规范化字符串格式
+ * 
+ * 对输入字符串进行基本格式化处理，包括去除首尾空白、
+ * 移除多余空格、标准化特殊字符等操作。常用于用户输入预处理。
+ * 
+ * @param str 待规范化的字符串
+ * @returns 规范化后的字符串
+ * @example
+ * // 基本字符串清理
+ * console.log(normalizeString('  hello world  ')); // "hello world"
+ * 
+ * // 移除多余空格
+ * console.log(normalizeString('hello    world')); // "hello world"
+ * 
+ * // 处理空字符串
+ * console.log(normalizeString('')); // ""
+ * console.log(normalizeString('   ')); // ""
+ * 
+ * // 处理null/undefined
+ * console.log(normalizeString(null)); // ""
+ * console.log(normalizeString(undefined)); // ""
+ * 
+ * // AI输入预处理场景
+ * function preprocessUserInput(input) {
+ *   const normalized = normalizeString(input);
+ *   if (isEmpty(normalized)) {
+ *     throw new Error('输入内容不能为空');
+ *   }
+ *   return normalized;
+ * }
+ */
+function normalizeString(str) {
+  if (!str || typeof str !== 'string') {
+    return '';
+  }
+  
+  // 去除首尾空白
+  let normalized = str.trim();
+  
+  // 将多个连续空格替换为单个空格
+  normalized = normalized.replace(/\s+/g, ' ');
+  
+  // 移除换行符和制表符
+  normalized = normalized.replace(/[\t\n\r]/g, ' ');
+  
+  // 再次去除可能产生的多余空格
+  normalized = normalized.replace(/\s+/g, ' ').trim();
+  
+  return normalized;
+}
+
+/**
  * 验证中国手机号码格式
  * 
  * 验证输入字符串是否符合中国大陆手机号码的格式规范。
@@ -251,6 +303,24 @@ function isValidChinesePhone(phone) {
   return true;
 }
 
+/**
+ * 生成AI工作流唯一ID
+ * 
+ * 创建格式为 'wf_YYYYMMDD_HHMMSS_RRRR' 的工作流标识符，
+ * 包含时间戳和随机字符，确保唯一性。
+ * 
+ * @returns {string} 格式化的工作流ID
+ * @example
+ * const workflowId = generateWorkflowId();
+ * console.log(workflowId); // 输出: "wf_20260413_1445_1234"
+ */
+function generateWorkflowId() {
+  const now = new Date();
+  const timestamp = now.toISOString().replace(/[-:T.]/g, '').slice(0, 14);
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  return `wf_${timestamp}_${random}`;
+}
+
 module.exports = {
   formatDate,
   debounce,
@@ -259,5 +329,7 @@ module.exports = {
   generateSimpleId,
   isValidUrl,
   isEmpty,
-  isValidChinesePhone
+  normalizeString,
+  isValidChinesePhone,
+  generateWorkflowId
 };

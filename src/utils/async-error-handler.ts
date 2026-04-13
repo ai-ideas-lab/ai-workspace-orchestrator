@@ -5,7 +5,7 @@
  * 支持自动重试、错误分类、上下文追踪等功能。
  */
 
-import { AppError, SystemError, TimeoutError, NetworkError } from './errors.js';
+import { AppError, SystemError, TimeoutError, NetworkError, WorkflowError } from './errors.js';
 import { errorLogger } from './enhanced-error-logger.js';
 
 export interface AsyncRetryOptions {
