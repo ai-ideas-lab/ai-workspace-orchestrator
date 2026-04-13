@@ -275,7 +275,6 @@ export class WorkflowScheduler {
     // 使用增强的错误处理器执行工作流
     const context: AsyncOperationContext = {
       operation: `workflow_execute:${entry.workflowId}`,
-      userId: entry.workflow.userId,
       correlationId: entry.id,
       metadata: {
         workflowId: entry.workflowId,
@@ -421,11 +420,11 @@ export class WorkflowScheduler {
   private clearEntryTimers(entry: ScheduledEntry): void {
     if (entry.timer) {
       clearTimeout(entry.timer);
-      entry.timer = undefined;
+      entry.timer = undefined as unknown as NodeJS.Timeout;
     }
     if (entry.interval) {
       clearInterval(entry.interval);
-      entry.interval = undefined;
+      entry.interval = undefined as unknown as NodeJS.Timeout;
     }
   }
 
