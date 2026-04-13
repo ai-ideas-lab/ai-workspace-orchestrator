@@ -1,252 +1,271 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorkflowController = void 0;
-const workflow_validator_service_js_1 = require("../services/workflow-validator.service.js");
-const ai_workflow_service_js_1 = require("../services/ai-workflow-service.js");
+const workflow_scheduler_js_1 = require("../services/workflow-scheduler.js");
 const logger_js_1 = require("../utils/logger.js");
+const errors_js_1 = require("../utils/errors.js");
+const responseUtils_js_1 = require("../utils/responseUtils.js");
+const async_error_handler_ts_1 = require("../utils/async-error-handler.ts");
 class WorkflowController {
     constructor() {
-        this.workflowService = new ai_workflow_service_js_1.WorkflowService();
+        this.workflowService = workflow_scheduler_js_1.WorkflowService.getInstance();
     }
     async getWorkflows(req, res) {
+        const asyncContext = {
+            operation: 'get_workflows',
+            userId: req.user?.id,
+            sessionId: req.session?.id,
+            correlationId: req.requestId,
+            metadata: {
+                page: req.query.page,
+                limit: req.query.limit,
+                status: req.query.status,
+                search: req.query.search,
+            }
+        };
+        const asyncHandler = async_error_handler_ts_1.AsyncErrorHandler.getInstance();
         try {
-            const { page = 1, limit = 10, status } = req.query;
-            const workflows = await this.workflowService.getWorkflows({
+            const { page = 1, limit = 10, status, userId, search } = req.query;
+            const result = await asyncHandler.executeWithRetry(() => this.workflowService.getWorkflows({
                 page: Number(page),
                 limit: Number(limit),
-                status: status
-            });
-            res.json({
-                success: true,
-                data: workflows.data,
-                pagination: workflows.pagination
+                status: status,
+                userId: userId,
+                search: search,
+            }), asyncContext, { maxRetries: 2, baseDelayMs: 500 });
+            (0, responseUtils_js_1.successResponse)(res, result.data, '获取工作流列表成功', 200, {
+                pagination: result.pagination,
             });
         }
         catch (error) {
             logger_js_1.logger.error('获取工作流列表失败:', error);
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : '获取工作流列表失败'
-            });
+            if (error instanceof errors_js_1.AppError) {
+                (0, responseUtils_js_1.errorResponse)(res, error);
+            }
+            else {
+                (0, responseUtils_js_1.errorResponse)(res, '获取工作流列表失败');
+            }
         }
     }
     async createWorkflow(req, res) {
         try {
-            const workflowData = req.body;
-            const validation = workflow_validator_service_js_1.WorkflowValidator.validateWorkflow(workflowData);
-            if (!validation.valid) {
-                res.status(400).json({
-                    success: false,
-                    error: '工作流验证失败',
-                    details: validation.errors
-                });
+            const { name, description, config, variables, userId } = req.body;
+            if (!name || !config) {
+                (0, responseUtils_js_1.validationErrorResponse)(res, '工作流名称和配置不能为空');
                 return;
             }
-            const workflow = await this.workflowService.createWorkflow(workflowData);
-            res.status(201).json({
-                success: true,
-                data: workflow
+            const workflow = await this.workflowService.createWorkflow({
+                name,
+                description,
+                config,
+                variables: variables || {},
+                userId: userId || req.user?.id,
             });
+            logger_js_1.logger.info(`工作流创建成功: ${workflow.id} (${name})`);
+            (0, responseUtils_js_1.successResponse)(res, workflow, '工作流创建成功', 201);
         }
         catch (error) {
             logger_js_1.logger.error('创建工作流失败:', error);
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : '创建工作流失败'
-            });
+            if (error instanceof errors_js_1.AppError) {
+                (0, responseUtils_js_1.errorResponse)(res, error);
+            }
+            else if (error.message.includes('唯一约束')) {
+                (0, responseUtils_js_1.errorResponse)(res, '工作流名称已存在', undefined, 409);
+            }
+            else {
+                (0, responseUtils_js_1.errorResponse)(res, '创建工作流失败');
+            }
         }
     }
     async getWorkflow(req, res) {
         try {
             const { id } = req.params;
-            const workflow = await this.workflowService.getWorkflowById(id);
-            if (!workflow) {
-                res.status(404).json({
-                    success: false,
-                    error: '工作流不存在'
-                });
+            if (!id) {
+                (0, responseUtils_js_1.validationErrorResponse)(res, '工作流ID不能为空');
                 return;
             }
-            res.json({
-                success: true,
-                data: workflow
-            });
+            const workflow = await this.workflowService.getWorkflow(id);
+            if (!workflow) {
+                notFoundResponse(res, '工作流', id);
+                return;
+            }
+            (0, responseUtils_js_1.successResponse)(res, workflow, '获取工作流详情成功');
         }
         catch (error) {
             logger_js_1.logger.error('获取工作流详情失败:', error);
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : '获取工作流详情失败'
-            });
+            if (error instanceof errors_js_1.AppError) {
+                (0, responseUtils_js_1.errorResponse)(res, error);
+            }
+            else {
+                (0, responseUtils_js_1.errorResponse)(res, '获取工作流详情失败');
+            }
         }
     }
     async updateWorkflow(req, res) {
         try {
             const { id } = req.params;
-            const updateData = req.body;
-            if (updateData.steps) {
-                const validation = workflow_validator_service_js_1.WorkflowValidator.validateWorkflow({
-                    ...updateData,
-                    id
-                });
-                if (!validation.valid) {
-                    res.status(400).json({
-                        success: false,
-                        error: '工作流验证失败',
-                        details: validation.errors
-                    });
-                    return;
-                }
+            const { name, description, config, variables, status } = req.body;
+            if (!id) {
+                (0, responseUtils_js_1.validationErrorResponse)(res, '工作流ID不能为空');
+                return;
             }
-            const workflow = await this.workflowService.updateWorkflow(id, updateData);
-            res.json({
-                success: true,
-                data: workflow
+            const workflow = await this.workflowService.updateWorkflow(id, {
+                name,
+                description,
+                config,
+                variables,
+                status,
             });
+            logger_js_1.logger.info(`工作流更新成功: ${id}`);
+            (0, responseUtils_js_1.successResponse)(res, workflow, '工作流更新成功');
         }
         catch (error) {
             logger_js_1.logger.error('更新工作流失败:', error);
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : '更新工作流失败'
-            });
+            if (error instanceof errors_js_1.AppError) {
+                (0, responseUtils_js_1.errorResponse)(res, error);
+            }
+            else {
+                (0, responseUtils_js_1.errorResponse)(res, '更新工作流失败');
+            }
         }
     }
     async deleteWorkflow(req, res) {
         try {
             const { id } = req.params;
+            if (!id) {
+                (0, responseUtils_js_1.validationErrorResponse)(res, '工作流ID不能为空');
+                return;
+            }
             await this.workflowService.deleteWorkflow(id);
-            res.json({
-                success: true,
-                message: '工作流删除成功'
-            });
+            logger_js_1.logger.info(`工作流删除成功: ${id}`);
+            (0, responseUtils_js_1.successResponse)(res, null, '工作流删除成功');
         }
         catch (error) {
             logger_js_1.logger.error('删除工作流失败:', error);
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : '删除工作流失败'
-            });
+            if (error instanceof errors_js_1.AppError) {
+                (0, responseUtils_js_1.errorResponse)(res, error);
+            }
+            else {
+                (0, responseUtils_js_1.errorResponse)(res, '删除工作流失败');
+            }
         }
     }
     async executeWorkflow(req, res) {
+        const asyncContext = {
+            operation: 'execute_workflow',
+            userId: req.user?.id,
+            sessionId: req.session?.id,
+            correlationId: req.requestId,
+            metadata: {
+                workflowId: req.params.id,
+                inputVariables: req.body.inputVariables,
+                priority: req.body.priority,
+            }
+        };
+        const asyncHandler = async_error_handler_ts_1.AsyncErrorHandler.getInstance();
         try {
             const { id } = req.params;
-            const { inputData, userId } = req.body;
-            const workflow = await this.workflowService.getWorkflowById(id);
-            if (!workflow) {
-                res.status(404).json({
-                    success: false,
-                    error: '工作流不存在'
-                });
+            const { inputVariables, priority } = req.body;
+            if (!id) {
+                (0, responseUtils_js_1.validationErrorResponse)(res, '工作流ID不能为空');
                 return;
             }
-            const validation = workflow_validator_service_js_1.WorkflowValidator.validateExecutionInput(workflow, inputData);
-            if (!validation.valid) {
-                res.status(400).json({
-                    success: false,
-                    error: '执行输入验证失败',
-                    details: validation.errors
-                });
-                return;
-            }
-            const execution = await this.workflowService.executeWorkflow(id, {
-                inputData,
-                userId,
-                metadata: {
-                    userAgent: req.get('User-Agent'),
-                    ipAddress: req.ip,
-                    timestamp: new Date().toISOString()
-                }
-            });
-            res.status(202).json({
-                success: true,
-                data: execution
-            });
+            const execution = await asyncHandler.executeWithTimeout(() => this.workflowService.executeWorkflow(id, {
+                inputVariables: inputVariables || {},
+                priority,
+            }), 30000, asyncContext);
+            logger_js_1.logger.info(`工作流执行启动: ${id} -> ${execution.id}`);
+            (0, responseUtils_js_1.successResponse)(res, execution, '工作流执行启动成功', 202);
         }
         catch (error) {
             logger_js_1.logger.error('执行工作流失败:', error);
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : '执行工作流失败'
-            });
+            if (error instanceof errors_js_1.AppError) {
+                (0, responseUtils_js_1.errorResponse)(res, error);
+            }
+            else {
+                (0, responseUtils_js_1.errorResponse)(res, '执行工作流失败');
+            }
         }
     }
     async getExecutionHistory(req, res) {
         try {
             const { id } = req.params;
-            const { page = 1, limit = 20, status } = req.query;
-            const executions = await this.workflowService.getExecutionHistory(id, {
+            const { page = 1, limit = 10, status, startDate, endDate } = req.query;
+            if (!id) {
+                (0, responseUtils_js_1.validationErrorResponse)(res, '工作流ID不能为空');
+                return;
+            }
+            const result = await this.workflowService.getExecutionHistory(id, {
                 page: Number(page),
                 limit: Number(limit),
-                status: status
+                status: status,
+                startDate: startDate,
+                endDate: endDate,
             });
-            res.json({
-                success: true,
-                data: executions.data,
-                pagination: executions.pagination
+            (0, responseUtils_js_1.successResponse)(res, result.data, '获取执行历史成功', 200, {
+                pagination: result.pagination,
             });
         }
         catch (error) {
             logger_js_1.logger.error('获取执行历史失败:', error);
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : '获取执行历史失败'
-            });
+            if (error instanceof errors_js_1.AppError) {
+                (0, responseUtils_js_1.errorResponse)(res, error);
+            }
+            else {
+                (0, responseUtils_js_1.errorResponse)(res, '获取执行历史失败');
+            }
         }
     }
     async validateWorkflow(req, res) {
         try {
-            const workflowData = req.body;
-            const validation = workflow_validator_service_js_1.WorkflowValidator.validateWorkflow(workflowData);
-            const executionValidation = workflow_validator_service_js_1.WorkflowValidator.validateExecutionInput(workflowData, req.body.inputData || {});
-            res.json({
-                success: true,
-                validation: {
-                    workflow: validation,
-                    execution: executionValidation,
-                    canExecute: validation.valid && executionValidation.valid
-                }
-            });
+            const { config } = req.body;
+            if (!config) {
+                (0, responseUtils_js_1.validationErrorResponse)(res, '工作流配置不能为空');
+                return;
+            }
+            const validation = await this.workflowService.validateWorkflow(config);
+            if (!validation.valid) {
+                (0, responseUtils_js_1.validationErrorResponse)(res, '工作流配置验证失败', undefined, 400, {
+                    errors: validation.errors,
+                });
+                return;
+            }
+            (0, responseUtils_js_1.successResponse)(res, validation, '工作流配置验证成功');
         }
         catch (error) {
-            logger_js_1.logger.error('验证工作流失败:', error);
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : '验证工作流失败'
-            });
+            logger_js_1.logger.error('验证工作流配置失败:', error);
+            if (error instanceof errors_js_1.AppError) {
+                (0, responseUtils_js_1.errorResponse)(res, error);
+            }
+            else {
+                (0, responseUtils_js_1.errorResponse)(res, '验证工作流配置失败');
+            }
         }
     }
     async getExecutionPath(req, res) {
         try {
-            const workflowData = req.body;
-            const validation = workflow_validator_service_js_1.WorkflowValidator.validateWorkflow(workflowData);
-            if (!validation.valid) {
-                res.status(400).json({
-                    success: false,
-                    error: '工作流验证失败',
-                    details: validation.errors
-                });
+            const { config } = req.body;
+            if (!config) {
+                (0, responseUtils_js_1.validationErrorResponse)(res, '工作流配置不能为空');
                 return;
             }
-            const executionOrder = workflow_validator_service_js_1.WorkflowValidator.getExecutionOrder(workflowData.steps);
-            res.json({
-                success: true,
-                data: {
-                    steps: executionOrder,
-                    totalSteps: executionOrder.length,
-                    estimatedDuration: executionOrder.length * 30
-                }
-            });
+            const executionPath = await this.workflowService.getExecutionPath(config);
+            (0, responseUtils_js_1.successResponse)(res, executionPath, '获取执行路径成功');
         }
         catch (error) {
             logger_js_1.logger.error('获取执行路径失败:', error);
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : '获取执行路径失败'
-            });
+            if (error instanceof errors_js_1.AppError) {
+                (0, responseUtils_js_1.errorResponse)(res, error);
+            }
+            else {
+                (0, responseUtils_js_1.errorResponse)(res, '获取执行路径失败');
+            }
         }
     }
 }
 exports.WorkflowController = WorkflowController;
+function notFoundResponse(res, resource, id, requestId) {
+    const error = new Error(`${resource} ${id ? `"${id}"` : ''} 不存在`);
+    (0, responseUtils_js_1.errorResponse)(res, error, { resource, id }, 404, requestId);
+}
 //# sourceMappingURL=workflow.controller.js.map

@@ -1,0 +1,1 @@
+{"version":3,"file":"WorkspaceOrchestrator.d.ts","sourceRoot":"","sources":["../src/WorkspaceOrchestrator.ts"],"names":[],"mappings":"AA0BA,qBAAa,qBAAqB;IAChC,OAAO,CAAC,SAAS,CAA+B;IAChD,OAAO,CAAC,SAAS,CAA+B;IA6ChD,cAAc,CAAC,IAAI,EAAE,MAAM,EAAE,MAAM,EAAE,GAAG;IA4DlC,eAAe,CAAC,QAAQ,EAAE,GAAG;CAUpC"}
