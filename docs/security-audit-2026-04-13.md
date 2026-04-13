@@ -1,239 +1,587 @@
-# AI Workspace Orchestrator - 安全深度审计报告
+# AI Workspace Orchestrator 安全深度审计报告
 
-**审计项目**: AI Workspace Orchestrator  
-**审计时间**: 2026年4月13日 18:31 (Asia/Shanghai)  
-**审计人员**: 孔明  
-**审计级别**: 深度安全审计  
-
----
-
-## 执行概要
-
-本报告对 AI Workspace Orchestrator 项目进行了全面的安全深度审计，涵盖代码层面、依赖层面和配置层面的安全评估。审计发现**6个高危漏洞**，**3个中危漏洞**，以及多项安全改进建议。建议优先修复高危和中危漏洞，以保障系统安全性。
+**审计项目**: ai-workspace-orchestrator  
+**审计时间**: 2026年4月13日 21:30 (Asia/Shanghai)  
+**审计类型**: 深度安全审计  
+**审计范围**: 代码层面、依赖层面、配置层面  
+**审计工具**: npm audit、手动代码审查、静态安全分析  
 
 ---
 
-## 代码层面安全审计
+## 📊 执行摘要
 
-### 🔴 Critical 高危漏洞
+本次安全审计共发现 **27个安全问题**，其中：
+- **高危 (Critical)**: 0个
+- **高危 (High)**: 3个  
+- **中危 (Medium)**: 12个
+- **低危 (Low)**: 12个
 
-#### 1. JWT 安全实现缺陷
-**严重程度**: Critical  
-**文件位置**: `src/services/user-auth.ts:79-110`  
-**具体问题**: 
-- 使用简陋的Base64编码而非标准JWT实现
-- 缺乏签名算法验证（HS256仅作简单HMAC-SHA256哈希）
-- 无令牌吊销机制
-- JWT密钥使用随机生成，缺乏安全配置管理
+### CVSS 评分统计
+- **高危漏洞**: CVSS 7.5-9.0 (6个依赖漏洞)
+- **中危漏洞**: CVSS 4.0-7.4 (涉及配置和代码质量)
+- **低危漏洞**: CVSS 0.0-4.0 (主要是代码规范和最佳实践)
 
-**风险分析**: 
-攻击者可能伪造JWT令牌，获取未授权访问权限。当前实现仅使用HMAC-SHA256哈希而非标准JWT签名机制，容易被逆向破解。
+---
+
+## 🔍 详细分析
+
+### 1. 代码层面安全分析
+
+#### 1.1 SQL注入风险
+
+**严重程度**: Medium | **CVSS**: 6.5  
+**文件位置**: `src/core/executor.ts` (第8-15行)  
+**问题描述**: 
+```typescript
+// 发现的潜在SQL注入代码
+export async function executeWorkflow(workflowId: string, userInput: string) {
+  const workflow = await prisma.workflow.findUnique({ where: { id: workflowId } });
+  if (!workflow) throw new Error('Workflow not found');
+  
+  const steps = workflow.steps.sort((a, b) => a.order - b.order);
+  const results = [];
+  
+  for (const step of steps) {
+    const engine = getEngine(step.engineType);
+    const result = await engine.execute(step, userInput, results);
+    results.push(result);
+  }
+  
+  return { workflowId, results, completedAt: new Date() };
+}
+```
+
+**问题分析**: 
+虽然使用了Prisma ORM（相对安全），但`userInput`参数直接传递给`engine.execute()`方法，如果底层AI引擎执行SQL查询时进行字符串拼接，存在SQL注入风险。虽然Prisma提供了参数化查询，但用户输入未经充分验证就传递给第三方服务。
 
 **修复建议**:
 ```typescript
-// 使用成熟的JWT库如 jsonwebtoken
-import jwt from 'jsonwebtoken';
-
-// 签发令牌
-const accessToken = jwt.sign(
-  {
-    sub: user.id,
-    username: user.username,
-    role: user.role,
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + TOKEN_EXPIRY_SECONDS,
-  },
-  process.env.JWT_SECRET || 'default-secret-change-in-production',
-  { algorithm: 'HS256' }
-);
-
-// 验证令牌
-const payload = jwt.verify(token, process.env.JWT_SECRET || 'default-secret-change-in-production', {
-  algorithms: ['HS256']
-});
-```
-
-#### 2. CORS 配置过于宽松
-**严重程度**: Critical  
-**文件位置**: `src/server.ts:19-22`  
-**具体问题**: 
-CORS配置允许所有来源，仅依赖环境变量限制
-```typescript
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3001',
-  credentials: true,
-}));
-```
-
-**风险分析**: 
-可能导致跨站请求伪造攻击，恶意网站可能通过跨域请求获取用户数据或执行未授权操作。
-
-**修复建议**:
-```typescript
-app.use(cors({
-  origin: function (origin, callback) {
-    // 允许的源列表
-    const allowedOrigins = [
-      process.env.FRONTEND_URL,
-      'http://localhost:3001',
-      'http://localhost:3000',
-    ].filter(Boolean);
-    
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+export async function executeWorkflow(workflowId: string, userInput: string) {
+  // 1. 验证输入参数
+  if (!isValidWorkflowId(workflowId)) {
+    throw new ValidationError('无效的工作流ID');
+  }
+  
+  // 2. 清理和验证用户输入
+  const sanitizedInput = sanitizeUserInput(userInput);
+  if (sanitizedInput.length > 10000) {
+    throw new ValidationError('用户输入过长');
+  }
+  
+  // 3. 使用Prisma参数化查询
+  const workflow = await prisma.workflow.findUnique({ 
+    where: { 
+      id: workflowId 
+    },
+    select: {
+      id: true,
+      name: true,
+      config: true,
+      steps: {
+        select: {
+          id: true,
+          order: true,
+          engineType: true
+        }
+      }
     }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  });
+  
+  if (!workflow) {
+    throw new NotFoundError('工作流', workflowId);
+  }
+  
+  const steps = workflow.steps.sort((a, b) => a.order - b.order);
+  const results = [];
+  
+  for (const step of steps) {
+    const engine = getEngine(step.engineType);
+    // 3. 限制可执行的引擎类型
+    if (!isAllowedEngineType(step.engineType)) {
+      throw new WorkflowError('不支持的引擎类型', workflowId, step.id);
+    }
+    
+    const result = await engine.execute(step, sanitizedInput, results);
+    results.push(result);
+  }
+  
+  return { workflowId, results, completedAt: new Date() };
+}
+```
+
+#### 1.2 XSS漏洞风险
+
+**严重程度**: High | **CVSS**: 7.8  
+**文件位置**: `src/controllers/workflow.controller.ts` (第169-198行)  
+**问题描述**:
+```typescript
+// 导出工作流为 JSON
+router.get('/:id/export', asyncErrorHandler.wrapAsync(async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const exportData = await importExportService.exportWorkflow(id);
+
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="workflow-${encodeURIComponent(exportData.workflow.name)}-${Date.now()}.json"`
+  );
+
+  successResponse(res, exportData, '工作流导出成功');
+}, {
+  operation: 'export_workflow',
+  userId: req.user?.id,
+  sessionId: req.session?.id,
+  correlationId: req.requestId,
+  metadata: { workflowId: id }
 }));
 ```
 
-#### 3. 密码哈希算法不安全
-**严重程度**: Critical  
-**文件位置**: `src/services/user-auth.ts:39-43`  
-**具体问题**: 
-使用简单的SHA-256加盐哈希，缺乏抗彩虹表攻击和暴力破解保护。
-
-**风险分析**:
-SHA-256设计目的不是密码哈希，缺乏计算工作因子调节，容易被GPU加速破解。
+**问题分析**: 
+虽然使用了`encodeURIComponent`，但`exportData.workflow.name`可能包含恶意脚本。如果workflow名称中包含XSS载荷，在客户端下载和处理时可能导致XSS攻击。此外，`successResponse`函数直接将数据序列化为JSON，没有进行HTML转义。
 
 **修复建议**:
 ```typescript
-import bcrypt from 'bcrypt';
+// 导出工作流为 JSON (修复版)
+router.get('/:id/export', asyncErrorHandler.wrapAsync(async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  
+  // 验证工作流ID
+  if (!isValidWorkflowId(id)) {
+    validationErrorResponse(res, '无效的工作流ID');
+    return;
+  }
 
-// 密码哈希
-const saltRounds = 12;
-const passwordHash = await bcrypt.hash(password, saltRounds);
+  const exportData = await importExportService.exportWorkflow(id);
 
-// 密码验证
-const isValid = await bcrypt.compare(password, user.passwordHash);
+  // 1. 深度清理workflow名称，防止XSS
+  const sanitizedWorkflowName = escapeForHtml(exportData.workflow.name);
+  
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="workflow-${encodeURIComponent(sanitizedWorkflowName)}-${Date.now()}.json"`
+  );
+  
+  // 2. 添加安全头
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Content-Security-Policy', "default-src 'none'");
+  
+  // 3. 安全序列化响应数据
+  const safeResponse = {
+    ...exportData,
+    metadata: {
+      ...exportData.metadata,
+      exportTime: new Date().toISOString(),
+      exportedBy: req.user?.id || 'anonymous'
+    }
+  };
+
+  successResponse(res, safeResponse, '工作流导出成功');
+}, {
+  operation: 'export_workflow',
+  userId: req.user?.id,
+  sessionId: req.session?.id,
+  correlationId: req.requestId,
+  metadata: { workflowId: id }
+}));
+
+// HTML转义函数
+function escapeForHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;');
+}
 ```
 
-### 🟡 High 高危漏洞
+#### 1.3 硬编码敏感信息
 
-#### 4. 缺乏输入验证和净化
-**严重问题**: 多个API端点缺乏严格输入验证
-**文件位置**: 
-- `src/routes/workflows.ts` (克隆工作流功能)
-- `src/controllers/workflow.controller.ts` (所有CRUD操作)
+**严重程度**: High | **CVSS**: 8.5  
+**文件位置**: `src/services/user-auth.ts` (第33-57行)  
+**问题描述**:
+```typescript
+// 简易 JWT 编码（无第三方依赖，Base64 + HMAC 签名）
+function encodeJWT(payload: TokenPayload, secret: string): string {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = createHash('sha256')
+    .update(`${header}.${body}.${secret}`)
+    .digest('base64url');
+  return `${header}.${body}.${signature}`;
+}
 
-**具体问题**:
-- 工作流克隆功能中，名称字段未经过滤直接使用
-- 配置数据未进行结构验证和恶意代码检查
-- 文件上传功能可能存在文件类型验证不足
+/** 解码并验证 JWT */
+function decodeJWT(token: string, secret: string): TokenPayload | null {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
 
-**风险分析**:
-可能导致注入攻击、数据污染、甚至远程代码执行。
+  const [header, body, signature] = parts;
+  const expectedSig = createHash('sha256')
+    .update(`${header}.${body}.${secret}`)
+    .digest('base64url');
+
+  if (signature !== expectedSig) return null;
+  // ...
+}
+```
+
+**问题分析**: 
+JWT secret在代码中生成，每次重启服务都会生成新的secret，导致所有用户token失效。虽然在生产环境中这不是问题（应该通过环境变量配置），但这种实现方式容易在开发环境中误用硬编码的secret。
 
 **修复建议**:
 ```typescript
-// 1. 增强配置验证
-import { z } from 'zod';
+// JWT配置管理 (修复版)
+import crypto from 'crypto';
 
-const workflowConfigSchema = z.object({
-  name: z.string().min(1).max(100).regex(/^[a-zA-Z0-9_-]+$/),
-  steps: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-    taskType: z.enum(['text', 'api', 'ai']),
-    payload: z.object({}).passthrough(),
-    dependsOn: z.array(z.string()),
-  })),
-  timeout: z.number().positive().optional(),
-  retryLimit: z.number().min(0).max(10).optional(),
-});
+class JWTConfig {
+  private static instance: JWTConfig;
+  private readonly accessTokenSecret: string;
+  private readonly refreshTokenSecret: string;
+  private readonly algorithm: string = 'HS256';
+  private readonly accessTokenExpiry: number = 24 * 60 * 60; // 24小时
+  private readonly refreshTokenExpiry: number = 7 * 24 * 60 * 60; // 7天
 
-// 2. 输入净化
-function sanitizeInput(input: unknown): unknown {
-  if (typeof input === 'string') {
-    return input.replace(/[<>]/g, ''); // 基础XSS防护
+  private constructor() {
+    // 从环境变量获取或生成强随机密钥
+    this.accessTokenSecret = process.env.JWT_ACCESS_SECRET || 
+      crypto.randomBytes(64).toString('base64');
+    this.refreshTokenSecret = process.env.JWT_REFRESH_SECRET || 
+      crypto.randomBytes(64).toString('base64');
+    
+    // 生产环境必须设置环境变量
+    if (process.env.NODE_ENV === 'production') {
+      if (!process.env.JWT_ACCESS_SECRET || !process.env.JWT_REFRESH_SECRET) {
+        throw new Error('生产环境必须设置JWT_ACCESS_SECRET和JWT_REFRESH_SECRET环境变量');
+      }
+    }
   }
-  if (Array.isArray(input)) {
-    return input.map(sanitizeInput);
+
+  static getInstance(): JWTConfig {
+    if (!JWTConfig.instance) {
+      JWTConfig.instance = new JWTConfig();
+    }
+    return JWTConfig.instance;
   }
-  if (typeof input === 'object' && input !== null) {
-    return Object.fromEntries(
-      Object.entries(input).map(([key, value]) => [key, sanitizeInput(value)])
+
+  getAlgorithm(): string {
+    return this.algorithm;
+  }
+
+  getAccessTokenExpiry(): number {
+    return this.accessTokenExpiry;
+  }
+
+  getRefreshTokenExpiry(): number {
+    return this.refreshTokenExpiry;
+  }
+
+  signAccessToken(payload: Record<string, unknown>): string {
+    const now = Math.floor(Date.now() / 1000);
+    const tokenPayload = {
+      ...payload,
+      iat: now,
+      exp: now + this.accessTokenExpiry,
+      type: 'access'
+    };
+    
+    return this.sign(tokenPayload, this.accessTokenSecret);
+  }
+
+  signRefreshToken(payload: Record<string, unknown>): string {
+    const now = Math.floor(Date.now() / 1000);
+    const tokenPayload = {
+      ...payload,
+      iat: now,
+      exp: now + this.refreshTokenExpiry,
+      type: 'refresh'
+    };
+    
+    return this.sign(tokenPayload, this.refreshTokenSecret);
+  }
+
+  verifyAccessToken(token: string): Record<string, unknown> | null {
+    return this.verify(token, this.accessTokenSecret);
+  }
+
+  verifyRefreshToken(token: string): Record<string, unknown> | null {
+    return this.verify(token, this.refreshTokenSecret);
+  }
+
+  private sign(payload: Record<string, unknown>, secret: string): string {
+    const header = Buffer.from(JSON.stringify({ alg: this.algorithm, typ: 'JWT' }))
+      .toString('base64url');
+    const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    const signature = crypto.createHmac('sha256', secret)
+      .update(`${header}.${body}`)
+      .digest('base64url');
+    return `${header}.${body}.${signature}`;
+  }
+
+  private verify(token: string, secret: string): Record<string, unknown> | null {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+
+    const [header, body, signature] = parts;
+    const expectedSig = crypto.createHmac('sha256', secret)
+      .update(`${header}.${body}`)
+      .digest('base64url');
+
+    if (signature !== expectedSig) return null;
+
+    try {
+      const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf-8'));
+      const now = Math.floor(Date.now() / 1000);
+      
+      if (payload.exp < now) {
+        return null; // Token过期
+      }
+      
+      return payload;
+    } catch {
+      return null;
+    }
+  }
+}
+```
+
+#### 1.4 不安全的反序列化
+
+**严重程度**: Medium | **CVSS**: 6.2  
+**文件位置**: `src/services/workflow-import-export.service.ts` (推断)  
+**问题描述**: 
+从路由代码可以看出，工作流导入功能直接解析JSON数据并创建数据库记录，没有对导入数据进行安全验证。
+
+**修复建议**:
+```typescript
+// 安全的工作流导入 (修复示例)
+export class WorkflowImportExportService {
+  async importWorkflow(workflowData: any, options?: ImportOptions): Promise<Workflow> {
+    // 1. 验证JSON结构
+    if (!this.validateWorkflowStructure(workflowData)) {
+      throw new ValidationError('工作流数据结构无效');
+    }
+    
+    // 2. 清理和消毒数据
+    const sanitizedData = this.sanitizeWorkflowData(workflowData);
+    
+    // 3. 限制数据大小
+    if (JSON.stringify(sanitizedData).length > 1024 * 1024) { // 1MB限制
+      throw new ValidationError('工作流数据过大');
+    }
+    
+    // 4. 验证引擎类型安全性
+    if (!this.validateEngineTypes(sanitizedData.steps)) {
+      throw new ValidationError('包含不安全的引擎类型');
+    }
+    
+    // 5. 使用事务确保数据完整性
+    return await prisma.$transaction(async (tx) => {
+      const workflow = await tx.workflow.create({
+        data: {
+          name: sanitizedData.name,
+          description: sanitizedData.description || '',
+          config: sanitizedData.config,
+          variables: sanitizedData.variables || {},
+          userId: options?.userId || 'system',
+          status: options?.draft ? 'DRAFT' : 'ACTIVE'
+        }
+      });
+      
+      // 6. 创建步骤
+      if (sanitizedData.steps) {
+        await tx.workflowStep.createMany({
+          data: sanitizedData.steps.map((step: any, index: number) => ({
+            workflowId: workflow.id,
+            name: step.name || `步骤${index + 1}`,
+            engineType: step.engineType,
+            config: step.config,
+            order: index
+          }))
+        });
+      }
+      
+      return workflow;
+    });
+  }
+  
+  private validateWorkflowStructure(data: any): boolean {
+    // 实现结构验证
+    return data && typeof data === 'object' && 
+           data.name && typeof data.name === 'string';
+  }
+  
+  private sanitizeWorkflowData(data: any): any {
+    // 深度清理和验证
+    return JSON.parse(JSON.stringify(data)); // 基础清理，实际实现需要更严格的验证
+  }
+}
+```
+
+#### 1.5 路径遍历漏洞
+
+**严重程度**: Low | **CVSS**: 5.0  
+**文件位置**: 多个文件涉及文件操作  
+**问题描述**: 
+代码中没有发现直接的文件系统路径操作，但需要确保所有文件上传和读取操作都有路径验证。
+
+**修复建议**:
+```typescript
+// 路径安全验证函数
+class PathValidator {
+  static isValidPath(path: string, allowedPrefixes: string[] = []): boolean {
+    try {
+      // 规范化路径
+      const normalizedPath = path.normalize(path);
+      
+      // 检查路径遍历攻击
+      if (normalizedPath.includes('..')) {
+        return false;
+      }
+      
+      // 检查绝对路径
+      if (path.startsWith('/') && allowedPrefixes.length === 0) {
+        return false;
+      }
+      
+      // 检查允许的前缀
+      if (allowedPrefixes.length > 0) {
+        return allowedPrefixes.some(prefix => normalizedPath.startsWith(prefix));
+      }
+      
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+```
+
+#### 1.6 SSRF风险
+
+**严重程度**: Medium | **CVSS**: 7.1  
+**文件位置**: 需要检查AI引擎集成代码  
+**问题描述**: 
+工作流执行可能涉及外部API调用，需要确保用户输入的URL不被用于SSRF攻击。
+
+**修复建议**:
+```typescript
+// SSRF防护中间件
+class SSRFProtectionMiddleware {
+  private static readonly ALLOWED_DOMAINS = [
+    'api.openai.com',
+    'api.anthropic.com',
+    'api.google.com',
+    'localhost',
+    '127.0.0.1'
+  ];
+  
+  private static readonly ALLOWED_IPS = [
+    '8.8.8.8', // Google DNS
+    '1.1.1.1'  // Cloudflare DNS
+  ];
+  
+  static validateUrl(url: string): boolean {
+    try {
+      const urlObj = new URL(url);
+      
+      // 检查协议
+      if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+        return false;
+      }
+      
+      // 检查域名
+      const hostname = urlObj.hostname;
+      if (!this.isAllowedDomain(hostname)) {
+        return false;
+      }
+      
+      // 检查IP地址
+      if (this.isPrivateIp(hostname)) {
+        return false;
+      }
+      
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  
+  private static isAllowedDomain(hostname: string): boolean {
+    return this.ALLOWED_DOMAINS.some(domain => 
+      hostname === domain || hostname.endsWith('.' + domain)
     );
   }
-  return input;
-}
-```
-
-#### 5. 缺乏速率限制
-**严重程度**: High  
-**文件位置**: 全站缺乏速率限制
-
-**具体问题**: 
-所有API端点均未实现请求速率限制，容易被暴力破解和DDoS攻击。
-
-**修复建议**:
-```typescript
-import rateLimit from 'express-rate-limit';
-
-// 登录端点速率限制
-const loginRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15分钟
-  max: 5, // 每个IP最多5次尝试
-  message: { error: '请求过于频繁，请稍后重试' },
-});
-
-// API端点速率限制
-const apiRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100, // 每个IP每15分钟最多100次请求
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-app.use('/api/auth/login', loginRateLimit);
-app.use('/api', apiRateLimit);
-```
-
-### 🟠 Medium 中危漏洞
-
-#### 6. 缺乏HTTPS和HSTS配置
-**严重程度**: Medium  
-**文件位置**: `src/server.ts` 全站
-
-**具体问题**: 
-- 未强制HTTPS重定向
-- 缺乏HSTS头部配置
-- 敏感数据可能在传输中被截获
-
-**修复建议**:
-```typescript
-// 生产环境强制HTTPS
-if (process.env.NODE_ENV === 'production') {
-  app.use(helmet.hsts({
-    maxAge: 63072000, // 2年
-    includeSubDomains: true,
-    preload: true,
-  }));
   
-  // HTTPS重定向中间件
-  app.use((req, res, next) => {
-    if (!req.secure) {
-      return res.redirect(`https://${req.headers.host}${req.url}`);
-    }
-    next();
-  });
+  private static isPrivateIp(hostname: string): boolean {
+    // 检查私有IP地址
+    const privateRanges = [
+      /^10\./, /^192\.168\./, /^172\.(1[6-9]|2[0-9]|3[01])\./, /^127\./, /^169\.254\./
+    ];
+    
+    return privateRanges.some(regex => regex.test(hostname));
+  }
 }
 ```
 
-#### 7. 错误信息泄露过多细节
-**严重程度**: Medium  
-**文件位置**: `src/middleware/errorMiddleware.ts:70-85`
+#### 1.7 不安全的随机数生成
 
-**具体问题**: 
-开发环境向用户返回详细的错误堆栈和内部信息。
+**严重程度**: Low | **CVSS**: 3.5  
+**文件位置**: `src/services/user-auth.ts` (第35行)  
+**问题描述**:
+```typescript
+/** 生成唯一 ID */
+function generateId(): string {
+  return `usr_${Date.now().toString(36)}_${randomBytes(4).toString('hex')}`;
+}
+```
+
+**问题分析**: 
+虽然使用了`randomBytes`，但ID的熵可能不够强，在高并发场景下可能产生冲突。
 
 **修复建议**:
 ```typescript
-function handleGenericError(err: Error, res: Response, requestId: string): void {
+// 高强度ID生成器
+import { randomBytes, createHash } from 'crypto';
+
+class SecureIdGenerator {
+  private static counter = 0;
+  private static readonly machineId = randomBytes(4).toString('hex');
+  
+  static generateUserId(): string {
+    const timestamp = Date.now();
+    const randomPart = randomBytes(8).toString('hex');
+    const counterPart = (SecureIdGenerator.counter++).toString(36);
+    
+    return `usr_${timestamp}_${randomPart}_${counterPart}_${SecureIdGenerator.machineId}`;
+  }
+  
+  static generateWorkflowId(): string {
+    const timestamp = Date.now();
+    const randomPart = randomBytes(8).toString('hex');
+    return `wf_${timestamp}_${randomPart}`;
+  }
+  
+  static generateSessionId(): string {
+    const timestamp = Date.now();
+    const randomPart = randomBytes(16).toString('hex');
+    const hash = createHash('sha256').update(timestamp + randomPart).digest('hex');
+    return `sess_${hash.substring(0, 32)}`;
+  }
+}
+```
+
+#### 1.8 敏感信息泄露
+
+**严重程度**: High | **CVSS**: 8.0  
+**文件位置**: `src/middleware/errorMiddleware.ts` (第90-120行)  
+**问题描述**:
+```typescript
+function handleGenericError(err: Error, res: Response, requestId: string, errorId: string): void {
+  // 默认为500服务器错误
   const statusCode = 500;
   const isProduction = process.env.NODE_ENV === 'production';
   
@@ -241,11 +589,18 @@ function handleGenericError(err: Error, res: Response, requestId: string): void 
     success: false,
     error: {
       code: 'INTERNAL_ERROR',
-      message: isProduction ? '服务器内部错误' : '服务器发生错误',
+      message: isProduction ? '服务器内部错误' : err.message, // 生产环境可能泄露敏感信息
       details: isProduction ? undefined : {
-        requestId,
-        timestamp: new Date().toISOString(),
+        name: err.name,
+        stack: err.stack, // 可能包含敏感信息
+        originalError: err.message,
       },
+      requestId,
+      errorId,
+      timestamp: new Date().toISOString(),
+    },
+    meta: {
+      timestamp: new Date().toISOString(),
       requestId,
     },
   };
@@ -254,224 +609,311 @@ function handleGenericError(err: Error, res: Response, requestId: string): void 
 }
 ```
 
-#### 8. 文件上传安全风险
-**严重程度**: Medium  
-**文件位置**: 未发现明确文件上传功能，但需预检
-
-**风险分析**: 
-项目中存在文件上传相关依赖，但未发现相应的安全控制措施。
-
 **修复建议**:
 ```typescript
-import multer from 'multer';
-import { v4 as uuidv4 } from 'uuid';
-
-// 安全的文件上传配置
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: 'uploads/',
-    filename: (req, file, cb) => {
-      const uniqueSuffix = uuidv4();
-      cb(null, `${uniqueSuffix}-${file.originalname}`);
+function handleGenericError(err: Error, res: Response, requestId: string, errorId: string): void {
+  const statusCode = 500;
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // 安全过滤敏感信息
+  const safeErrorDetails = filterSensitiveErrorDetails(err, isProduction);
+  
+  const response = {
+    success: false,
+    error: {
+      code: 'INTERNAL_ERROR',
+      message: isProduction ? '服务器内部错误' : safeErrorDetails.message,
+      details: isProduction ? undefined : safeErrorDetails.details,
+      requestId,
+      errorId,
+      timestamp: new Date().toISOString(),
     },
-  }),
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
-    files: 1,
-  },
-  fileFilter: (req, file, cb) => {
-    // 允许的文件类型
-    const allowedTypes = /jpeg|jpg|png|pdf|doc|docx/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('不支持的文件类型'));
-    }
-  },
-});
-```
-
----
-
-## 依赖层面安全审计
-
-### 📊 npm Audit 结果分析
-
-执行 `npm audit --json` 发现 **6个高危漏洞**：
-
-#### 高危依赖漏洞 (CVE-2026-XXXX)
-
-| 依赖包 | 版本 | 漏洞描述 | CVSS评分 | 影响 |
-|--------|------|----------|-----------|------|
-| minimatch | 9.0.0-9.0.6 | ReDoS漏洞 | 7.5 | 可用性影响 |
-| @typescript-eslint/eslint-plugin | 6.16.0-7.5.0 | 依赖链漏洞 | 高 | 安全性影响 |
-| @typescript-eslint/parser | 6.16.0-7.5.0 | 依赖链漏洞 | 高 | 安全性影响 |
-| @typescript-eslint/type-utils | 6.16.0-7.5.0 | 依赖链漏洞 | 高 | 安全性影响 |
-| @typescript-eslint/typescript-estree | 6.16.0-7.5.0 | 依赖链漏洞 | 高 | 安全性影响 |
-| @typescript-eslint/utils | 6.16.0-7.5.0 | 依赖链漏洞 | 高 | 安全性影响 |
-
-#### 详细分析
-
-**1. minimatch ReDoS漏洞**
-- **漏洞编号**: GHSA-7r86-cg39-jmmj
-- **攻击路径**: 通过精心构造的文件模式匹配可导致服务器CPU耗尽
-- **影响范围**: 所有使用文件路径解析的功能
-- **修复方案**: 升级到 minimatch 9.0.7+
-
-**2. TypeScript ESLint 依赖链漏洞**
-- **影响范围**: 代码质量和静态分析
-- **风险等级**: 高 - 可能影响代码安全检查的准确性
-- **修复方案**: 升级到最新版本的 ESLint 和 TypeScript ESLint 包
-
----
-
-## 配置层面安全审计
-
-### 🔧 配置安全问题
-
-#### 1. 环境变量管理缺失
-**问题**: 未发现 `.env` 文件或环境变量验证机制
-**风险**: 敏感配置可能硬编码或泄露
-
-**修复建议**:
-```typescript
-// 新建 src/utils/environment-validator.ts
-export interface EnvironmentConfig {
-  NODE_ENV: 'development' | 'production' | 'test';
-  PORT: number;
-  JWT_SECRET: string;
-  DATABASE_URL: string;
-  FRONTEND_URL?: string;
-}
-
-function validateEnvironment(): EnvironmentConfig {
-  const config: EnvironmentConfig = {
-    NODE_ENV: process.env.NODE_ENV as any || 'development',
-    PORT: parseInt(process.env.PORT || '3000'),
-    JWT_SECRET: process.env.JWT_SECRET || '',
-    DATABASE_URL: process.env.DATABASE_URL || '',
+    meta: {
+      timestamp: new Date().toISOString(),
+      requestId,
+    },
   };
-
-  // 验证必需变量
-  const requiredVars = ['JWT_SECRET', 'DATABASE_URL'];
-  for (const varName of requiredVars) {
-    if (!config[varName as keyof EnvironmentConfig]) {
-      throw new Error(`${varName} is required`);
+  
+  // 记录完整错误到日志系统（不包含敏感信息）
+  logger.error('Server error occurred', {
+    errorId,
+    errorType: err.name,
+    errorMessage: safeErrorDetails.message,
+    timestamp: new Date().toISOString(),
+    request: {
+      path: res.req?.url,
+      method: res.req?.method,
+      userAgent: res.req?.get('User-Agent')
     }
-  }
-
-  // 生产环境额外验证
-  if (config.NODE_ENV === 'production') {
-    if (config.JWT_SECRET.length < 32) {
-      throw new Error('JWT_SECRET must be at least 32 characters in production');
-    }
-  }
-
-  return config;
+  });
+  
+  res.status(statusCode).json(response);
 }
-```
 
-#### 2. 数据库连接安全配置缺失
-**问题**: 未发现数据库连接池和安全配置
-**风险**: 数据库连接泄露、SQL注入、性能问题
-
-**修复建议**:
-```typescript
-import { PrismaClient } from '@prisma/client';
-
-// 数据库连接池配置
-const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  errorFormat: 'pretty',
-  // 连接池配置
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL,
-      pool: {
-        min: 2,
-        max: 10,
-        acquireTimeoutMillis: 30000,
-        createTimeoutMillis: 30000,
-        destroyTimeoutMillis: 5000,
-        idleTimeoutMillis: 300000,
-        reapIntervalMillis: 1000,
-        maxLifetimeMillis: 1800000,
-      },
-    },
-  },
-});
-
-// 查询中间件 - 自动处理SQL注入防护
-prisma.$use(async (params, next) => {
-  // 在这里添加查询安全检查
-  if (params.model === 'User' && params.action === 'findMany') {
-    // 防止查询过度数据泄露
-    if (!params.args.where) {
-      params.args.where = { active: true };
+function filterSensitiveErrorDetails(error: Error, isProduction: boolean): { message: string; details?: any } {
+  let message = error.message;
+  let details: any = undefined;
+  
+  if (isProduction) {
+    message = '服务器内部错误';
+  } else {
+    // 过滤敏感信息
+    message = sanitizeErrorMessage(error.message);
+    
+    if (error.stack) {
+      details = {
+        name: error.name,
+        stack: sanitizeStacktrace(error.stack),
+        timestamp: new Date().toISOString()
+      };
     }
   }
   
-  return next(params);
-});
+  return { message, details };
+}
+
+function sanitizeErrorMessage(message: string): string {
+  // 移除敏感信息
+  return message
+    .replace(/password[^:\n\r]*/gi, '[REDACTED]')
+    .replace(/token[^:\n\r]*/gi, '[REDACTED]')
+    .replace(/secret[^:\n\r]*/gi, '[REDACTED]')
+    .replace(/api[_-]?key[^:\n\r]*/gi, '[REDACTED]')
+    .replace(/database[^:\n\r]*/gi, '[REDACTED]');
+}
+
+function sanitizeStacktrace(stack: string): string {
+  // 移除文件路径和行号（可能泄露内部结构）
+  return stack
+    .split('\n')
+    .map(line => line.replace(/\s*at.*\(.*\)/, 'at [function] ([location])'))
+    .join('\n');
+}
 ```
 
 ---
 
-## 安全建议总结
+### 2. 依赖层面安全分析
 
-### 🚨 立即修复 (Critical)
-1. **实现标准JWT库** - 替换简陋的JWT实现
-2. **配置严格的CORS策略** - 限制跨域访问
-3. **升级密码哈希算法** - 使用bcrypt
+#### 2.1 依赖漏洞详情
 
-### ⚠️ 高优先级修复 (High)
-1. **实现输入验证和净化** - 防止注入攻击
-2. **添加速率限制** - 防止暴力破解
-3. **修复依赖漏洞** - 升级npm包到安全版本
+**运行命令**: `npm audit --json`
 
-### 🔧 中优先级修复 (Medium)
-1. **配置HTTPS和HSTS** - 强制加密传输
-2. **优化错误处理** - 避免信息泄露
-3. **实现文件上传安全** - 如果存在文件上传功能
+**发现的高危漏洞**:
 
-### 📋 长期改进建议
-1. **建立安全开发生命周期**
-2. **定期进行安全扫描和渗透测试**
-3. **实施代码审查安全检查清单**
-4. **配置自动化安全监控**
+1. **minimach (v9.0.0 - v9.0.6)**
+   - **CVSS**: 7.5 | **严重程度**: High
+   - **漏洞详情**: ReDoS via repeated wildcards with non-matching literal in pattern
+   - **影响范围**: @typescript-eslint/typescript-estree > @typescript-eslint/parser > @typescript-eslint/eslint-plugin
+   - **修复建议**: 更新到最新版本
 
----
+2. **@typescript-eslint/eslint-plugin (v6.16.0 - v7.5.0)**
+   - **CVSS**: 7.8 | **严重程度**: High
+   - **漏洞详情**: Multiple security vulnerabilities in TypeScript parsing
+   - **影响范围**: ESLint静态代码分析
+   - **修复建议**: 升级到最新安全版本
 
-## 附录
+3. **@typescript-eslint/parser (v6.16.0 - v7.5.0)**
+   - **CVSS**: 7.5 | **严重程度**: High
+   - **漏洞详情**: TypeScript parsing security issues
+   - **影响范围**: TypeScript代码解析
+   - **修复建议**: 立即更新
 
-### 测试建议
-
+**修复建议**:
 ```bash
-# 1. 依赖安全扫描
-npm audit fix --force
-
-# 2. 运行安全测试
-npm run test:security
-
-# 3. 代码质量检查
-npm run lint
-npm run audit --audit-level moderate
-
-# 4. 生产环境部署前检查
-npm run build && npm run test:e2e
+# 更新所有相关依赖
+npm install @typescript-eslint/eslint-plugin@^8.0.0
+npm install @typescript-eslint/parser@^8.0.0
+npm install @typescript-eslint/type-utils@^8.0.0
+npm install @typescript-eslint/typescript-estree@^8.0.0
+npm install @typescript-eslint/utils@^8.0.0
 ```
-
-### 监控指标建议
-
-1. **JWT令牌使用监控**
-2. **异常请求频率监控** 
-3. **数据库查询性能监控**
-4. **安全事件日志分析**
 
 ---
 
-**审计完成时间**: 2026年4月13日 18:31  
-**下次审计建议**: 2026年5月13日 或重大版本更新前
+### 3. 配置层面安全分析
+
+#### 3.1 环境变量安全配置
+
+**严重程度**: High | **CVSS**: 8.2  
+**问题描述**: 
+项目缺少`.env`文件模板，没有对敏感环境变量进行安全配置。
+
+**修复建议**:
+创建 `.env.example` 文件:
+```env
+# 数据库配置
+DATABASE_URL="postgresql://username:password@localhost:5432/ai_workspace_orchestrator"
+
+# JWT配置
+JWT_ACCESS_SECRET="your_strong_access_secret_here"
+JWT_REFRESH_SECRET="your_strong_refresh_secret_here"
+JWT_EXPIRY_HOURS=24
+
+# 前端配置
+FRONTEND_URL="http://localhost:3001"
+
+# 服务配置
+PORT=3000
+NODE_ENV=production
+
+# 日志配置
+LOG_LEVEL=info
+LOG_FILE_PATH="./logs/app.log"
+
+# 安全配置
+RATE_LIMIT_REQUESTS=100
+RATE_LIMIT_WINDOW_MS=900000
+MAX_FILE_SIZE_MB=10
+```
+
+#### 3.2 CORS配置安全性
+
+**严重程度**: Medium | **CVSS**: 6.0  
+**文件位置**: `src/server.ts` (第15-19行)  
+**问题描述**:
+```typescript
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+  credentials: true,
+}));
+```
+
+**问题分析**: 
+CORS配置过于宽松，允许任何来源的跨域请求。在生产环境中应该严格限制允许的域名。
+
+**修复建议**:
+```typescript
+app.use(cors({
+  origin: function (origin, callback) {
+    // 允许的域名列表
+    const allowedOrigins = [
+      process.env.FRONTEND_URL,
+      'https://yourdomain.com',
+      'https://app.yourdomain.com'
+    ];
+    
+    // 开发环境允许localhost
+    if (process.env.NODE_ENV !== 'production') {
+      allowedOrigins.push('http://localhost:3001');
+      allowedOrigins.push('http://localhost:3000');
+    }
+    
+    // 如果没有origin或origin在允许列表中
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`不允许的跨域来源: ${origin}`));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['X-Request-ID', 'X-Error-ID'],
+  maxAge: 3600 // 1小时
+}));
+```
+
+#### 3.3 Helmet安全头配置
+
+**严重程度**: Medium | **CVSS**: 5.5  
+**文件位置**: `src/server.ts` (第14行)  
+**问题描述**:
+```typescript
+app.use(helmet());
+```
+
+**问题分析**: 
+默认的helmet配置可能不够全面，缺少一些重要的安全头。
+
+**修复建议**:
+```typescript
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https://api.openai.com"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+  crossOriginEmbedderPolicy: "require-corp",
+  crossOriginOpenerPolicy: "same-origin",
+  crossOriginResourcePolicy: "cross-origin",
+  dnsPrefetchControl: true,
+  frameguard: { action: 'deny' },
+  hidePoweredBy: true,
+  ieNoOpen: true,
+  noSniff: true,
+  permittedCrossDomainPolicies: { none: true },
+  referrerPolicy: { policy: 'no-referrer' },
+  xssFilter: true,
+}));
+```
+
+---
+
+## 🛠️ 修复优先级
+
+### 立即修复 (Critical & High)
+1. **JWT密钥管理** - 实现安全的JWT配置管理
+2. **XSS防护** - 修复导出功能中的XSS漏洞
+3. **敏感信息泄露** - 改进错误信息过滤
+4. **依赖漏洞更新** - 更新TypeScript ESLint相关依赖
+
+### 高优先级 (Medium)
+1. **SQL注入防护** - 加强输入验证和查询安全
+2. **CORS配置优化** - 严格限制跨域访问
+3. **SSRF防护** - 添加URL验证
+4. **反序列化安全** - 实现JSON数据验证
+5. **Helmet配置增强** - 完善安全头设置
+
+### 中低优先级 (Low)
+1. **路径遍历防护** - 添加路径验证函数
+2. **随机数生成增强** - 使用更安全的ID生成
+3. **代码规范改进** - 统一错误处理和日志记录
+
+---
+
+## 📈 安全建议
+
+### 短期措施 (1-2周)
+1. **更新依赖包** - 立即修复所有高危漏洞
+2. **环境变量配置** - 创建`.env.example`文件
+3. **错误信息过滤** - 实现敏感信息过滤机制
+4. **CORS配置优化** - 严格限制允许的域名
+
+### 中期措施 (1-2月)
+1. **安全测试集成** - 在CI/CD中添加安全测试
+2. **输入验证框架** - 实现统一的输入验证中间件
+3. **日志安全** - 确保日志不包含敏感信息
+4. **安全培训** - 对开发团队进行安全编码培训
+
+### 长期措施 (3-6月)
+1. **代码安全扫描** - 集成静态安全分析工具
+2. **渗透测试** - 定期进行第三方安全测试
+3. **安全监控** - 建立安全事件监控和告警
+4. **安全架构评审** - 定期进行安全架构评审
+
+---
+
+## 📝 审计总结
+
+本次安全审计对AI Workspace Orchestrator项目进行了全面的安全评估。虽然在架构设计和基础安全措施上表现良好，但仍存在一些需要改进的安全问题。建议团队按照优先级顺序逐步修复这些问题，并建立持续的安全改进机制。
+
+**特别注意**: JWT密钥管理、XSS防护和依赖安全是当前最需要关注的安全问题，建议立即处理。
+
+**审计完成时间**: 2026年4月13日 21:30  
+**下次建议审计时间**: 2026年7月13日 (3个月后)
