@@ -149,8 +149,69 @@ export function getPriorityLevel(priorityScore: number): 'low' | 'medium' | 'hig
 }
 
 /**
- * 按优先级排序任务
+ * 按优先级分数对任务进行降序排序
+ * 
+ * 将任务数组按照优先级分数从高到低进行排序，确保高优先级任务排在前面。
+ * 该函数会创建数组的副本进行排序，不会修改原始数组。优先级分数越高，
+ * 表示任务越紧急或重要，应该优先执行。
+ * 
+ * @param {Array<{priorityScore: number}>} tasks - 待排序的任务数组，
+ * 每个任务对象必须包含priorityScore属性（数值类型）
+ * @returns {Array<{priorityScore: number}>} 排序后的新任务数组，
+ * 按优先级从高到低排列
+ * @throws {TypeError} 当tasks参数不是数组类型时抛出异常
+ * @throws {Error} 当任务对象缺少priorityScore属性时抛出异常
+ * @example
+ * // 按优先级排序任务
+ * const tasks = [
+ *   { id: 1, name: '任务1', priorityScore: 75 },
+ *   { id: 2, name: '任务2', priorityScore: 90 },
+ *   { id: 3, name: '任务3', priorityScore: 45 }
+ * ];
+ * const sorted = sortTasksByPriority(tasks);
+ * console.log(sorted.map(t => t.name)); // 输出: ["任务2", "任务1", "任务3"]
+ * 
+ * // 结合优先级等级使用
+ * const priorityTasks = [
+ *   { id: 1, name: '紧急修复', priorityScore: 95 },
+ *   { id: 2, name: '功能开发', priorityScore: 65 },
+ *   { id: 3, name: '文档更新', priorityScore: 35 }
+ * ];
+ * const ordered = sortTasksByPriority(priorityTasks);
+ * 
+ * // 处理排序后的任务
+ * ordered.forEach((task, index) => {
+ *   console.log(`${index + 1}. ${task.name} (优先级: ${task.priorityScore})`);
+ * });
+ * // 输出示例:
+ * // 1. 紧急修复 (优先级: 95)
+ * // 2. 功能开发 (优先级: 65)  
+ * // 3. 文档更新 (优先级: 35)
+ * 
+ * // 与优先级等级函数结合使用
+ * function processTasksByPriority(tasks) {
+ *   const sorted = sortTasksByPriority(tasks);
+ *   return {
+ *     critical: sorted.filter(t => getPriorityLevel(t.priorityScore) === 'critical'),
+ *     high: sorted.filter(t => getPriorityLevel(t.priorityScore) === 'high'),
+ *     medium: sorted.filter(t => getPriorityLevel(t.priorityScore) === 'medium'),
+ *     low: sorted.filter(t => getPriorityLevel(t.priorityScore) === 'low')
+ *   };
+ * }
  */
 export function sortTasksByPriority(tasks: Array<{priorityScore: number}>) {
+  // 验证输入参数
+  if (!Array.isArray(tasks)) {
+    throw new TypeError('tasks参数必须是数组类型');
+  }
+  
+  // 验证每个任务都包含priorityScore属性
+  tasks.forEach((task, index) => {
+    if (typeof task.priorityScore !== 'number') {
+      throw new Error(`任务索引 ${index} 缺少priorityScore属性或类型不是数字`);
+    }
+  });
+  
+  // 创建副本并排序
   return [...tasks].sort((a, b) => b.priorityScore - a.priorityScore);
 }

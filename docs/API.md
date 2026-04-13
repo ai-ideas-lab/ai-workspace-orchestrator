@@ -1572,6 +1572,1022 @@ interface SystemMetrics {
 
 ---
 
+## 7. 执行历史管理 API
+
+### 7.1 创建执行记录
+
+**POST** `/api/executions`
+
+创建新的工作流执行记录，用于跟踪工作流的执行状态和结果。
+
+**请求参数**:
+```json
+{
+  "workflowId": "wrk_123456789",
+  "status": "running",
+  "triggerData": {
+    "source": "webhook",
+    "timestamp": "2026-04-13T04:26:00Z"
+  },
+  "result": {},
+  "errorMessage": "",
+  "executionTimeMs": 0
+}
+```
+
+**请求示例**:
+```bash
+curl -X POST "http://localhost:3000/api/executions" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "workflowId": "wrk_123456789",
+    "status": "running",
+    "triggerData": {
+      "source": "webhook",
+      "timestamp": "2026-04-13T04:26:00Z"
+    }
+  }'
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "exe_123456789",
+    "workflowId": "wrk_123456789",
+    "status": "running",
+    "triggerData": {
+      "source": "webhook",
+      "timestamp": "2026-04-13T04:26:00Z"
+    },
+    "createdAt": "2026-04-13T04:26:00Z",
+    "updatedAt": "2026-04-13T04:26:00Z"
+  },
+  "message": "执行记录创建成功"
+}
+```
+
+**错误码**:
+- 400: 请求参数格式错误
+- 401: 未授权
+- 500: 服务器内部错误
+
+---
+
+### 7.2 获取执行记录列表
+
+**GET** `/api/executions`
+
+获取执行记录列表，支持分页和筛选条件。
+
+**查询参数**:
+- `workflowId`: 工作流ID (可选)
+- `status`: 执行状态 (可选，可选值: running, completed, failed, cancelled)
+- `page`: 页码，默认1
+- `limit`: 每页数量，默认10，最大100
+- `startDate`: 开始时间 (ISO格式，可选)
+- `endDate`: 结束时间 (ISO格式，可选)
+- `userId`: 用户ID (可选)
+- `sortBy`: 排序字段，默认created_at，可选: created_at, started_at
+- `sortOrder`: 排序方式，默认desc，可选: asc, desc
+
+**请求示例**:
+```bash
+curl -X GET "http://localhost:3000/api/executions?workflowId=wrk_123456789&status=running&page=1&limit=10" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "exe_123456789",
+      "workflowId": "wrk_123456789",
+      "status": "running",
+      "triggerData": {
+        "source": "webhook",
+        "timestamp": "2026-04-13T04:26:00Z"
+      },
+      "result": {},
+      "errorMessage": "",
+      "executionTimeMs": 5000,
+      "createdAt": "2026-04-13T04:26:00Z",
+      "updatedAt": "2026-04-13T04:26:00Z"
+    }
+  ],
+  "message": "获取执行记录列表成功"
+}
+```
+
+**错误码**:
+- 400: 查询参数格式错误
+- 401: 未授权
+- 500: 服务器内部错误
+
+---
+
+### 7.3 获取单个执行记录
+
+**GET** `/api/executions/:id`
+
+根据执行记录ID获取详细信息。
+
+**请求示例**:
+```bash
+curl -X GET "http://localhost:3000/api/executions/exe_123456789" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "exe_123456789",
+    "workflowId": "wrk_123456789",
+    "status": "completed",
+    "triggerData": {
+      "source": "webhook",
+      "timestamp": "2026-04-13T04:26:00Z"
+    },
+    "result": {
+      "output": "任务完成",
+      "processedItems": 100
+    },
+    "errorMessage": "",
+    "executionTimeMs": 8500,
+    "createdAt": "2026-04-13T04:26:00Z",
+    "updatedAt": "2026-04-13T04:26:00Z"
+  },
+  "message": "获取执行记录详情成功"
+}
+```
+
+**错误码**:
+- 404: 执行记录不存在
+- 401: 未授权
+- 500: 服务器内部错误
+
+---
+
+### 7.4 更新执行记录
+
+**PUT** `/api/executions/:id`
+
+更新执行记录的状态和相关信息。
+
+**请求参数**:
+```json
+{
+  "status": "completed",
+  "result": {
+    "output": "任务完成",
+    "processedItems": 100
+  },
+  "errorMessage": "",
+  "executionTimeMs": 8500
+}
+```
+
+**请求示例**:
+```bash
+curl -X PUT "http://localhost:3000/api/executions/exe_123456789" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "completed",
+    "result": {
+      "output": "任务完成",
+      "processedItems": 100
+    },
+    "executionTimeMs": 8500
+  }'
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "exe_123456789",
+    "workflowId": "wrk_123456789",
+    "status": "completed",
+    "triggerData": {},
+    "result": {
+      "output": "任务完成",
+      "processedItems": 100
+    },
+    "errorMessage": "",
+    "executionTimeMs": 8500,
+    "createdAt": "2026-04-13T04:26:00Z",
+    "updatedAt": "2026-04-13T04:30:00Z"
+  },
+  "message": "执行记录更新成功"
+}
+```
+
+**错误码**:
+- 400: 请求参数格式错误
+- 404: 执行记录不存在
+- 401: 未授权
+- 500: 服务器内部错误
+
+---
+
+### 7.5 删除执行记录
+
+**DELETE** `/api/executions/:id`
+
+删除指定的执行记录。
+
+**请求示例**:
+```bash
+curl -X DELETE "http://localhost:3000/api/executions/exe_123456789" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": null,
+  "message": "执行记录删除成功"
+}
+```
+
+**错误码**:
+- 404: 执行记录不存在
+- 401: 未授权
+- 500: 服务器内部错误
+
+---
+
+### 7.6 获取执行统计信息
+
+**GET** `/api/executions/stats`
+
+获取工作流执行的统计信息，包括总数、成功率、平均执行时间等。
+
+**请求示例**:
+```bash
+curl -X GET "http://localhost:3000/api/executions/stats" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": {
+    "totalExecutions": 1250,
+    "completedExecutions": 1100,
+    "failedExecutions": 100,
+    "runningExecutions": 50,
+    "averageExecutionTime": 8500,
+    "successRate": 88.0,
+    "totalExecutionTime": 9625000,
+    "executionsByDay": [
+      {
+        "date": "2026-04-13",
+        "count": 50,
+        "success": 45
+      }
+    ]
+  },
+  "message": "获取执行统计信息成功"
+}
+```
+
+**错误码**:
+- 401: 未授权
+- 500: 服务器内部错误
+
+---
+
+### 7.7 创建执行步骤记录
+
+**POST** `/api/executions/:id/steps`
+
+为指定执行记录创建步骤执行记录。
+
+**请求参数**:
+```json
+{
+  "stepId": "step_123456789",
+  "status": "running",
+  "inputData": {
+    "param1": "value1",
+    "param2": "value2"
+  },
+  "outputData": {},
+  "errorMessage": "",
+  "durationMs": 1000
+}
+```
+
+**请求示例**:
+```bash
+curl -X POST "http://localhost:3000/api/executions/exe_123456789/steps" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "stepId": "step_123456789",
+    "status": "completed",
+    "inputData": {
+      "param1": "value1"
+    },
+    "outputData": {
+      "result": "处理完成"
+    },
+    "durationMs": 1200
+  }'
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "step_exe_123456789",
+    "executionId": "exe_123456789",
+    "stepId": "step_123456789",
+    "status": "completed",
+    "inputData": {
+      "param1": "value1"
+    },
+    "outputData": {
+      "result": "处理完成"
+    },
+    "errorMessage": "",
+    "durationMs": 1200,
+    "createdAt": "2026-04-13T04:26:00Z",
+    "updatedAt": "2026-04-13T04:26:00Z"
+  },
+  "message": "执行步骤创建成功"
+}
+```
+
+**错误码**:
+- 400: 请求参数格式错误
+- 404: 执行记录不存在
+- 401: 未授权
+- 500: 服务器内部错误
+
+---
+
+## 8. 告警管理 API
+
+### 8.1 获取告警列表
+
+**GET** `/api/alerts`
+
+获取系统告警列表，支持按状态筛选。
+
+**查询参数**:
+- `status`: 告警状态 (可选，可选值: active, resolved, all)
+
+**请求示例**:
+```bash
+curl -X GET "http://localhost:3000/api/alerts?status=active" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "alert_123456789",
+      "name": "CPU使用率过高",
+      "description": "系统CPU使用率超过90%",
+      "status": "active",
+      "severity": "warning",
+      "metric": "cpu",
+      "threshold": 90,
+      "condition": "greater_than",
+      "value": 95.5,
+      "createdAt": "2026-04-13T04:26:00Z",
+      "updatedAt": "2026-04-13T04:26:00Z"
+    }
+  ],
+  "count": 1,
+  "timestamp": "2026-04-13T04:26:00Z"
+}
+```
+
+**错误码**:
+- 500: 服务器内部错误
+
+---
+
+### 8.2 获取告警摘要
+
+**GET** `/api/alerts/summary`
+
+获取告警的统计摘要信息。
+
+**请求示例**:
+```bash
+curl -X GET "http://localhost:3000/api/alerts/summary" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": {
+    "totalAlerts": 25,
+    "activeAlerts": 8,
+    "resolvedAlerts": 17,
+    "criticalAlerts": 2,
+    "warningAlerts": 5,
+    "infoAlerts": 1,
+    "alertsBySeverity": {
+      "critical": 2,
+      "warning": 5,
+      "info": 1
+    }
+  },
+  "timestamp": "2026-04-13T04:26:00Z"
+}
+```
+
+**错误码**:
+- 500: 服务器内部错误
+
+---
+
+### 8.3 解决告警
+
+**POST** `/api/alerts/:id/resolve`
+
+将指定的告警标记为已解决状态。
+
+**请求示例**:
+```bash
+curl -X POST "http://localhost:3000/api/alerts/alert_123456789/resolve" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "Alert alert_123456789 resolved successfully",
+  "timestamp": "2026-04-13T04:26:00Z"
+}
+```
+
+**错误码**:
+- 404: 告警不存在或已解决
+- 500: 服务器内部错误
+
+---
+
+### 8.4 解决所有告警
+
+**POST** `/api/alerts/resolve-all`
+
+将所有活动告警批量标记为已解决。
+
+**请求示例**:
+```bash
+curl -X POST "http://localhost:3000/api/alerts/resolve-all" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "8 alerts resolved successfully",
+  "resolvedCount": 8,
+  "timestamp": "2026-04-13T04:26:00Z"
+}
+```
+
+**错误码**:
+- 500: 服务器内部错误
+
+---
+
+### 8.5 获取告警规则列表
+
+**GET** `/api/alerts/rules`
+
+获取所有告警规则配置。
+
+**请求示例**:
+```bash
+curl -X GET "http://localhost:3000/api/alerts/rules" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "rule_123456789",
+      "name": "CPU使用率监控",
+      "description": "监控CPU使用率是否超过阈值",
+      "metric": "cpu",
+      "threshold": 80,
+      "condition": "greater_than",
+      "severity": "warning",
+      "enabled": true,
+      "createdAt": "2026-04-13T04:26:00Z",
+      "updatedAt": "2026-04-13T04:26:00Z"
+    }
+  ],
+  "count": 1,
+  "timestamp": "2026-04-13T04:26:00Z"
+}
+```
+
+**错误码**:
+- 500: 服务器内部错误
+
+---
+
+### 8.6 创建告警规则
+
+**POST** `/api/alerts/rules`
+
+创建新的告警规则。
+
+**请求参数**:
+```json
+{
+  "name": "内存使用率监控",
+  "description": "监控内存使用率是否超过阈值",
+  "metric": "memory",
+  "threshold": 85,
+  "condition": "greater_than",
+  "severity": "critical",
+  "enabled": true
+}
+```
+
+**请求示例**:
+```bash
+curl -X POST "http://localhost:3000/api/alerts/rules" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "内存使用率监控",
+    "description": "监控内存使用率是否超过阈值",
+    "metric": "memory",
+    "threshold": 85,
+    "condition": "greater_than",
+    "severity": "critical",
+    "enabled": true
+  }'
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "rule_987654321",
+    "name": "内存使用率监控",
+    "description": "监控内存使用率是否超过阈值",
+    "metric": "memory",
+    "threshold": 85,
+    "condition": "greater_than",
+    "severity": "critical",
+    "enabled": true,
+    "createdAt": "2026-04-13T04:26:00Z",
+    "updatedAt": "2026-04-13T04:26:00Z"
+  },
+  "message": "Alert rule created successfully",
+  "timestamp": "2026-04-13T04:26:00Z"
+}
+```
+
+**错误码**:
+- 400: 缺少必填字段或参数格式错误
+- 500: 服务器内部错误
+
+**有效字段说明**:
+- `metric`: 监控指标，可选值: cpu, memory, responseTime, activeWorkflows, activeConnections
+- `condition`: 比较条件，可选值: greater_than, less_than
+- `severity`: 告警级别，可选值: info, warning, error, critical
+
+---
+
+### 8.7 更新告警规则
+
+**PUT** `/api/alerts/rules/:id`
+
+更新指定的告警规则。
+
+**请求示例**:
+```bash
+curl -X PUT "http://localhost:3000/api/alerts/rules/rule_123456789" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "threshold": 75,
+    "severity": "warning",
+    "enabled": false
+  }'
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "Alert rule rule_123456789 updated successfully",
+  "timestamp": "2026-04-13T04:26:00Z"
+}
+```
+
+**错误码**:
+- 404: 告警规则不存在
+- 500: 服务器内部错误
+
+---
+
+### 8.8 删除告警规则
+
+**DELETE** `/api/alerts/rules/:id`
+
+删除指定的告警规则。
+
+**请求示例**:
+```bash
+curl -X DELETE "http://localhost:3000/api/alerts/rules/rule_123456789" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "Alert rule rule_123456789 deleted successfully",
+  "timestamp": "2026-04-13T04:26:00Z"
+}
+```
+
+**错误码**:
+- 404: 告警规则不存在
+- 500: 服务器内部错误
+
+---
+
+### 8.9 清除告警历史
+
+**DELETE** `/api/alerts/history`
+
+清除告警历史记录，可选择保留最近的记录。
+
+**查询参数**:
+- `keepRecent`: 保留最近的N条记录 (可选)
+
+**请求示例**:
+```bash
+curl -X DELETE "http://localhost:3000/api/alerts/history?keepRecent=100" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "Alert history cleared successfully",
+  "timestamp": "2026-04-13T04:26:00Z"
+}
+```
+
+**错误码**:
+- 500: 服务器内部错误
+
+---
+
+### 8.10 获取系统健康状态
+
+**GET** `/api/alerts/health`
+
+获取系统整体健康状态评估。
+
+**请求示例**:
+```bash
+curl -X GET "http://localhost:3000/api/alerts/health" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": {
+    "health": "excellent",
+    "timestamp": "2026-04-13T04:26:00Z",
+    "status": "system is running excellently"
+  }
+}
+```
+
+**健康状态说明**:
+- `excellent`: 系统运行优秀
+- `good`: 系统运行正常
+- `warning`: 系统有一些问题，建议监控
+- `critical`: 系统有严重问题，需要立即关注
+
+**错误码**:
+- 500: 服务器内部错误
+
+---
+
+### 8.11 执行系统监控
+
+**POST** `/api/alerts/monitor`
+
+手动触发系统监控，模拟系统指标采集。
+
+**请求示例**:
+```bash
+curl -X POST "http://localhost:3000/api/alerts/monitor" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "System monitoring completed",
+  "data": {
+    "monitoredMetrics": {
+      "cpu": 75.2,
+      "memory": 62.8,
+      "responseTime": 342,
+      "activeWorkflows": 12,
+      "activeConnections": 89
+    },
+    "timestamp": "2026-04-13T04:26:00Z"
+  }
+}
+```
+
+**错误码**:
+- 500: 服务器内部错误
+
+---
+
+## 9. 分析统计 API
+
+### 9.1 收集系统指标
+
+**GET** `/api/analytics/metrics`
+
+实时收集系统运行指标数据。
+
+**请求示例**:
+```bash
+curl -X GET "http://localhost:3000/api/analytics/metrics" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": {
+    "cpu": {
+      "usage": 75.2,
+      "cores": 8,
+      "temperature": 65.5
+    },
+    "memory": {
+      "used": "12.5GB",
+      "total": "32GB",
+      "percentage": 39.1
+    },
+    "disk": {
+      "used": "450GB",
+      "total": "1TB",
+      "percentage": 45.0
+    },
+    "network": {
+      "incoming": "1.2MB/s",
+      "outgoing": "0.8MB/s"
+    },
+    "uptime": 86400
+  },
+  "timestamp": "2026-04-13T04:26:00Z"
+}
+```
+
+**错误码**:
+- 500: 服务器内部错误
+
+---
+
+### 9.2 获取指标历史
+
+**GET** `/api/analytics/metrics/history`
+
+获取系统指标的历史记录。
+
+**查询参数**:
+- `limit`: 返回记录数量，默认20
+
+**请求示例**:
+```bash
+curl -X GET "http://localhost:3000/api/analytics/metrics/history?limit=50" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "timestamp": "2026-04-13T04:20:00Z",
+      "cpu": {
+        "usage": 72.3,
+        "cores": 8,
+        "temperature": 64.2
+      },
+      "memory": {
+        "used": "12.3GB",
+        "total": "32GB",
+        "percentage": 38.4
+      }
+    }
+  ],
+  "count": 50,
+  "timestamp": "2026-04-13T04:26:00Z"
+}
+```
+
+**错误码**:
+- 500: 服务器内部错误
+
+---
+
+### 9.3 获取工作流统计
+
+**GET** `/api/analytics/workflows`
+
+获取工作流相关的统计信息。
+
+**请求示例**:
+```bash
+curl -X GET "http://localhost:3000/api/analytics/workflows" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": {
+    "totalWorkflows": 150,
+    "activeWorkflows": 25,
+    "completedWorkflows": 110,
+    "failedWorkflows": 15,
+    "averageExecutionTime": 8500,
+    "successRate": 88.0,
+    "workflowsByStatus": {
+      "ACTIVE": 25,
+      "COMPLETED": 110,
+      "FAILED": 15
+    },
+    "executionsByDay": [
+      {
+        "date": "2026-04-13",
+        "executions": 50,
+        "completed": 44,
+        "failed": 6
+      }
+    ]
+  },
+  "timestamp": "2026-04-13T04:26:00Z"
+}
+```
+
+**错误码**:
+- 500: 服务器内部错误
+
+---
+
+### 9.4 获取系统摘要
+
+**GET** `/api/analytics/summary`
+
+获取系统运行的整体摘要信息。
+
+**请求示例**:
+```bash
+curl -X GET "http://localhost:3000/api/analytics/summary" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": {
+    "systemInfo": {
+      "version": "1.0.0",
+      "uptime": 86400,
+      "lastRestart": "2026-04-13T00:00:00Z"
+    },
+    "performance": {
+      "avgResponseTime": 342,
+      "cpuUsage": 75.2,
+      "memoryUsage": 39.1,
+      "diskUsage": 45.0
+    },
+    "workflows": {
+      "total": 150,
+      "active": 25,
+      "successRate": 88.0
+    },
+    "alerts": {
+      "total": 25,
+      "active": 8,
+      "critical": 2
+    },
+    "engines": {
+      "total": 5,
+      "healthy": 4,
+      "unhealthy": 1
+    }
+  },
+  "timestamp": "2026-04-13T04:26:00Z"
+}
+```
+
+**错误码**:
+- 500: 服务器内部错误
+
+---
+
+### 9.5 模拟工作流执行
+
+**POST** `/api/analytics/simulate-execution`
+
+模拟工作流执行，用于测试和分析目的。
+
+**请求参数**:
+```json
+{
+  "workflowId": "wrk_123456789",
+  "status": "completed",
+  "executionTime": 8500
+}
+```
+
+**请求示例**:
+```bash
+curl -X POST "http://localhost:3000/api/analytics/simulate-execution" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "workflowId": "wrk_123456789",
+    "status": "completed",
+    "executionTime": 8500
+  }'
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "Workflow execution simulated successfully",
+  "data": {
+    "workflowId": "wrk_123456789",
+    "status": "completed",
+    "executionTime": 8500,
+    "timestamp": "2026-04-13T04:26:00Z"
+  }
+}
+```
+
+**错误码**:
+- 400: 缺少必填字段或参数格式错误
+- 500: 服务器内部错误
+
+**有效状态值**:
+- running: 正在运行
+- completed: 已完成
+- failed: 失败
+- pending: 等待中
+
+---
+
 ## 联系方式
 
 如有问题或建议，请联系开发团队：

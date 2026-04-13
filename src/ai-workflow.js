@@ -40,11 +40,52 @@ const INTENT_PATTERNS = {
  * const nullUserPriority = getValidatedPriority(null, 2);
  * console.log(nullUserPriority); // 输出: 2
  */
+/**
+ * 验证用户对象的有效性
+ * 
+ * 检查用户对象是否符合预期的结构和数据类型要求。确保用户对象包含
+ * 必要的字段，并且角色在允许的范围内。这是用户相关操作前的数据验证，
+ * 防止无效或恶意的用户数据被处理。
+ * 
+ * @param {Object} user - 待验证的用户对象
+ * @param {string} [user.role] - 用户角色，必须是'admin'或'user'之一，默认为'user'
+ * @returns {boolean} 验证结果，true表示用户有效，false表示无效
+ * @throws {TypeError} 当user参数不是对象类型时抛出异常
+ * @example
+ * // 验证管理员用户
+ * const adminUser = { role: "admin" };
+ * const isValid1 = validateUser(adminUser);
+ * console.log(isValid1); // 输出: true
+ * 
+ * // 验证普通用户
+ * const normalUser = { role: "user" };
+ * const isValid2 = validateUser(normalUser);
+ * console.log(isValid2); // 输出: true
+ * 
+ * // 验证无效用户：角色不存在
+ * const invalidUser = { role: "guest" };
+ * const isValid3 = validateUser(invalidUser);
+ * console.log(isValid3); // 输出: false
+ * 
+ * // 验证无效用户：非对象参数
+ * const notObject = "not-an-object";
+ * const isValid4 = validateUser(notObject);
+ * console.log(isValid4); // 输出: false
+ * 
+ * // 验证空对象（默认为普通用户）
+ * const emptyUser = {};
+ * const isValid5 = validateUser(emptyUser);
+ * console.log(isValid5); // 输出: true
+ */
+function validateUser(user) {
+    return user && ['admin', 'user'].includes(user.role || 'user');
+}
+
 function getValidatedPriority(user, commandPriority) {
-    if (user?.role === 'admin') {
-        return PRIORITY_CONFIG.admin;
+    if (!validateUser(user)) {
+        return commandPriority || PRIORITY_CONFIG.default;
     }
-    return commandPriority || PRIORITY_CONFIG.default;
+    return user.role === 'admin' ? PRIORITY_CONFIG.admin : (commandPriority || PRIORITY_CONFIG.default);
 }
 
 /**

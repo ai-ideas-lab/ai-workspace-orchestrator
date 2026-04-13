@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from '@jest/globals';
-import { EventBus, OrchestratorEvent } from '../services/event-bus.js';
+import { EventBus, OrchestratorEvent } from '../services/event-bus'.ts';
 
 // ── 测试辅助 ──────────────────────────────────────────────
 

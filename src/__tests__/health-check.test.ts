@@ -4,7 +4,7 @@
  * 覆盖：Provider 注册/注销、同步/异步检查、聚合状态、超时保护、边界条件
  */
 
-import { HealthCheckService, HealthReport } from '../services/health-check.js';
+import { HealthCheckService, HealthReport } from '../services/health-check'.ts';
 
 // ── 辅助 ──────────────────────────────────────────────
 

@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { WorkflowTemplateService } from '../services/workflow-template.js';
-import type { WorkflowStep } from '../services/workflow-executor.js';
+import { WorkflowTemplateService } from '../services/workflow-template.ts';
+import type { WorkflowStep } from '../services/workflow-executor'.ts';
 
 // ── 测试用步骤模板 ──────────────────────────────────────
 
