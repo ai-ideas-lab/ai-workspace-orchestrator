@@ -1,6 +1,6 @@
 # AI Workspace Orchestrator Performance Benchmark Report
 
-**Date:** 2026-04-13T05:10:26.870Z
+**Date:** 2026-04-13T08:50:56.137Z
 **Focus:** N+1 Query Issues and Performance Bottlenecks
 
 ## Executive Summary
@@ -15,12 +15,12 @@
 
 | Endpoint | Success Rate | Avg Time | Max Time | Timeouts |
 |----------|-------------|----------|----------|----------|
-| /api/users-with-orders | 100.0% | 11.70ms | 40.48ms | 0/5 |
+| /api/users-with-orders | 100.0% | 10.23ms | 36.41ms | 0/5 |
 | /api/orders-with-products | 0.0% | 10000.00ms | 10000.00ms | 5/5 |
-| /api/user-stats | 100.0% | 3.71ms | 6.76ms | 0/5 |
-| /api/users/1 | 100.0% | 1.40ms | 1.74ms | 0/5 |
-| /api/users/2 | 100.0% | 1.04ms | 1.11ms | 0/5 |
-| /api/users/3 | 100.0% | 0.94ms | 0.98ms | 0/5 |
+| /api/user-stats | 100.0% | 3.47ms | 6.71ms | 0/5 |
+| /api/users/1 | 100.0% | 1.56ms | 1.92ms | 0/5 |
+| /api/users/2 | 100.0% | 1.21ms | 2.25ms | 0/5 |
+| /api/users/3 | 100.0% | 0.99ms | 1.69ms | 0/5 |
 
 ## N+1 Query Issues Analysis
 
@@ -73,7 +73,7 @@
 
 ## Performance Metrics
 
-- **Average Response Time**: 1669.80ms
+- **Average Response Time**: 1669.58ms
 - **Overall Success Rate**: 83.3%
 - **Timeout Rate**: 16.666666666666664%
 
