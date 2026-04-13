@@ -75,6 +75,52 @@ db.serialize(() => {
         (3, 3, 1, 299.99)`);
 });
 
+// Helper function to process user orders data (extracted to eliminate code duplication)
+function processUserOrdersData(rows) {
+    const usersWithOrders = {};
+    
+    rows.forEach(row => {
+        if (!usersWithOrders[row.user_id]) {
+            usersWithOrders[row.user_id] = {
+                id: row.user_id,
+                name: row.user_name,
+                email: row.email,
+                orders: []
+            };
+        }
+        
+        if (row.order_id) {
+            // Check if order already exists to avoid duplicates
+            let order = usersWithOrders[row.user_id].orders.find(o => o.id === row.order_id);
+            if (!order) {
+                order = {
+                    id: row.order_id,
+                    order_date: row.order_date,
+                    total_amount: row.total_amount,
+                    items: []
+                };
+                usersWithOrders[row.user_id].orders.push(order);
+            }
+            
+            if (row.item_id) {
+                order.items.push({
+                    id: row.item_id,
+                    product_id: row.product_id,
+                    quantity: row.quantity,
+                    price: row.item_price,
+                    product: {
+                        id: row.product_id,
+                        name: row.product_name,
+                        price: row.product_price
+                    }
+                });
+            }
+        }
+    });
+    
+    return Object.values(usersWithOrders);
+}
+
 // OPTIMIZED: Get all users with their orders (fixed N+1 problem)
 app.get('/api/users-with-orders', (req, res) => {
     // Use JOIN to get users with orders in a single query
@@ -96,50 +142,7 @@ app.get('/api/users-with-orders', (req, res) => {
             return res.status(500).json({ error: err.message });
         }
         
-        // Group results by user
-        const usersWithOrders = {};
-        
-        rows.forEach(row => {
-            if (!usersWithOrders[row.user_id]) {
-                usersWithOrders[row.user_id] = {
-                    id: row.user_id,
-                    name: row.user_name,
-                    email: row.email,
-                    orders: []
-                };
-            }
-            
-            if (row.order_id) {
-                // Check if order already exists to avoid duplicates
-                let order = usersWithOrders[row.user_id].orders.find(o => o.id === row.order_id);
-                if (!order) {
-                    order = {
-                        id: row.order_id,
-                        order_date: row.order_date,
-                        total_amount: row.total_amount,
-                        items: []
-                    };
-                    usersWithOrders[row.user_id].orders.push(order);
-                }
-                
-                if (row.item_id) {
-                    order.items.push({
-                        id: row.item_id,
-                        product_id: row.product_id,
-                        quantity: row.quantity,
-                        price: row.item_price,
-                        product: {
-                            id: row.product_id,
-                            name: row.product_name,
-                            price: row.product_price
-                        }
-                    });
-                }
-            }
-        });
-        
-        // Convert object to array
-        const result = Object.values(usersWithOrders);
+        const result = processUserOrdersData(rows);
         res.json(result);
     });
 });
@@ -268,54 +271,20 @@ app.get('/api/users/:id', (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
         
-        // Group results by user
-        const user = {
-            id: rows[0].id,
-            name: rows[0].name,
-            email: rows[0].email,
-            orders: []
-        };
-        
-        rows.forEach(row => {
-            if (row.order_id) {
-                // Check if order already exists to avoid duplicates
-                let order = user.orders.find(o => o.id === row.order_id);
-                if (!order) {
-                    order = {
-                        id: row.order_id,
-                        order_date: row.order_date,
-                        total_amount: row.total_amount,
-                        items: []
-                    };
-                    user.orders.push(order);
-                }
-                
-                if (row.item_id) {
-                    order.items.push({
-                        id: row.item_id,
-                        product_id: row.product_id,
-                        quantity: row.quantity,
-                        price: row.item_price,
-                        product: {
-                            id: row.product_id,
-                            name: row.product_name,
-                            price: row.product_price
-                        }
-                    });
-                }
-            }
-        });
+        // Use the shared helper function to eliminate code duplication
+        const usersWithOrders = processUserOrdersData(rows);
+        const user = usersWithOrders[0]; // Get the first (and only) user
         
         res.json(user);
     });
 });
 
-// Performance test endpoint
+// Performance test endpoint - OPTIMIZED: Uses shared helper function
 app.get('/api/performance-test', (req, res) => {
     const startTime = Date.now();
     
-    // Test the optimized users-with-orders endpoint
-    db.all(`
+    // Test the optimized users-with-orders endpoint using the same query
+    const query = `
         SELECT 
             u.id as user_id, u.name as user_name, u.email,
             o.id as order_id, o.order_date, o.total_amount,
@@ -326,7 +295,9 @@ app.get('/api/performance-test', (req, res) => {
         LEFT JOIN order_items oi ON o.id = oi.order_id
         LEFT JOIN products p ON oi.product_id = p.id
         ORDER BY u.id, o.id, oi.id
-    `, [], (err, rows) => {
+    `;
+    
+    db.all(query, [], (err, rows) => {
         const endTime = Date.now();
         const executionTime = endTime - startTime;
         
@@ -334,49 +305,14 @@ app.get('/api/performance-test', (req, res) => {
             return res.status(500).json({ error: err.message });
         }
         
-        const usersWithOrders = {};
-        rows.forEach(row => {
-            if (!usersWithOrders[row.user_id]) {
-                usersWithOrders[row.user_id] = {
-                    id: row.user_id,
-                    name: row.user_name,
-                    email: row.email,
-                    orders: []
-                };
-            }
-            
-            if (row.order_id) {
-                let order = usersWithOrders[row.user_id].orders.find(o => o.id === row.order_id);
-                if (!order) {
-                    order = {
-                        id: row.order_id,
-                        order_date: row.order_date,
-                        total_amount: row.total_amount,
-                        items: []
-                    };
-                    usersWithOrders[row.user_id].orders.push(order);
-                }
-                
-                if (row.item_id) {
-                    order.items.push({
-                        id: row.item_id,
-                        product_id: row.product_id,
-                        quantity: row.quantity,
-                        price: row.item_price,
-                        product: {
-                            id: row.product_id,
-                            name: row.product_name,
-                            price: row.product_price
-                        }
-                    });
-                }
-            }
-        });
+        // Use the shared helper function to eliminate code duplication
+        const usersWithOrders = processUserOrdersData(rows);
         
         res.json({
             execution_time_ms: executionTime,
             records_processed: rows.length,
-            users_returned: Object.keys(usersWithOrders).length
+            users_returned: usersWithOrders.length,
+            optimization_note: "Uses shared helper function to eliminate code duplication"
         });
     });
 });
