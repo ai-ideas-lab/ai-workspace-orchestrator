@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect } from '@jest/globals';
-import { WorkflowDependencyAnalyzer } from '../services/workflow-dependency-analyzer'.ts';
-import type { WorkflowStep } from '../services/workflow-executor'.ts';
+import { WorkflowDependencyAnalyzer } from '../services/workflow-dependency-analyzer';
+import type { WorkflowStep } from '../services/workflow-executor';
 
 describe('WorkflowDependencyAnalyzer', () => {
   const analyzer = new WorkflowDependencyAnalyzer();

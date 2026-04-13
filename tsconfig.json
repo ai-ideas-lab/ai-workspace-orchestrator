@@ -43,26 +43,8 @@
     ],
     "types": [
       "node",
-      "jest",
       "express"
-    ],
-    "jest": {
-      "transform": {
-        "^.+\\.ts$": "ts-jest"
-      },
-      "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.ts$",
-      "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json"],
-      "collectCoverageFrom": [
-        "src/**/*.ts",
-        "!src/**/*.d.ts",
-        "!src/**/*.test.ts",
-        "!src/tests/**/*.ts"
-      ],
-      "coverageDirectory": "./coverage",
-      "coverageReporters": ["text", "lcov", "html"],
-      "testEnvironment": "node",
-      "setupFilesAfterEnv": ["<rootDir>/src/tests/setup.ts"]
-    }
+    ]
   },
   "include": [
     "src/**/*",
