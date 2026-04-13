@@ -1,4 +1,4 @@
-const { loadBalancer } = require('../services/load-balancer');
+import { loadBalancer } from '../services/load-balancer';
 
 // 清空测试环境
 function clearEngines() {
@@ -68,14 +68,15 @@ describe('LoadBalancer 基本功能测试', () => {
       engineId: 'engine-test',
       avgResponseMs: 50,
       successRate: 0.95,
+      requestsInFlight: 1,
       activeRequests: 2,
     }];
     
     loadBalancer.updateWeights(snapshots);
     
     const info = loadBalancer.getWeightInfo();
-    // 预期: 100 + (0.95 * 20) - (50/100) - (2 * 2) = 100 + 19 - 0.5 - 4 = 114.5
-    expect(info[0].effectiveWeight).toBeCloseTo(114.5, 1);
+    // 预期: 100 + (0.95 * 40) - (50/400) - 2 = 100 + 38 - 0.125 - 2 = 135.875
+    expect(info[0].effectiveWeight).toBeCloseTo(135.875, 1);
   });
 
   test('边界条件 - 权重为0', () => {

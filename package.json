@@ -4,7 +4,8 @@
   "description": "Demo project for dependency upgrades",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:coverage": "jest --coverage --coverageReporters=text"
   },
   "dependencies": {
     "express": "^4.22.1",

@@ -4,19 +4,10 @@
  * 验证发布/订阅、通配符监听、一次性订阅、事件日志等核心行为。
  */
 
-import { EventBus, OrchestratorEvent, EventLogEntry } from '../services/event-bus.js';
+import { describe, it, expect } from '@jest/globals';
+import { EventBus, OrchestratorEvent } from '../services/event-bus.js';
 
 // ── 测试辅助 ──────────────────────────────────────────────
-
-function assert(condition: boolean, msg: string) {
-  if (!condition) throw new Error(`ASSERT FAIL: ${msg}`);
-}
-
-function assertEqual<T>(actual: T, expected: T, label: string) {
-  if (actual !== expected) {
-    throw new Error(`ASSERT FAIL [${label}]: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
-  }
-}
 
 function createBus(): EventBus {
   EventBus.resetInstance();
@@ -25,226 +16,431 @@ function createBus(): EventBus {
 
 // ── 测试 1: on + emit 基本订阅与发布 ──────────────────────
 
-describe('testOnAndEmit', () => {
-  const bus = createBus();
-  const received: OrchestratorEvent[] = [];
+describe('EventBus - Basic Subscription', () => {
+  it('should deliver events to subscribers', () => {
+    const bus = createBus();
+    const received: OrchestratorEvent[] = [];
 
-  bus.on('request.enqueued', (e) => {
-    received.push(e);
+    bus.on('request.enqueued', (e) => {
+      received.push(e);
+    });
+
+    const delivered = bus.emit({
+      type: 'request.enqueued',
+      requestId: 'req_001',
+      taskType: 'text-generation',
+      priority: 'HIGH',
+    });
+
+    expect(delivered).toBe(1);
+    expect(received.length).toBe(1);
+    expect(received[0].type).toBe('request.enqueued');
+    expect((received[0] as any).requestId).toBe('req_001');
+    expect(received[0].timestamp).toBeInstanceOf(Date);
   });
 
-  const delivered = bus.emit({
-    type: 'request.enqueued',
-    requestId: 'req_001',
-    taskType: 'text-generation',
-    priority: 'HIGH',
+  it('should handle unsubscribe correctly', () => {
+    const bus = createBus();
+    let count = 0;
+
+    const sub = bus.on('engine.success', () => { count++; });
+
+    bus.emit({ type: 'engine.success', engineId: 'gpt-4', responseTimeMs: 120 });
+    expect(count).toBe(1);
+
+    sub.unsubscribe();
+
+    bus.emit({ type: 'engine.success', engineId: 'gpt-4', responseTimeMs: 100 });
+    expect(count).toBe(1);
   });
 
-  assertEqual(delivered, 1, 'delivered count');
-  assertEqual(received.length, 1, 'received count');
-  assertEqual(received[0].type, 'request.enqueued', 'event type');
-  assertEqual((received[0] as any).requestId, 'req_001', 'requestId');
-  assert(received[0].timestamp instanceof Date, 'timestamp is Date');
-  console.log('  ✅ testOnAndEmit passed');
+  it('should deliver to multiple subscribers', () => {
+    const bus = createBus();
+    const results: number[] = [];
+
+    bus.on('circuit.reset', () => { results.push(1); });
+    bus.on('circuit.reset', () => { results.push(2); });
+    bus.on('circuit.reset', () => { results.push(3); });
+
+    const delivered = bus.emit({ type: 'circuit.reset', engineId: 'gpt-4' });
+
+    expect(delivered).toBe(3);
+    expect(results.length).toBe(3);
+  });
+
+  it('should handle listener errors without affecting others', () => {
+    const bus = createBus();
+    let secondCalled = false;
+
+    bus.on('engine.failure', () => { throw new Error('boom'); });
+    bus.on('engine.failure', () => { secondCalled = true; });
+
+    const delivered = bus.emit({ type: 'engine.failure', engineId: 'e1', errorMessage: 'err' });
+
+    expect(secondCalled).toBe(true);
+    expect(delivered).toBe(2);
+  });
 });
-}
 
-// ── 测试 2: unsubscribe 取消订阅 ──────────────────────────
+// ── 测试 2: 通配符和一次性订阅 ──────────────────────────────
 
-describe('testUnsubscribe', () => {
-  const bus = createBus();
-  let count = 0;
+describe('EventBus - Advanced Subscription', () => {
+  it('should handle wildcard listeners', () => {
+    const bus = createBus();
+    const allTypes: string[] = [];
 
-  const sub = bus.on('engine.success', () => { count++; });
+    bus.onAny((e) => { allTypes.push(e.type); });
 
-  bus.emit({ type: 'engine.success', engineId: 'gpt-4', responseTimeMs: 120 });
-  assertEqual(count, 1, 'count after first emit');
+    bus.emit({ type: 'request.enqueued', requestId: 'r1', taskType: 't', priority: 'NORMAL' });
+    bus.emit({ type: 'engine.failure', engineId: 'e1', errorMessage: 'timeout' });
+    bus.emit({ type: 'circuit.state_changed', engineId: 'e1', oldState: 'CLOSED', newState: 'OPEN' });
 
-  sub.unsubscribe();
+    expect(allTypes.length).toBe(3);
+    expect(allTypes[0]).toBe('request.enqueued');
+    expect(allTypes[1]).toBe('engine.failure');
+    expect(allTypes[2]).toBe('circuit.state_changed');
+  });
 
-  bus.emit({ type: 'engine.success', engineId: 'gpt-4', responseTimeMs: 100 });
-  assertEqual(count, 1, 'count should stay 1 after unsubscribe');
-  console.log('  ✅ testUnsubscribe passed');
+  it('should handle one-time subscriptions', () => {
+    const bus = createBus();
+    let count = 0;
+
+    bus.once('engine.registered', () => { count++; });
+
+    bus.emit({ type: 'engine.registered', engineId: 'gpt-4', weight: 100 });
+    bus.emit({ type: 'engine.registered', engineId: 'claude-3', weight: 80 });
+
+    expect(count).toBe(1);
+  });
+
+  it('should deliver to both typed and wildcard listeners', () => {
+    const bus = createBus();
+    let typedCount = 0;
+    let anyCount = 0;
+
+    bus.on('engine.success', () => { typedCount++; });
+    bus.onAny(() => { anyCount++; });
+
+    bus.emit({ type: 'engine.success', engineId: 'gpt-4', responseTimeMs: 100 });
+
+    expect(typedCount).toBe(1);
+    expect(anyCount).toBe(1);
+  });
 });
-}
 
-// ── 测试 3: onAny 通配符监听 ──────────────────────────────
+// ── 测试 3: 事件日志和查询功能 ───────────────────────────────
 
-describe('testOnAny', () => {
-  const bus = createBus();
-  const allTypes: string[] = [];
+describe('EventBus - Logging and Querying', () => {
+  it('should record events in log', () => {
+    const bus = createBus();
 
-  bus.onAny((e) => { allTypes.push(e.type); });
+    bus.emit({ type: 'request.enqueued', requestId: 'r1', taskType: 't', priority: 'HIGH' });
+    bus.emit({ type: 'request.enqueued', requestId: 'r2', taskType: 't', priority: 'LOW' });
+    bus.emit({ type: 'engine.success', engineId: 'gpt-4', responseTimeMs: 50 });
 
-  bus.emit({ type: 'request.enqueued', requestId: 'r1', taskType: 't', priority: 'NORMAL' });
-  bus.emit({ type: 'engine.failure', engineId: 'e1', errorMessage: 'timeout' });
-  bus.emit({ type: 'circuit.state_changed', engineId: 'e1', oldState: 'CLOSED', newState: 'OPEN' });
+    const log = bus.getEventLog();
+    expect(log.length).toBe(3);
 
-  assertEqual(allTypes.length, 3, 'onAny received all 3 events');
-  assertEqual(allTypes[0], 'request.enqueued', 'first event type');
-  assertEqual(allTypes[1], 'engine.failure', 'second event type');
-  assertEqual(allTypes[2], 'circuit.state_changed', 'third event type');
-  console.log('  ✅ testOnAny passed');
+    const enqueueLog = bus.getEventLogByType('request.enqueued');
+    expect(enqueueLog.length).toBe(2);
+
+    const recentLog = bus.getEventLog(1);
+    expect(recentLog.length).toBe(1);
+    expect(recentLog[0].event.type).toBe('engine.success');
+
+    expect(bus.totalEventsEmitted).toBe(3);
+  });
+
+  it('should handle log size limits', () => {
+    const bus = new EventBus({ maxLogSize: 3 });
+
+    for (let i = 0; i < 5; i++) {
+      bus.emit({ type: 'queue.cleared', removedCount: i });
+    }
+
+    const log = bus.getEventLog();
+    expect(log.length).toBe(3);
+    expect((log[0].event as any).removedCount).toBe(2);
+    expect((log[2].event as any).removedCount).toBe(4);
+  });
+
+  it('should return empty array for non-existent types', () => {
+    const bus = createBus();
+
+    bus.emit({ type: 'request.enqueued', requestId: 'r1', taskType: 't', priority: 'HIGH' });
+    
+    const emptyLog = bus.getEventLogByType('engine.failure');
+    expect(emptyLog.length).toBe(0);
+    
+    const limitLog = bus.getEventLogByType('request.enqueued', 0);
+    expect(limitLog.length).toBe(0);
+  });
+
+  it('should record delivered count in log entries', () => {
+    const bus = createBus();
+    
+    // 设置多个订阅者
+    bus.on('engine.success', () => {});
+    bus.on('engine.success', () => {});
+    bus.onAny(() => {});
+    
+    bus.emit({ type: 'engine.success', engineId: 'gpt-4', responseTimeMs: 100 });
+    
+    const log = bus.getEventLog();
+    expect(log.length).toBe(1);
+    expect(log[0].deliveredTo).toBe(3);
+    expect(log[0].event.type).toBe('engine.success');
+  });
 });
-}
 
-// ── 测试 4: once 一次性订阅 ───────────────────────────────
+// ── 测试 4: 计数器和统计功能 ─────────────────────────────────
 
-describe('testOnce', () => {
-  const bus = createBus();
-  let count = 0;
+describe('EventBus - Statistics', () => {
+  it('should count listeners correctly', () => {
+    const bus = createBus();
 
-  bus.once('engine.registered', () => { count++; });
+    bus.on('request.enqueued', () => {});
+    bus.on('request.enqueued', () => {});
+    bus.on('engine.success', () => {});
+    bus.onAny(() => {});
 
-  bus.emit({ type: 'engine.registered', engineId: 'gpt-4', weight: 100 });
-  bus.emit({ type: 'engine.registered', engineId: 'claude-3', weight: 80 });
+    const counts = bus.getListenerCounts();
+    expect(counts['request.enqueued']).toBe(2);
+    expect(counts['engine.success']).toBe(1);
+    expect(counts['*']).toBe(1);
+  });
 
-  assertEqual(count, 1, 'once should only fire once');
-  console.log('  ✅ testOnce passed');
+  it('should handle unknown types in counts', () => {
+    const bus = createBus();
+    
+    const counts = bus.getListenerCounts();
+    expect(counts['*']).toBe(0);
+    expect(counts['unknown.type']).toBe(0);
+    
+    bus.onAny(() => {});
+    const countsWithWildcard = bus.getListenerCounts();
+    expect(countsWithWildcard['*']).toBe(1);
+  });
 });
-}
 
-// ── 测试 5: 多个订阅者并行接收 ────────────────────────────
+// ── 测试 5: 清理功能 ────────────────────────────────────────
 
-describe('testMultipleListeners', () => {
-  const bus = createBus();
-  const results: number[] = [];
+describe('EventBus - Cleanup', () => {
+  it('should clear all listeners and events', () => {
+    const bus = createBus();
 
-  bus.on('circuit.reset', () => { results.push(1); });
-  bus.on('circuit.reset', () => { results.push(2); });
-  bus.on('circuit.reset', () => { results.push(3); });
+    bus.on('request.enqueued', () => {});
+    bus.onAny(() => {});
+    bus.emit({ type: 'request.enqueued', requestId: 'r1', taskType: 't', priority: 'N' });
 
-  const delivered = bus.emit({ type: 'circuit.reset', engineId: 'gpt-4' });
+    expect(bus.totalEventsEmitted).toBe(1);
 
-  assertEqual(delivered, 3, 'delivered to 3 listeners');
-  assertEqual(results.length, 3, '3 results collected');
-  console.log('  ✅ testMultipleListeners passed');
+    bus.clearAll();
+
+    expect(bus.totalEventsEmitted).toBe(0);
+    const counts = bus.getListenerCounts();
+    expect(Object.keys(counts).length).toBe(0);
+  });
+
+  it('should clear log but keep listeners', () => {
+    const bus = createBus();
+
+    bus.on('request.enqueued', () => {});
+    bus.emit({ type: 'request.enqueued', requestId: 'r1', taskType: 't', priority: 'HIGH' });
+    bus.emit({ type: 'request.enqueued', requestId: 'r2', taskType: 't', priority: 'LOW' });
+
+    expect(bus.totalEventsEmitted).toBe(2);
+    
+    bus.clearLog();
+    
+    expect(bus.totalEventsEmitted).toBe(0);
+    const log = bus.getEventLog();
+    expect(log.length).toBe(0);
+    
+    // 验证订阅者仍然存在
+    const counts = bus.getListenerCounts();
+    expect(counts['request.enqueued']).toBe(1);
+  });
 });
-}
 
-// ── 测试 6: 订阅者异常不影响其他订阅者 ────────────────────
+// ── 测试 6: 单例模式 ───────────────────────────────────────
 
-describe('testListenerErrorIsolation', () => {
-  const bus = createBus();
-  let secondCalled = false;
-
-  bus.on('engine.failure', () => { throw new Error('boom'); });
-  bus.on('engine.failure', () => { secondCalled = true; });
-
-  const delivered = bus.emit({ type: 'engine.failure', engineId: 'e1', errorMessage: 'err' });
-
-  assert(secondCalled, 'second listener should still be called');
-  assertEqual(delivered, 2, 'both listeners counted as delivered');
-  console.log('  ✅ testListenerErrorIsolation passed');
+describe('EventBus - Singleton', () => {
+  it('should return same instance', () => {
+    EventBus.resetInstance();
+    const a = EventBus.getInstance();
+    const b = EventBus.getInstance();
+    expect(a === b).toBe(true);
+    EventBus.resetInstance();
+    const c = EventBus.getInstance();
+    expect(a !== c).toBe(true);
+    EventBus.resetInstance();
+  });
 });
-}
 
-// ── 测试 7: 事件日志记录与查询 ────────────────────────────
+// ── 测试 7: 边界条件 ───────────────────────────────────────
 
-describe('testEventLog', () => {
-  const bus = createBus();
+describe('EventBus - Edge Cases', () => {
+  it('should handle non-existent event types', () => {
+    const bus = createBus();
+    
+    const delivered = bus.emit({ type: 'non.existent.type', requestId: 'test' as any });
+    expect(delivered).toBe(0);
+    
+    const delivered2 = bus.emit({ type: 'request.enqueued', requestId: 'test', taskType: 'test', priority: 'NORMAL' });
+    expect(delivered2).toBe(0);
+  });
 
-  bus.emit({ type: 'request.enqueued', requestId: 'r1', taskType: 't', priority: 'HIGH' });
-  bus.emit({ type: 'request.enqueued', requestId: 'r2', taskType: 't', priority: 'LOW' });
-  bus.emit({ type: 'engine.success', engineId: 'gpt-4', responseTimeMs: 50 });
+  it('should handle large volumes of events', () => {
+    const bus = createBus();
+    let count = 0;
+    
+    bus.on('request.enqueued', () => { count++; });
+    
+    // 发布大量事件
+    for (let i = 0; i < 100; i++) {
+      bus.emit({ type: 'request.enqueued', requestId: `req_${i}`, taskType: 'test', priority: 'NORMAL' });
+    }
+    
+    expect(count).toBe(100);
+    expect(bus.totalEventsEmitted).toBe(100);
+  });
 
-  const log = bus.getEventLog();
-  assertEqual(log.length, 3, 'log has 3 entries');
+  it('should handle once subscription boundaries', () => {
+    const bus = createBus();
+    let count = 0;
+    
+    const sub = bus.once('test.event', () => { count++; });
+    
+    // 第一次发布应该触发
+    bus.emit({ type: 'test.event', test: 'data' } as any);
+    expect(count).toBe(1);
+    
+    // 第二次发布不应该触发
+    bus.emit({ type: 'test.event', test: 'data' } as any);
+    expect(count).toBe(1);
+    
+    // 取消订阅后再发布
+    sub.unsubscribe();
+    bus.emit({ type: 'test.event', test: 'data' } as any);
+    expect(count).toBe(1);
+  });
 
-  const enqueueLog = bus.getEventLogByType('request.enqueued');
-  assertEqual(enqueueLog.length, 2, '2 enqueue events');
+  it('should handle invalid event types gracefully', () => {
+    const bus = createBus();
+    
+    // 测试null/undefined事件类型
+    expect(() => {
+      // @ts-ignore - 测试无效输入
+      bus.emit({ type: null, requestId: 'test' } as any);
+    }).not.toThrow();
+    
+    expect(() => {
+      // @ts-ignore - 测试无效输入
+      bus.emit({ type: undefined, requestId: 'test' } as any);
+    }).not.toThrow();
+  });
 
-  const recentLog = bus.getEventLog(1);
-  assertEqual(recentLog.length, 1, 'limit 1');
-  assertEqual(recentLog[0].event.type, 'engine.success', 'most recent event');
+  it('should handle wildcard listener errors gracefully', () => {
+    const bus = createBus();
+    let safeListenerCalled = false;
+    
+    // 添加一个会抛出错误的通配符监听器
+    bus.onAny((e) => {
+      if (e.type === 'error.test') {
+        throw new Error('Wildcard test error');
+      }
+      safeListenerCalled = true;
+    });
+    
+    // 添加一个安全的监听器
+    bus.on('engine.success', () => {
+      safeListenerCalled = true;
+    });
+    
+    // 发布会导致错误的事件
+    bus.emit({ type: 'error.test', error: 'test' } as any);
+    
+    // 发布安全事件
+    bus.emit({ type: 'engine.success', engineId: 'test', responseTimeMs: 100 });
+    
+    expect(safeListenerCalled).toBe(true);
+  });
 
-  assertEqual(bus.totalEventsEmitted, 3, 'total events');
-  console.log('  ✅ testEventLog passed');
+  it('should handle concurrent listeners correctly', () => {
+    const bus = createBus();
+    const results: number[] = [];
+    
+    bus.on('concurrent.test', () => {
+      results.push(1);
+    });
+    
+    bus.on('concurrent.test', () => {
+      results.push(2);
+    });
+    
+    bus.on('concurrent.test', () => {
+      results.push(3);
+    });
+    
+    bus.emit({ type: 'concurrent.test', data: 'test' } as any);
+    
+    expect(results.length).toBe(3);
+    expect(results).toContain(1);
+    expect(results).toContain(2);
+    expect(results).toContain(3);
+  });
+
+  it('should handle max log size boundaries', () => {
+    const bus = new EventBus({ maxLogSize: 1 });
+    
+    bus.emit({ type: 'first.event', data: 'first' } as any);
+    bus.emit({ type: 'second.event', data: 'second' } as any);
+    
+    const log = bus.getEventLog();
+    expect(log.length).toBe(1);
+    expect(log[0].event.type).toBe('second.event');
+  });
+
+  it('should ensure event timestamp accuracy', () => {
+    const bus = createBus();
+    const events: OrchestratorEvent[] = [];
+    
+    bus.onAny((e) => { events.push(e); });
+    
+    const beforeEmit = new Date();
+    bus.emit({ type: 'test.event', data: 'test' } as any);
+    const afterEmit = new Date();
+    
+    expect(events.length).toBe(1);
+    expect(events[0].timestamp).toBeInstanceOf(Date);
+    expect(events[0].timestamp.getTime()).toBeGreaterThanOrEqual(beforeEmit.getTime());
+    expect(events[0].timestamp.getTime()).toBeLessThanOrEqual(afterEmit.getTime());
+  });
+
+  it('should handle complex events correctly', () => {
+    const bus = createBus();
+    const events: OrchestratorEvent[] = [];
+    
+    bus.onAny((e) => { events.push(e); });
+    
+    bus.emit({
+      type: 'request.enqueued',
+      requestId: 'complex_test',
+      taskType: 'complex-analysis',
+      priority: 'CRITICAL'
+    });
+    
+    bus.emit({
+      type: 'engine.success',
+      engineId: 'complex_engine',
+      responseTimeMs: 500
+    });
+    
+    expect(events.length).toBe(2);
+    expect(events[0].type).toBe('request.enqueued');
+    expect(events[1].type).toBe('engine.success');
+    expect((events[0] as any).requestId).toBe('complex_test');
+    expect((events[1] as any).engineId).toBe('complex_engine');
+  });
 });
-}
-
-// ── 测试 8: 日志大小限制 ─────────────────────────────────
-
-describe('testMaxLogSize', () => {
-  const bus = new EventBus({ maxLogSize: 3 });
-
-  for (let i = 0; i < 5; i++) {
-    bus.emit({ type: 'queue.cleared', removedCount: i });
-  }
-
-  const log = bus.getEventLog();
-  assertEqual(log.length, 3, 'log should be capped at 3');
-  assertEqual((log[0].event as any).removedCount, 2, 'oldest kept is index 2');
-  assertEqual((log[2].event as any).removedCount, 4, 'newest is index 4');
-  console.log('  ✅ testMaxLogSize passed');
-}
-
-// ── 测试 9: getListenerCounts 统计 ─────────────────────────
-
-describe('testGetListenerCounts', () => {
-  const bus = createBus();
-
-  bus.on('request.enqueued', () => {});
-  bus.on('request.enqueued', () => {});
-  bus.on('engine.success', () => {});
-  bus.onAny(() => {});
-
-  const counts = bus.getListenerCounts();
-  assertEqual(counts['request.enqueued'], 2, '2 enqueue listeners');
-  assertEqual(counts['engine.success'], 1, '1 success listener');
-  assertEqual(counts['*'], 1, '1 wildcard listener');
-  console.log('  ✅ testGetListenerCounts passed');
-}
-
-// ── 测试 10: clearAll 清空一切 ────────────────────────────
-
-describe('testClearAll', () => {
-  const bus = createBus();
-
-  bus.on('request.enqueued', () => {});
-  bus.onAny(() => {});
-  bus.emit({ type: 'request.enqueued', requestId: 'r1', taskType: 't', priority: 'N' });
-
-  assertEqual(bus.totalEventsEmitted, 1, '1 event before clear');
-
-  bus.clearAll();
-
-  assertEqual(bus.totalEventsEmitted, 0, '0 events after clearAll');
-  const counts = bus.getListenerCounts();
-  assertEqual(Object.keys(counts).length, 0, 'no listeners after clearAll');
-  console.log('  ✅ testClearAll passed');
-}
-
-// ── 测试 11: 单例模式 ─────────────────────────────────────
-
-describe('testSingleton', () => {
-  EventBus.resetInstance();
-  const a = EventBus.getInstance();
-  const b = EventBus.getInstance();
-  assert(a === b, 'getInstance should return same instance');
-  EventBus.resetInstance();
-  const c = EventBus.getInstance();
-  assert(a !== c, 'after reset, should be a new instance');
-  EventBus.resetInstance();
-  console.log('  ✅ testSingleton passed');
-}
-
-// ── 测试 12: on + onAny 同时触发 ──────────────────────────
-
-describe('testOnAndOnAnyTogether', () => {
-  const bus = createBus();
-  let typedCount = 0;
-  let anyCount = 0;
-
-  bus.on('engine.success', () => { typedCount++; });
-  bus.onAny(() => { anyCount++; });
-
-  bus.emit({ type: 'engine.success', engineId: 'gpt-4', responseTimeMs: 100 });
-
-  assertEqual(typedCount, 1, 'typed listener called');
-  assertEqual(anyCount, 1, 'wildcard listener called');
-  console.log('  ✅ testOnAndOnAnyTogether passed');
-}
-
-// Jest tests will run automatically based on the describe blocks above
-// The test execution is handled by the Jest runner
