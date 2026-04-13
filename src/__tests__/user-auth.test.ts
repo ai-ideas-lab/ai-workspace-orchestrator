@@ -4,7 +4,7 @@
  * 覆盖：注册、登录、令牌验证、角色更新、边界条件
  */
 
-import { UserAuthService, UserRole, LoginResult } from '../services/user-auth'.ts';
+import { UserAuthService, LoginResult } from '../services/user-auth';
 
 // 每个 test group 前重置单例
 function fresh(): UserAuthService {
@@ -71,7 +71,6 @@ describe('UserAuthService', () => {
       const auth = fresh();
       auth.register({ username: 'banned', password: 'secret123' });
       // 直接操作内部状态模拟禁用
-      const user = auth.findByUsername('banned');
       // 通过 login 获取后再手动修改不可行，这里测试正常登录先
       // 禁用逻辑需要额外的 deactivate 方法，此处跳过
     });
