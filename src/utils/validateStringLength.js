@@ -17,42 +17,41 @@
  * const result2 = validateStringLength('pw', 8, 32);
  * console.log(result2); // {isValid: false, message: '长度不能少于8个字符'}
  */
+/**
+ * 创建验证结果对象
+ * @param {boolean} isValid 验证是否通过
+ * @param {string} message 错误消息
+ * @returns {Object} 验证结果对象
+ */
+function createValidationResult(isValid, message = '') {
+  return { isValid, message };
+}
+
 function validateStringLength(str, minLength = 0, maxLength = Infinity) {
+  // 检查输入是否为空
   if (str == null) {
-    return {
-      isValid: false,
-      message: '输入不能为空'
-    };
+    return createValidationResult(false, '输入不能为空');
   }
   
+  // 检查输入类型
   if (typeof str !== 'string') {
-    return {
-      isValid: false,
-      message: '输入必须是字符串'
-    };
+    return createValidationResult(false, '输入必须是字符串');
   }
   
   const length = str.length;
   
+  // 检查最小长度
   if (length < minLength) {
-    return {
-      isValid: false,
-      message: `长度不能少于${minLength}个字符`
-    };
+    return createValidationResult(false, `长度不能少于${minLength}个字符`);
   }
   
+  // 检查最大长度
   if (length > maxLength) {
-    return {
-      isValid: false,
-      message: `长度不能超过${maxLength}个字符`
-    };
+    return createValidationResult(false, `长度不能超过${maxLength}个字符`);
   }
   
-  return {
-    isValid: true,
-    message: ''
-  };
+  // 验证通过
+  return createValidationResult(true, '');
 }
 
-<<<<<<< HEAD
 module.exports = { validateStringLength };
