@@ -77,7 +77,7 @@ describe('LoadBalancer', () => {
       loadBalancer.registerEngine('engine-high', 300);
       
       // 进行多次选择，统计分布
-      const selections = {
+      const selections: Record<string, number> = {
         'engine-low': 0,
         'engine-high': 0,
       };
@@ -112,6 +112,8 @@ describe('LoadBalancer', () => {
       const firstEntry = weightInfo.find(e => e.engineId === firstSelection);
       const otherEntry = weightInfo.find(e => e.engineId !== firstSelection);
       
+      expect(firstEntry).toBeDefined();
+      expect(otherEntry).toBeDefined();
       expect(firstEntry.currentWeight).toBe(-100); // selected: effectiveWeight - totalWeight
       expect(otherEntry.currentWeight).toBe(100);   // not selected: currentWeight remains
     });

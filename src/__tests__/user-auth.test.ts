@@ -4,7 +4,7 @@
  * 覆盖：注册、登录、令牌验证、角色更新、边界条件
  */
 
-import { UserAuthService, UserRole, LoginResult } from '../services/user-auth.js';
+import { UserAuthService, UserRole, LoginResult } from '../services/user-auth'.ts';
 
 // 每个 test group 前重置单例
 function fresh(): UserAuthService {

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from '@jest/globals';
-import { validateConfig, WorkflowConfig } from '../services/config-validator.js';
+import { validateConfig, WorkflowConfig } from '../services/config-validator'.ts';
 
 describe('ConfigValidator', () => {
   describe('validateConfig()', () => {

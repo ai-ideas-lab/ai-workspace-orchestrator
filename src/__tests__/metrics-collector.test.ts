@@ -4,8 +4,8 @@
  * 验证指标采集的准确性：请求计数、引擎指标、熔断指标、系统健康评分。
  */
 
-import { EventBus } from '../services/event-bus.js';
-import { MetricsCollector } from '../services/metrics-collector.js';
+import { EventBus } from '../services/event-bus'.ts';
+import { MetricsCollector } from '../services/metrics-collector'.ts';
 import type {
   RequestEnqueuedEvent,
   RequestDequeuedEvent,
@@ -15,7 +15,7 @@ import type {
   EngineFailureEvent,
   CircuitStateChangedEvent,
   CircuitResetEvent,
-} from '../services/event-bus.js';
+} from '../services/event-bus'.ts';
 
 // ── 辅助 ────────────────────────────────────────────────
 

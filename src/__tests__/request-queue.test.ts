@@ -4,9 +4,9 @@
  * 验证优先级入队、出队引擎分配、熔断保护三个核心行为。
  */
 
-import { RequestQueue, RequestPriority } from '../services/request-queue.js';
-import { CircuitBreaker, CircuitState } from '../services/circuit-breaker.js';
-import { loadBalancer } from '../services/load-balancer.js';
+import { RequestQueue, RequestPriority } from '../services/request-queue'.ts';
+import { CircuitBreaker, CircuitState } from '../services/circuit-breaker'.ts';
+import { loadBalancer } from '../services/load-balancer'.ts';
 
 // ── 测试辅助 ──────────────────────────────────────────────
 
