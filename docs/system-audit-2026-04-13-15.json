@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-04-13 15:01:55",
+  "normal_items": 3,
+  "fixed_items": [
+    {
+      "item": "Git工作区",
+      "action": "提交未保存更改并同步远程"
+    }
+  ],
+  "manual_intervention": [
+    "网络连接故障：GitHub不可访问（DNS正常）",
+    "ai-gardening-designer项目有未提交更改和npm安全漏洞",
+    "ai-gardening-designer项目缺少README文件",
+    "OpenClaw网关配置警告：重复的feishu插件ID"
+  ],
+  "health_score": 6,
+  "summary": "系统基本正常，但存在网络连接问题和项目级问题需要人工处理"
+}
