@@ -201,7 +201,6 @@ export function paginatedResponse<T>(
       limit,
       total,
       hasNext,
-      totalPages,
     },
   });
 }
@@ -330,7 +329,7 @@ export function createResponseInterceptor() {
       const wrappedResponse: ApiResponse = {
         success: true,
         data,
-        error: undefined,
+        error: undefined as any,
         meta: {
           timestamp: new Date().toISOString(),
           requestId: req.requestId,

@@ -330,6 +330,27 @@ function generateWorkflowId() {
   return `wf_${timestamp}_${random}`;
 }
 
+/**
+ * 验证AI工作流JSON Schema
+ * 
+ * 快速验证工作流配置是否包含必需字段且格式正确。
+ * 用于AI工作流执行前的预检查。
+ * 
+ * @param workflow 工作流配置对象
+ * @returns {boolean} 是否有效
+ * @example
+ * const isValid = validateWorkflowSchema({
+ *   name: "test",
+ *   steps: []
+ * });
+ */
+function validateWorkflowSchema(workflow) {
+  return workflow && 
+         typeof workflow === 'object' && 
+         workflow.name && 
+         Array.isArray(workflow.steps);
+}
+
 module.exports = {
   formatDate,
   debounce,
@@ -340,5 +361,6 @@ module.exports = {
   isEmpty,
   normalizeString,
   isValidChinesePhone,
-  generateWorkflowId
+  generateWorkflowId,
+  validateWorkflowSchema
 };
