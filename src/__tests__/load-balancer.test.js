@@ -335,6 +335,9 @@ describe('LoadBalancer', () => {
         'web-server-3': newSelections.filter(s => s === 'web-server-3').length,
       };
       
+      console.error('DEBUG - 新分布:', newDistribution);
+      console.error('DEBUG - 权重信息:', loadBalancer.getWeightInfo());
+      
       expect(newDistribution['web-server-1']).toBeGreaterThan(newDistribution['web-server-2']);
     });
 

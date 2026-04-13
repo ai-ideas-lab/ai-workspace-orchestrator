@@ -40,3 +40,10 @@ export function getPriorityLevel(priorityScore: number): 'low' | 'medium' | 'hig
   if (priorityScore >= 40) return 'medium';
   return 'low';
 }
+
+/**
+ * 按优先级排序任务
+ */
+export function sortTasksByPriority(tasks: Array<{priorityScore: number}>) {
+  return [...tasks].sort((a, b) => b.priorityScore - a.priorityScore);
+}

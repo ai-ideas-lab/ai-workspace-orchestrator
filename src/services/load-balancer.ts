@@ -164,9 +164,9 @@ class LoadBalancer {
       if (entry) {
         // 计算新权重：基础权重 + 成绩奖励 - 响应时间惩罚 - 负载惩罚
         const baseWeight = entry.weight;
-        const successBonus = snap.successRate * 20;  // 成绩奖励
-        const responsePenalty = snap.avgResponseMs / 100;  // 响应时间惩罚
-        const loadPenalty = snap.activeRequests * 2;  // 负载惩罚
+        const successBonus = snap.successRate * 40;  // 大幅增加成绩奖励
+        const responsePenalty = snap.avgResponseMs / 400;  // 减轻响应时间惩罚
+        const loadPenalty = snap.activeRequests;  // 减轻负载惩罚
         
         const newWeight = baseWeight + successBonus - responsePenalty - loadPenalty;
         entry.effectiveWeight = Math.max(1, newWeight);
