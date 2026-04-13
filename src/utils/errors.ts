@@ -325,10 +325,110 @@ export class FileProcessingError extends AppError {
 }
 
 // 错误助手函数
+
+/**
+ * 检查错误是否为应用错误类型
+ * 
+ * 类型守卫函数，用于判断给定的错误对象是否为AppError实例。
+ * 该函数支持TypeScript类型 narrowing，可以在条件语句中使用
+ * 来保护错误处理逻辑，确保正确处理自定义应用错误。
+ * 
+ * @param error - 要检查的错误对象，可以是任何类型
+ * @returns 如果错误是AppError实例则返回true，否则返回false
+ * @example
+ * // 基本类型检查
+ * try {
+ *   throw new AppError('业务逻辑错误', 400, 'BUSINESS_ERROR');
+ * } catch (error) {
+ *   if (isAppError(error)) {
+ *     console.log('是应用错误:', error.message);
+ *     // 类型安全的访问AppError属性
+ *     console.log('错误码:', error.errorCode);
+ *     console.log('状态码:', error.statusCode);
+ *   }
+ * }
+ * 
+ * // 在错误处理中间件中使用
+ * function errorMiddleware(err: Error, req: Request, res: Response, next: NextFunction) {
+ *   if (isAppError(err)) {
+ *     // 处理应用错误（业务逻辑错误）
+ *     res.status(err.statusCode).json({
+ *       error: err.errorCode,
+ *       message: err.message
+ *     });
+ *   } else {
+ *     // 处理系统错误
+ *     res.status(500).json({
+ *       error: 'INTERNAL_ERROR',
+ *       message: '服务器内部错误'
+ *     });
+ *   }
+ * }
+ * 
+ * // 结合其他错误检查函数使用
+ * function handleUnknownError(error: unknown) {
+ *   if (isAppError(error)) {
+ *     console.log('应用错误:', error.userMessage);
+ *     if (isErrorOperational(error)) {
+ *       console.log('可恢复的业务错误');
+ *     } else {
+ *       console.log('系统级错误');
+ *     }
+ *   } else {
+ *     console.log('非应用错误:', error);
+ *   }
+ * }
+ */
 export function isAppError(error: unknown): error is AppError {
   return error instanceof AppError;
 }
 
+/**
+ * 检查错误是否为可操作的业务错误
+ * 
+ * 判断错误是否为可恢复的业务逻辑错误（而非系统级错误）。
+ * 可操作错误通常是由业务规则违反、输入验证失败等引起的，
+ * 这些错误可以安全地向用户显示且不需要记录详细的错误堆栈。
+ * 系统级错误（如数据库连接失败、内存不足等）则标记为不可操作。
+ * 
+ * @param error - 要检查的错误对象，可以是任何类型
+ * @returns 如果错误是可操作的业务错误则返回true，否则返回false
+ * @example
+ * // 在错误分类和日志记录中使用
+ * function logError(error: unknown) {
+ *   if (isErrorOperational(error)) {
+ *     // 记录为警告，不包含详细堆栈
+ *     console.warn('业务逻辑错误:', error.message);
+ *   } else {
+ *     // 记录为错误，包含完整堆栈信息
+ *     console.error('系统错误:', error);
+ *   }
+ * }
+ * 
+ * // 错误恢复策略
+ * function recoverFromError(error: unknown) {
+ *   if (isAppError(error) && isErrorOperational(error)) {
+ *     // 可恢复的业务错误，尝试重试或降级处理
+ *     console.log('尝试恢复业务错误:', error.errorCode);
+ *     return attemptRecovery(error);
+ *   } else {
+ *     // 系统级错误，无法恢复，需要人工干预
+ *     console.log('系统级错误，需要人工处理');
+ *     alertAdmin(error);
+ *     return null;
+ *   }
+ * }
+ * 
+ * // 用户友好的错误消息处理
+ * function getUserFriendlyMessage(error: unknown): string {
+ *   if (isAppError(error)) {
+ *     return isErrorOperational(error) 
+ *       ? error.userMessage || error.message
+ *       : '系统暂时不可用，请稍后重试';
+ *   }
+ *   return '未知错误，请联系管理员';
+ * }
+ */
 export function isErrorOperational(error: unknown): boolean {
   return isAppError(error) && error.isOperational;
 }
