@@ -2831,3 +2831,28 @@ curl -X GET "http://localhost:3000/api/workflows/enhanced/workflow-enhanced-001/
 - 邮箱：support@ai-orchestrator.com
 - 文档：https://docs.ai-orchestrator.com
 - 社区：https://community.ai-orchestrator.com
+
+---
+
+## 🔄 更新内容 (v2.2 - 2026-04-14)
+
+### 新增功能
+- **工作流克隆功能**: 支持基于现有工作流创建副本
+- **执行路径分析**: 分析工作流配置，返回可能的执行路径
+- **工作流导入/导出**: JSON格式的工作流备份和恢复
+- **增强的系统信息端点**: 详细的内存、CPU、运行时间信息
+- **更详细的错误码说明**: 完整的错误处理指南
+
+### 改进功能
+- **更严格的输入验证**: 所有端点都增加了参数验证
+- **性能监控**: 新增装饰器模式的性能监控
+- **重试机制**: 自动重试失败的请求
+- **权限控制**: 更细粒度的访问控制
+- **分页优化**: 统一的分页参数和格式
+
+### 新增端点
+- `GET /system` - 系统信息
+- `POST /workflows/:id/clone` - 克隆工作流
+- `POST /workflows/execution-path` - 执行路径分析
+- `GET /workflows/:id/export` - 导出工作流
+- `POST /workflows/import` - 导入工作流
