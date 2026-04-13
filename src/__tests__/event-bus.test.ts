@@ -5,7 +5,8 @@
  */
 
 import { describe, it, expect } from '@jest/globals';
-import { EventBus, OrchestratorEvent } from '../services/event-bus'.ts';
+import { EventBus, OrchestratorEvent } from '../services/event-bus';
+import { safeEventAccess } from '../utils/test-helpers';
 
 // ── 测试辅助 ──────────────────────────────────────────────
 
@@ -414,8 +415,9 @@ describe('EventBus - Edge Cases', () => {
     
     expect(events.length).toBe(1);
     expect(events[0].timestamp).toBeInstanceOf(Date);
-    expect(events[0].timestamp.getTime()).toBeGreaterThanOrEqual(beforeEmit.getTime());
-    expect(events[0].timestamp.getTime()).toBeLessThanOrEqual(afterEmit.getTime());
+    const event = safeEventAccess(events, 0);
+    expect(event.timestamp.getTime()).toBeGreaterThanOrEqual(beforeEmit.getTime());
+    expect(event.timestamp.getTime()).toBeLessThanOrEqual(afterEmit.getTime());
   });
 
   it('should handle complex events correctly', () => {
@@ -438,8 +440,10 @@ describe('EventBus - Edge Cases', () => {
     });
     
     expect(events.length).toBe(2);
-    expect(events[0].type).toBe('request.enqueued');
-    expect(events[1].type).toBe('engine.success');
+    const event1 = safeEventAccess(events, 0);
+    const event2 = safeEventAccess(events, 1);
+    expect(event1.type).toBe('request.enqueued');
+    expect(event2.type).toBe('engine.success');
     expect((events[0] as any).requestId).toBe('complex_test');
     expect((events[1] as any).engineId).toBe('complex_engine');
   });

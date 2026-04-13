@@ -59,11 +59,11 @@ describe('WorkflowVersionService', () => {
       service.createSnapshot(wf);
 
       wf.steps.push(makeStep('s2', 'Step 2'));
-      wf.steps[0].name = 'Modified';
+      wf.steps[0]!.name = 'Modified';
 
       const snap = service.getVersion('wf1', 1)!;
       expect(snap.definition.steps).toHaveLength(1);
-      expect(snap.definition.steps[0].name).toBe('Step 1');
+      expect(snap.definition.steps[0]!.name).toBe('Step 1');
     });
   });
 
@@ -166,7 +166,7 @@ describe('WorkflowVersionService', () => {
       service.createSnapshot(wf, 'v1');
 
       wf.steps.push(makeStep('s2', 'Step 2'));
-      wf.steps[0].name = 'Modified';
+      wf.steps[0]!.name = 'Modified';
       service.createSnapshot(wf, 'v2');
 
       const restored = service.rollback('wf1', 1);

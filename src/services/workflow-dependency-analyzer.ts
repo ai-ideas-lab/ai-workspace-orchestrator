@@ -229,7 +229,7 @@ export class WorkflowDependencyAnalyzer {
 
     for (let i = 0; i < layers.length; i++) {
       if (layers[i]) {
-        for (const id of layers[i]) layerMap.set(id, i);
+        for (const id of layers[i]!) layerMap.set(id, i);
       }
     }
 
