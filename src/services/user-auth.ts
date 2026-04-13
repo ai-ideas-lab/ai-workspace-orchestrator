@@ -18,6 +18,7 @@
  */
 
 import { createHash, randomBytes } from 'crypto';
+import { AppError, DatabaseError, ConflictError, ValidationError } from '../utils/errors.js';
 
 // ── 类型定义 ──────────────────────────────────────────────
 

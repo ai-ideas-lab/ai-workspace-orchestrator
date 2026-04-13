@@ -18,6 +18,13 @@
  * console.log(result2); // {isValid: false, message: '长度不能少于8个字符'}
  */
 function validateStringLength(str, minLength = 0, maxLength = Infinity) {
+  if (str == null) {
+    return {
+      isValid: false,
+      message: '输入不能为空'
+    };
+  }
+  
   if (typeof str !== 'string') {
     return {
       isValid: false,
