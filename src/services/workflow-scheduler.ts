@@ -19,6 +19,8 @@
 
 import { WorkflowExecutor, WorkflowDefinition } from './workflow-executor.js';
 import { EventBus } from './event-bus.js';
+import { asyncErrorHandler, AsyncOperationContext } from '../utils/async-error-handler.js';
+import { AppError, WorkflowError } from '../utils/errors.js';
 
 // ── 类型定义 ────────────────────────────────────────────
 
@@ -270,8 +272,41 @@ export class WorkflowScheduler {
     entry.status = 'running';
     entry.lastRunAt = new Date();
 
+    // 使用增强的错误处理器执行工作流
+    const context: AsyncOperationContext = {
+      operation: `workflow_execute:${entry.workflowId}`,
+      userId: entry.workflow.userId,
+      correlationId: entry.id,
+      metadata: {
+        workflowId: entry.workflowId,
+        scheduleId: entry.id,
+        scheduleType: entry.type,
+        executionCount: entry.executionCount,
+      },
+    };
+
     try {
-      const result = await this.executor.execute(entry.workflow, entry.engineExecuteFn);
+      const result = await asyncErrorHandler.executeWithRetry(
+        async () => {
+          const executionResult = await this.executor.execute(entry.workflow, entry.engineExecuteFn);
+          return executionResult;
+        },
+        context,
+        {
+          maxRetries: 2,
+          baseDelayMs: 1000,
+          retryCondition: (error) => {
+            // 只重试临时性错误，不重试业务逻辑错误
+            return (
+              error instanceof AppError && 
+              !error.isOperational &&
+              (error.message.includes('timeout') || 
+               error.message.includes('network') ||
+               error.message.includes('temporary'))
+            );
+          },
+        }
+      );
 
       entry.executionCount++;
 
@@ -279,6 +314,7 @@ export class WorkflowScheduler {
         executionCount: entry.executionCount,
         workflowStatus: result.status,
         durationMs: result.durationMs,
+        success: true,
       });
 
       // 一次性调度：完成后标记（保留索引以便查询）
@@ -295,8 +331,11 @@ export class WorkflowScheduler {
         this.clearEntryTimers(entry);
       }
     } catch (err) {
+      // 记录执行失败事件
       this.emitScheduleEvent('scheduler.execution_failed', entry.id, entry.workflowId, {
         error: err instanceof Error ? err.message : String(err),
+        executionCount: entry.executionCount,
+        isOperational: err instanceof AppError ? err.isOperational : false,
       });
 
       // 执行失败不改变调度状态，下次继续尝试（周期性）
@@ -309,15 +348,49 @@ export class WorkflowScheduler {
 
   /** 启动间隔定时器 */
   private startInterval(entry: ScheduledEntry, intervalMs: number): void {
-    entry.interval = setInterval(async () => {
-      // 检查是否已被取消或已完成
-      if (entry.status === 'cancelled' || entry.status === 'completed') {
-        this.clearEntryTimers(entry);
-        return;
-      }
+    const context: AsyncOperationContext = {
+      operation: `workflow_interval:${entry.workflowId}`,
+      userId: entry.workflow.userId,
+      correlationId: `${entry.id}_interval`,
+      metadata: {
+        workflowId: entry.workflowId,
+        scheduleId: entry.id,
+        intervalMs,
+      },
+    };
 
-      entry.nextRunAt = new Date(Date.now() + intervalMs);
-      await this.runEntry(entry);
+    entry.interval = setInterval(async () => {
+      try {
+        // 检查是否已被取消或已完成
+        if (entry.status === 'cancelled' || entry.status === 'completed') {
+          this.clearEntryTimers(entry);
+          return;
+        }
+
+        entry.nextRunAt = new Date(Date.now() + intervalMs);
+        await asyncErrorHandler.executeWithRetry(
+          () => this.runEntry(entry),
+          context,
+          {
+            maxRetries: 1,
+            retryCondition: (error) => {
+              return error instanceof AppError && !error.isOperational;
+            },
+          }
+        );
+      } catch (error) {
+        // 如果是最后一次执行失败，记录错误但继续间隔
+        console.error(`Interval execution failed for workflow ${entry.workflowId}:`, error);
+        
+        // 更新下次执行时间，即使失败也要继续尝试
+        entry.nextRunAt = new Date(Date.now() + intervalMs);
+        
+        // 发送失败事件
+        this.emitScheduleEvent('scheduler.interval_failed', entry.id, entry.workflowId, {
+          error: error instanceof Error ? error.message : String(error),
+          nextRunAt: entry.nextRunAt,
+        });
+      }
     }, intervalMs);
 
     // 防止阻止进程退出
