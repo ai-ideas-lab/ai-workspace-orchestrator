@@ -12,8 +12,9 @@ import { createServer } from 'http';
 
 // 导入路由
 import workflowRoutes from './routes/workflows.js';
-import { globalErrorHandler, notFoundHandler, setupGlobalErrorMonitoring } from './middleware/errorMiddleware.js';
-import { requestIdMiddleware } from './middleware/errorMiddleware.js';
+import { globalErrorHandler, notFoundHandler, setupGlobalErrorMonitoring } from './middleware/errorMiddleware.ts';
+import { requestIdMiddleware } from './middleware/errorMiddleware.ts';
+import { createErrorAggregatorMiddleware } from './utils/error-aggregator.js';
 import { logger } from './utils/logger.js';
 
 // 导入服务
@@ -45,6 +46,18 @@ app.use(cors({
 
 // 请求ID中间件 (必须在其他中间件之前)
 app.use(requestIdMiddleware);
+
+// 错误聚合中间件 (在路由之前，用于捕获未处理的错误)
+const errorAggregator = createErrorAggregatorMiddleware({
+  windowSizeMs: 5 * 60 * 1000, // 5分钟窗口
+  similarityThreshold: 0.8,
+  maxAggregatedErrors: 100,
+  alertThreshold: 10,
+  alertCallback: (aggregatedError) => {
+    logger.warn(`错误告警触发: ${aggregatedError.errorCode} (${aggregatedError.occurrenceCount}次)`);
+  }
+});
+app.use(errorAggregator);
 
 // 日志中间件
 app.use(morgan('combined', {

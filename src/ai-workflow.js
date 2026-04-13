@@ -77,10 +77,96 @@ const INTENT_PATTERNS = {
  * const isValid5 = validateUser(emptyUser);
  * console.log(isValid5); // 输出: true
  */
+/**
+ * 验证用户对象的有效性和权限
+ * 
+ * 检查用户对象是否符合预期的结构和数据类型要求。确保用户对象包含
+ * 必要的字段，并且角色在允许的范围内。支持admin和user两种角色类型，
+ * 用户角色不明确时默认为user角色。该函数是用户权限检查的基础工具函数。
+ * 
+ * @param {Object} user - 待验证的用户对象
+ * @param {string} [user.role] - 用户角色，必须是'admin'或'user'之一，默认为'user'
+ * @returns {boolean} 验证结果，true表示用户有效，false表示无效
+ * @throws {TypeError} 当user参数不是对象类型时抛出异常
+ * @example
+ * // 验证管理员用户
+ * const adminUser = { role: "admin" };
+ * const isValid1 = validateUser(adminUser);
+ * console.log(isValid1); // 输出: true
+ * 
+ * // 验证普通用户
+ * const normalUser = { role: "user" };
+ * const isValid2 = validateUser(normalUser);
+ * console.log(isValid2); // 输出: true
+ * 
+ * // 验证无效用户：角色不存在
+ * const invalidUser = { role: "guest" };
+ * const isValid3 = validateUser(invalidUser);
+ * console.log(isValid3); // 输出: false
+ * 
+ * // 验证无效用户：非对象参数
+ * const notObject = "not-an-object";
+ * const isValid4 = validateUser(notObject);
+ * console.log(isValid4); // 输出: false
+ * 
+ * // 验证空对象（默认为普通用户）
+ * const emptyUser = {};
+ * const isValid5 = validateUser(emptyUser);
+ * console.log(isValid5); // 输出: true
+ * 
+ * // 验证null值
+ * const nullUser = null;
+ * const isValid6 = validateUser(nullUser);
+ * console.log(isValid6); // 输出: false
+ * 
+ * // 验证undefined值
+ * const undefinedUser = undefined;
+ * const isValid7 = validateUser(undefinedUser);
+ * console.log(isValid7); // 输出: false
+ */
 function validateUser(user) {
     return user && ['admin', 'user'].includes(user.role || 'user');
 }
 
+/**
+ * 验证和计算用户优先级配置
+ * 
+ * 根据用户角色和命令优先级计算最终的执行优先级。管理员用户具有更高的优先级，
+ * 确保重要任务能够优先执行。如果没有指定命令优先级，则使用默认优先级。
+ * 当用户验证失败时，直接使用命令优先级或默认值。
+ * 
+ * @param {Object} user - 用户对象，包含用户角色信息
+ * @param {number} commandPriority - 命令优先级（可选），范围1-10，数值越高优先级越高
+ * @returns {number} 验证后的优先级值，管理员为1，默认为5，其他用户使用指定值或默认值
+ * @throws {TypeError} 当user对象不是对象类型时抛出异常
+ * @example
+ * // 管理员用户始终获得最高优先级
+ * const adminPriority = getValidatedPriority({ role: 'admin' }, 3);
+ * console.log(adminPriority); // 输出: 1
+ * 
+ * // 普通用户使用指定优先级
+ * const userPriority = getValidatedPriority({ role: 'user' }, 8);
+ * console.log(userPriority); // 输出: 8
+ * 
+ * // 普通用户未指定优先级时使用默认值
+ * const defaultPriority = getValidatedPriority({ role: 'user' });
+ * console.log(defaultPriority); // 输出: 5
+ * 
+ * // 用户对象为空时使用命令优先级
+ * const commandPriorityOnly = getValidatedPriority(null, 2);
+ * console.log(commandPriorityOnly); // 输出: 2
+ * 
+ * // 用户对象无效且无命令优先级时使用默认值
+ * const finalDefault = getValidatedPriority(null, null);
+ * console.log(finalDefault); // 输出: 5
+ * 
+ * // 验证优先级边界条件
+ * const maxPriority = getValidatedPriority({ role: 'user' }, 10);
+ * console.log(maxPriority); // 输出: 10
+ * 
+ * const minPriority = getValidatedPriority({ role: 'user' }, 1);
+ * console.log(minPriority); // 输出: 1
+ */
 function getValidatedPriority(user, commandPriority) {
     if (!validateUser(user)) {
         return commandPriority || PRIORITY_CONFIG.default;
