@@ -228,7 +228,9 @@ export class WorkflowDependencyAnalyzer {
     const stepIds = new Set(steps.map((s) => s.id));
 
     for (let i = 0; i < layers.length; i++) {
-      for (const id of layers[i]) layerMap.set(id, i);
+      if (layers[i]) {
+        for (const id of layers[i]) layerMap.set(id, i);
+      }
     }
 
     // 动态规划: depth(node) = max(depth(dep)) + 1 for all deps

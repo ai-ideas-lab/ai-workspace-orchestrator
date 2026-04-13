@@ -43,7 +43,8 @@
     ],
     "types": [
       "node",
-      "express"
+      "express",
+      "jest"
     ]
   },
   "include": [
@@ -54,9 +55,6 @@
   "exclude": [
     "node_modules",
     "dist",
-    "coverage",
-    "**/*.test.ts",
-    "**/*.spec.ts",
-    "src/tests"
+    "coverage"
   ]
 }
