@@ -9,3 +9,4 @@ logs/
 ecommerce-performance-demo/database.sqlite
 *.backup
 social-content-*.md
+.openclaw/
