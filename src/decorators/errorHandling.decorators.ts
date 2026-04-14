@@ -1,422 +1,443 @@
 /**
- * Error Handling Decorators - 错误处理装饰器
+ * Enhanced Error Handling Decorators - 增强错误处理装饰器
  * 
- * 提供统一的错误处理装饰器，确保所有控制器方法都有适当的错误处理
+ * 提供统一的装饰器模式，为类方法添加错误处理、重试、超时等功能
  */
 
-import { Request, Response, NextFunction } from 'express';
-import { AppError, ValidationError, NotFoundError, SystemError } from './errors.js';
-import { logger } from './enhanced-error-logger.js';
+import { AppError, SystemError, TimeoutError, ValidationError } from '../utils/errors.js';
+import { AsyncErrorHandler, AsyncOperationContext } from '../utils/async-error-handler.js';
+import { logger } from '../enhanced-error-logger.js';
+
+export interface ErrorHandlingOptions {
+  /** 最大重试次数 */
+  maxRetries?: number;
+  /** 重试基础延迟（毫秒） */
+  baseRetryDelay?: number;
+  /** 最大重试延迟（毫秒） */
+  maxRetryDelay?: number;
+  /** 超时时间（毫秒） */
+  timeout?: number;
+  /** 是否启用错误日志 */
+  logErrors?: boolean;
+  /** 自定义重试条件 */
+  retryCondition?: (error: unknown) => boolean;
+  /** 错误回调函数 */
+  onError?: (error: unknown, context: AsyncOperationContext) => void;
+}
 
 /**
- * 装饰器：为控制器方法添加统一的错误处理
- * 
- * 自动捕获方法中的异常，转换为AppError并记录日志
- * 保持原有的业务逻辑不变，只增强错误处理
+ * 装饰器：为类方法添加错误处理
  */
-export function withErrorHandling(
-  options: {
-    logErrors?: boolean;
-    sanitizeUserError?: boolean;
-    defaultErrorCode?: string;
-    defaultStatusCode?: number;
-  } = {}
-) {
-  const {
-    logErrors = true,
-    sanitizeUserError = true,
-    defaultErrorCode = 'INTERNAL_ERROR',
-    defaultStatusCode = 500,
-  } = options;
-
-  return function (
+export function withErrorHandling(options: ErrorHandlingOptions = {}) {
+  return function <T extends (...args: any[]) => Promise<any>>(
     target: any,
     propertyName: string,
-    descriptor: TypedPropertyDescriptor<any>
+    descriptor: TypedPropertyDescriptor<T>
+  ) {
+    const method = descriptor.value!;
+    const asyncErrorHandler = AsyncErrorHandler.getInstance();
+
+    descriptor.value = (async function(this: any, ...args: Parameters<T>): Promise<ReturnType<T>> {
+      const context: AsyncOperationContext = {
+        operation: `${target.constructor.name}.${propertyName}`,
+        userId: this.user?.id,
+        sessionId: this.session?.id,
+        correlationId: this.requestId || `op_${Date.now()}`,
+        metadata: {
+          methodName: propertyName,
+          args: args.slice(0, 10), // 只记录前10个参数避免过大
+          timestamp: new Date().toISOString(),
+          ...this.metadata,
+        },
+      };
+
+      try {
+        if (options.timeout) {
+          return asyncErrorHandler.executeWithTimeout(
+            () => method.apply(this, args),
+            options.timeout,
+            context
+          );
+        } else {
+          return asyncErrorHandler.executeWithRetry(
+            () => method.apply(this, args),
+            context,
+            {
+              maxRetries: options.maxRetries,
+              baseDelayMs: options.baseRetryDelay,
+              maxDelayMs: options.maxRetryDelay,
+              retryCondition: options.retryCondition,
+              onRetry: (error, attempt) => {
+                if (options.logErrors) {
+                  logger.warn(`方法 ${propertyName} 第 ${attempt} 次重试:`, {
+                    error: error instanceof Error ? error.message : String(error),
+                    attempt,
+                    maxRetries: options.maxRetries,
+                    context,
+                  });
+                }
+                options.onError?.(error, context);
+              },
+            }
+          );
+        }
+      } catch (error) {
+        if (options.logErrors) {
+          logger.error(`方法 ${propertyName} 执行失败:`, {
+            error,
+            context,
+            method: propertyName,
+            className: target.constructor.name,
+          });
+        }
+        options.onError?.(error, context);
+        throw error;
+      }
+    }) as any;
+
+    return descriptor;
+  };
+}
+
+/**
+ * 装饰器：为类方法添加重试机制
+ */
+export function withRetry(options: {
+  maxRetries?: number;
+  baseDelay?: number;
+  maxDelay?: number;
+  retryCondition?: (error: unknown) => boolean;
+}) {
+  return withErrorHandling({
+    maxRetries: options.maxRetries || 3,
+    baseRetryDelay: options.baseDelay || 1000,
+    maxRetryDelay: options.maxDelay || 10000,
+    retryCondition: options.retryCondition,
+    logErrors: true,
+  });
+}
+
+/**
+ * 装饰器：为类方法添加超时控制
+ */
+export function withTimeout(timeoutMs: number) {
+  return withErrorHandling({
+    timeout: timeoutMs,
+    logErrors: true,
+  });
+}
+
+/**
+ * 装饰器：为类方法添加数据库错误处理
+ */
+export function withDatabaseErrorHandling(context: {
+  table: string;
+  operation: string;
+  userId?: string;
+}) {
+  return function <T extends (...args: any[]) => Promise<any>>(
+    target: any,
+    propertyName: string,
+    descriptor: TypedPropertyDescriptor<T>
   ) {
     const method = descriptor.value!;
 
-    descriptor.value = async function (
-      this: any,
-      req: Request,
-      res: Response,
-      next: NextFunction
-    ): Promise<any> {
+    descriptor.value = (async function(this: any, ...args: Parameters<T>): Promise<ReturnType<T>> {
+      const dbContext = {
+        operation: context.operation,
+        table: context.table,
+        userId: context.userId || this.user?.id,
+        correlationId: this.requestId,
+        metadata: {
+          methodName: propertyName,
+          timestamp: new Date().toISOString(),
+          ...this.metadata,
+        },
+      };
+
       try {
-        // 调用原始方法
-        const result = await method.apply(this, [req, res, next]);
+        const result = await method.apply(this, args);
         
-        // 如果方法已经发送了响应，直接返回
-        if (res.headersSent) {
-          return result;
-        }
+        // 如果操作成功，记录成功日志
+        logger.debug(`数据库操作成功: ${context.operation}`, {
+          table: context.table,
+          userId: dbContext.userId,
+          correlationId: dbContext.correlationId,
+        });
         
         return result;
       } catch (error) {
-        // 记录错误日志
-        if (logErrors) {
-          logger.error(`控制器方法错误: ${target.constructor.name}.${propertyName}`, {
-            error: error instanceof Error ? error.message : String(error),
+        // 记录数据库错误
+        logger.error(`数据库操作失败: ${context.operation}`, {
+          error,
+          table: context.table,
+          userId: dbContext.userId,
+          correlationId: dbContext.correlationId,
+        });
+
+        // 根据错误类型转换
+        if (error instanceof AppError) {
+          // 如果已经是应用错误，重新抛出
+          throw error;
+        }
+
+        // 转换为数据库错误
+        throw new SystemError(
+          `数据库操作失败: ${error instanceof Error ? error.message : String(error)}`,
+          'database',
+          {
+            operation: context.operation,
+            table: context.table,
+            originalError: error instanceof Error ? error.message : String(error),
             stack: error instanceof Error ? error.stack : undefined,
-            requestId: req.requestId,
-            userId: req.user?.id,
-            method: req.method,
-            url: req.originalUrl,
+            context: dbContext,
+          }
+        );
+      }
+    }) as any;
+
+    return descriptor;
+  };
+}
+
+/**
+ * 装饰器：为类方法添加输入验证
+ */
+export function withInputValidation(validateFn: (args: any[]) => void) {
+  return function <T extends (...args: any[]) => any>(
+    target: any,
+    propertyName: string,
+    descriptor: TypedPropertyDescriptor<T>
+  ) {
+    const method = descriptor.value!;
+
+    descriptor.value = (function(this: any, ...args: Parameters<T>): ReturnType<T> {
+      try {
+        validateFn(args);
+        return method.apply(this, args);
+      } catch (error) {
+        if (error instanceof ValidationError) {
+          throw error;
+        }
+        
+        throw new ValidationError(
+          `输入验证失败: ${error instanceof Error ? error.message : String(error)}`,
+          undefined,
+          {
+            methodName: propertyName,
+            args,
+            validationError: error instanceof Error ? error.message : String(error),
+          }
+        );
+      }
+    }) as any;
+
+    return descriptor;
+  };
+}
+
+/**
+ * 装饰器：为类方法添加性能监控
+ */
+export function withPerformanceMonitoring(options: {
+  thresholdMs?: number;
+  logSuccess?: boolean;
+  logFailure?: boolean;
+}) {
+  return function <T extends (...args: any[]) => Promise<any>>(
+    target: any,
+    propertyName: string,
+    descriptor: TypedPropertyDescriptor<T>
+  ) {
+    const method = descriptor.value!;
+
+    descriptor.value = (async function(this: any, ...args: Parameters<T>): Promise<ReturnType<T>> {
+      const startTime = Date.now();
+      const startMemory = process.memoryUsage?.();
+      
+      try {
+        const result = await method.apply(this, args);
+        
+        const duration = Date.now() - startTime;
+        const endMemory = process.memoryUsage?.();
+        const memoryUsed = startMemory && endMemory ? endMemory.heapUsed - startMemory.heapUsed : 0;
+
+        // 记录性能指标
+        if (duration > (options.thresholdMs || 1000)) {
+          logger.warn(`方法执行时间过长: ${propertyName}`, {
+            duration,
+            memoryUsed: Math.round(memoryUsed / 1024 / 1024) + 'MB',
+            methodName: propertyName,
+            className: target.constructor.name,
           });
         }
 
-        // 转换错误为AppError
-        const appError = normalizeError(error, options);
-        
-        // 发送错误响应
-        if (!res.headersSent) {
-          sendErrorResponse(res, appError);
+        if (options.logSuccess) {
+          logger.debug(`方法执行成功: ${propertyName}`, {
+            duration,
+            memoryUsed: Math.round(memoryUsed / 1024 / 1024) + 'MB',
+          });
         }
-        
-        // 如果next被调用，继续传递错误
-        if (!res.headersSent && next) {
-          next(appError);
-        }
-      }
-    };
 
-    return descriptor;
-  };
-}
-
-/**
- * 装饰器：为异步控制器方法添加重试逻辑
- */
-export function withRetry(
-  options: {
-    maxRetries?: number;
-    delayMs?: number;
-    retryCondition?: (error: unknown) => boolean;
-  } = {}
-) {
-  const {
-    maxRetries = 2,
-    delayMs = 100,
-    retryCondition = (error) => 
-      error instanceof SystemError || 
-      error.message.includes('timeout') ||
-      error.message.includes('network')
-  } = options;
-
-  return function (
-    target: any,
-    propertyName: string,
-    descriptor: TypedPropertyDescriptor<any>
-  ) {
-    const method = descriptor.value!;
-
-    descriptor.value = async function (
-      this: any,
-      req: Request,
-      res: Response,
-      next: NextFunction
-    ): Promise<any> {
-      let lastError: unknown;
-      
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          return await method.apply(this, [req, res, next]);
-        } catch (error) {
-          lastError = error;
-          
-          // 检查是否应该重试
-          if (!retryCondition(error) || attempt === maxRetries) {
-            break;
-          }
-          
-          // 等待重试
-          await new Promise(resolve => setTimeout(resolve, delayMs * attempt));
-        }
-      }
-      
-      // 所有重试失败，抛出最后一个错误
-      throw normalizeError(lastError, options);
-    };
-
-    return descriptor;
-  };
-}
-
-/**
- * 装饰器：为数据库操作添加事务和错误处理
- */
-export function withTransactionErrorHandler(
-  operationName: string = 'database operation'
-) {
-  return function (
-    target: any,
-    propertyName: string,
-    descriptor: TypedPropertyDescriptor<any>
-  ) {
-    const method = descriptor.value!;
-
-    descriptor.value = async function (
-      this: any,
-      req: Request,
-      res: Response,
-      next: NextFunction
-    ): Promise<any> {
-      try {
-        const result = await method.apply(this, [req, res, next]);
         return result;
       } catch (error) {
-        // 记录数据库错误上下文
-        logger.error(`${operationName} 失败:`, {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          requestId: req.requestId,
-          userId: req.user?.id,
-          operation: operationName,
-        });
-
-        // 转换数据库错误
-        const appError = normalizeDatabaseError(error, operationName);
-        sendErrorResponse(res, appError);
-      }
-    };
-
-    return descriptor;
-  };
-}
-
-/**
- * 标准化错误对象
- */
-function normalizeError(
-  error: unknown,
-  options: {
-    sanitizeUserError?: boolean;
-    defaultErrorCode?: string;
-    defaultStatusCode?: number;
-  }
-): AppError {
-  const {
-    sanitizeUserError = true,
-    defaultErrorCode = 'INTERNAL_ERROR',
-    defaultStatusCode = 500,
-  } = options;
-
-  // 如果已经是AppError，直接返回
-  if (error instanceof AppError) {
-    return error;
-  }
-
-  // 如果是Error实例，转换为AppError
-  if (error instanceof Error) {
-    let userMessage = error.message;
-    
-    // 用户端错误净化
-    if (sanitizeUserError) {
-      userMessage = sanitizeErrorMessage(error.message);
-    }
-
-    // 根据错误类型分类
-    if (error.message.includes('validation')) {
-      return new ValidationError(error.message, undefined, { originalError: error.message });
-    } else if (error.message.includes('not found') || error.message.includes('不存在')) {
-      return new NotFoundError('Resource', undefined, { originalError: error.message });
-    } else if (error.message.includes('network') || error.message.includes('timeout')) {
-      return new SystemError(error.message, 'network', { originalError: error.message });
-    }
-
-    // 默认转换为系统错误
-    return new SystemError(
-      userMessage,
-      'controller',
-      { originalError: error.message, stack: error.stack }
-    );
-  }
-
-  // 其他类型的错误
-  const message = String(error);
-  return new SystemError(
-    sanitizeUserError ? sanitizeErrorMessage(message) : message,
-    'controller',
-    { originalError: message }
-  );
-}
-
-/**
- * 处理数据库特定错误
- */
-function normalizeDatabaseError(error: unknown, operation: string): AppError {
-  // 这里可以根据具体的数据库错误类型进行更精细的处理
-  if (error instanceof Error) {
-    const message = error.message.toLowerCase();
-    
-    if (message.includes('unique constraint') || message.includes('duplicate')) {
-      return new ValidationError('数据已存在，请使用其他值', undefined, { 
-        operation, 
-        originalError: error.message 
-      });
-    } else if (message.includes('foreign key') || message.includes('constraint')) {
-      return new ValidationError('关联数据不存在', undefined, { 
-        operation, 
-        originalError: error.message 
-      });
-    } else if (message.includes('not found')) {
-      return new NotFoundError('记录', undefined, { 
-        operation, 
-        originalError: error.message 
-      });
-    }
-  }
-
-  return new SystemError(
-    '数据库操作失败',
-    'database',
-    { operation, originalError: error instanceof Error ? error.message : String(error) }
-  );
-}
-
-/**
- * 发送错误响应
- */
-function sendErrorResponse(res: Response, error: AppError): void {
-  // 设置响应头
-  res.setHeader('X-Error-Code', error.errorCode);
-  res.setHeader('X-Request-ID', res.requestId || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
-  
-  // 发送JSON响应
-  res.status(error.statusCode).json({
-    success: false,
-    error: {
-      code: error.errorCode,
-      message: error.userMessage || error.message,
-      details: error.details,
-      requestId: res.requestId || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: new Date().toISOString(),
-    },
-    meta: {
-      timestamp: new Date().toISOString(),
-      requestId: res.requestId || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    },
-  });
-}
-
-/**
- * 净化用户端错误消息
- */
-function sanitizeErrorMessage(message: string): string {
-  // 移除敏感信息
-  const sensitivePatterns = [
-    /password/i,
-    /token/i,
-    /secret/i,
-    /key/i,
-    /api[_-]?key/i,
-    /authorization/i,
-    /bearer/i,
-  ];
-
-  let sanitized = message;
-  
-  sensitivePatterns.forEach(pattern => {
-    sanitized = sanitized.replace(pattern, '[REDACTED]');
-  });
-
-  // 移除技术堆栈信息
-  sanitized = sanitized.split('\n')[0]; // 只保留第一行
-  sanitized = sanitized.replace(/at .+$/gm, ''); // 移除堆栈跟踪
-  sanitized = sanitized.replace(/\(node:.+?\)/g, ''); // 移除节点路径
-
-  return sanitized.trim();
-}
-
-/**
- * 装饰器：为API端点添加输入验证
- */
-export function withInputValidation(
-  validator: (req: Request) => { isValid: boolean; errors?: string[] }
-) {
-  return function (
-    target: any,
-    propertyName: string,
-    descriptor: TypedPropertyDescriptor<any>
-  ) {
-    const method = descriptor.value!;
-
-    descriptor.value = async function (
-      this: any,
-      req: Request,
-      res: Response,
-      next: NextFunction
-    ): Promise<any> {
-      // 验证输入
-      const validation = validator(req);
-      
-      if (!validation.isValid) {
-        const validationError = new ValidationError(
-          '输入数据验证失败',
-          undefined,
-          { errors: validation.errors }
-        );
-        
-        sendErrorResponse(res, validationError);
-        return;
-      }
-
-      // 继续执行原始方法
-      return method.apply(this, [req, res, next]);
-    };
-
-    return descriptor;
-  };
-}
-
-/**
- * 装饰器：为API端点添加性能监控
- */
-export function withPerformanceMonitoring() {
-  return function (
-    target: any,
-    propertyName: string,
-    descriptor: TypedPropertyDescriptor<any>
-  ) {
-    const method = descriptor.value!;
-
-    descriptor.value = async function (
-      this: any,
-      req: Request,
-      res: Response,
-      next: NextFunction
-    ): Promise<any> {
-      const startTime = Date.now();
-      
-      try {
-        const result = await method.apply(this, [req, res, next]);
-        
-        // 记录成功性能指标
         const duration = Date.now() - startTime;
-        logger.info(`API端点性能: ${target.constructor.name}.${propertyName}`, {
-          duration,
-          method: req.method,
-          url: req.originalUrl,
-          requestId: req.requestId,
-          statusCode: res.statusCode,
-        });
         
-        return result;
-      } catch (error) {
-        // 记录失败性能指标
-        const duration = Date.now() - startTime;
-        logger.warn(`API端点性能异常: ${target.constructor.name}.${propertyName}`, {
-          duration,
-          method: req.method,
-          url: req.originalUrl,
-          requestId: req.requestId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        
+        if (options.logFailure) {
+          logger.error(`方法执行失败: ${propertyName}`, {
+            duration,
+            error,
+            methodName: propertyName,
+            className: target.constructor.name,
+          });
+        }
+
         throw error;
       }
-    };
+    }) as any;
 
     return descriptor;
   };
 }
+
+/**
+ * 装饰器：为类方法添加日志记录
+ */
+export function withLogging(options: {
+  logArgs?: boolean;
+  logResult?: boolean;
+  logError?: boolean;
+  logLevel?: 'debug' | 'info' | 'warn' | 'error';
+}) {
+  return function <T extends (...args: any[]) => Promise<any>>(
+    target: any,
+    propertyName: string,
+    descriptor: TypedPropertyDescriptor<T>
+  ) {
+    const method = descriptor.value!;
+
+    descriptor.value = (async function(this: any, ...args: Parameters<T>): Promise<ReturnType<T>> {
+      const logLevel = options.logLevel || 'debug';
+      const logFn = logger[logLevel];
+
+      try {
+        // 记录输入参数
+        if (options.logArgs) {
+          logFn(`方法调用: ${propertyName}`, {
+            args,
+            className: target.constructor.name,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        const result = await method.apply(this, args);
+        
+        // 记录执行结果
+        if (options.logResult) {
+          logFn(`方法执行成功: ${propertyName}`, {
+            result: typeof result === 'object' ? JSON.stringify(result).substring(0, 500) + '...' : result,
+            duration: 'pending',
+            className: target.constructor.name,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        return result;
+      } catch (error) {
+        // 记录错误
+        if (options.logError) {
+          logger.error(`方法执行失败: ${propertyName}`, {
+            error,
+            args,
+            className: target.constructor.name,
+            timestamp: new Date().toISOString(),
+          });
+        }
+        throw error;
+      }
+    }) as any;
+
+    return descriptor;
+  };
+}
+
+/**
+ * 装饰器：为类方法添加组合错误处理
+ */
+export function withCombinedErrorHandling(options: ErrorHandlingOptions & {
+  validation?: (args: any[]) => void;
+  performance?: {
+    thresholdMs?: number;
+    logSuccess?: boolean;
+    logFailure?: boolean;
+  };
+}) {
+  return function <T extends (...args: any[]) => Promise<any>>(
+    target: any,
+    propertyName: string,
+    descriptor: TypedPropertyDescriptor<T>
+  ) {
+    const method = descriptor.value!;
+
+    // 应用输入验证
+    if (options.validation) {
+      descriptor = withInputValidation(options.validation).call(this, target, propertyName, descriptor);
+    }
+
+    // 应用性能监控
+    if (options.performance) {
+      descriptor = withPerformanceMonitoring(options.performance).call(this, target, propertyName, descriptor);
+    }
+
+    // 应用错误处理
+    descriptor = withErrorHandling(options).call(this, target, propertyName, descriptor);
+
+    return descriptor;
+  };
+}
+
+// 导出工具函数
+export const ErrorHandlingUtils = {
+  /**
+   * 创建操作上下文
+   */
+  createContext(target: any, propertyName: string, correlationId?: string): AsyncOperationContext {
+    return {
+      operation: `${target.constructor.name}.${propertyName}`,
+      userId: target.user?.id,
+      sessionId: target.session?.id,
+      correlationId: correlationId || `op_${Date.now()}`,
+      metadata: {
+        methodName: propertyName,
+        timestamp: new Date().toISOString(),
+        ...target.metadata,
+      },
+    };
+  },
+
+  /**
+   * 判断是否应该重试
+   */
+  defaultRetryCondition(error: unknown): boolean {
+    return (
+      error instanceof SystemError &&
+      !error.isOperational &&
+      (error.message.includes('timeout') || 
+       error.message.includes('connection') ||
+       error.message.includes('temporary') ||
+       (error as any).code === 'ECONNRESET' ||
+       (error as any).code === 'ETIMEDOUT')
+    );
+  },
+
+  /**
+   * 记录错误日志
+   */
+  logError(methodName: string, error: unknown, context: AsyncOperationContext): void {
+    logger.error(`方法 ${methodName} 错误:`, {
+      error,
+      context,
+      timestamp: new Date().toISOString(),
+    });
+  },
+};

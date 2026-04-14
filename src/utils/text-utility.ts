@@ -22,3 +22,13 @@ export function truncateText(text: string, maxLength: number, suffix: string = '
   if (text.length <= maxLength) return text;
   return text.substring(0, maxLength - suffix.length) + suffix;
 }
+
+/**
+ * 验证邮箱格式是否正确
+ * @param email 需要验证的邮箱地址
+ * @returns 是否为有效的邮箱格式
+ */
+export function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
