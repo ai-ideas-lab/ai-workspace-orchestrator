@@ -1,13 +1,18 @@
-import { PrismaClient } from '@prisma/client';
-export declare class Database {
-    private static instance;
-    private static isConnected;
-    private constructor();
-    static getInstance(): PrismaClient;
-    static connect(): Promise<void>;
-    static disconnect(): Promise<void>;
-    static healthCheck(): Promise<boolean>;
-    static get isConnected(): boolean;
-}
-export declare const db: PrismaClient<import(".prisma/client").Prisma.PrismaClientOptions, never, $Extensions.DefaultArgs>;
+declare const prismaClient: any;
+export declare function connectToDatabase(): Promise<void>;
+export declare function disconnectFromDatabase(): Promise<void>;
+export declare function isDatabaseConnected(): boolean;
+export declare function checkDatabaseHealth(): Promise<{
+    status: 'healthy' | 'unhealthy';
+    responseTime: number;
+    error?: string;
+}>;
+export declare function getDatabaseStats(): Promise<{
+    totalWorkflows: number;
+    totalUsers: number;
+    totalExecutions: number;
+    databaseVersion: string;
+}>;
+export { prismaClient as prisma };
+export default prisma;
 //# sourceMappingURL=index.d.ts.map

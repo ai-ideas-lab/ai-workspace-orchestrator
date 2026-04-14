@@ -15,6 +15,20 @@ const errorMiddleware_ts_2 = require("./middleware/errorMiddleware.ts");
 const error_aggregator_js_1 = require("./utils/error-aggregator.js");
 const logger_js_1 = require("./utils/logger.js");
 const event_bus_js_1 = require("./services/event-bus.js");
+function formatUptime(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    if (hours > 0) {
+        return `${hours}h ${minutes}m ${secs}s`;
+    }
+    else if (minutes > 0) {
+        return `${minutes}m ${secs}s`;
+    }
+    else {
+        return `${secs}s`;
+    }
+}
 const app = (0, express_1.default)();
 exports.app = app;
 const server = (0, http_1.createServer)(app);
@@ -54,6 +68,37 @@ app.get('/health', (req, res) => {
         requestId,
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
+    });
+});
+app.get('/system', (req, res) => {
+    const requestId = req.requestId || 'unknown';
+    const memoryUsage = process.memoryUsage();
+    const uptime = process.uptime();
+    const cpuUsage = process.cpuUsage();
+    res.status(200).json({
+        success: true,
+        message: '系统信息',
+        requestId,
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development',
+        version: process.version,
+        platform: process.platform,
+        arch: process.arch,
+        uptime: {
+            seconds: Math.floor(uptime),
+            formatted: formatUptime(uptime),
+        },
+        memory: {
+            rss: `${Math.round(memoryUsage.rss / 1024 / 1024)}MB`,
+            heapTotal: `${Math.round(memoryUsage.heapTotal / 1024 / 1024)}MB`,
+            heapUsed: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)}MB`,
+            external: `${Math.round(memoryUsage.external / 1024 / 1024)}MB`,
+        },
+        cpu: {
+            user: `${Math.round(cpuUsage.user / 1000000)}ms`,
+            system: `${Math.round(cpuUsage.system / 1000000)}ms`,
+        },
+        port: PORT,
     });
 });
 const apiRouter = express_1.default.Router();

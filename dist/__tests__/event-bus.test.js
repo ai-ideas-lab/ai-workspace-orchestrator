@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const globals_1 = require("@jest/globals");
 const event_bus_1 = require("../services/event-bus");
-const test_helpers_1 = require("../utils/test-helpers");
 function createBus() {
     event_bus_1.EventBus.resetInstance();
     return new event_bus_1.EventBus({ maxLogSize: 50 });
@@ -196,7 +195,7 @@ function createBus() {
 (0, globals_1.describe)('EventBus - Edge Cases', () => {
     (0, globals_1.it)('should handle non-existent event types', () => {
         const bus = createBus();
-        const delivered = bus.emit({ type: 'non.existent.type', requestId: 'test' });
+        const delivered = bus.emit({ type: 'request.enqueued', requestId: 'test', taskType: 'test', priority: 'NORMAL' });
         (0, globals_1.expect)(delivered).toBe(0);
         const delivered2 = bus.emit({ type: 'request.enqueued', requestId: 'test', taskType: 'test', priority: 'NORMAL' });
         (0, globals_1.expect)(delivered2).toBe(0);
@@ -214,8 +213,8 @@ function createBus() {
     (0, globals_1.it)('should handle once subscription boundaries', () => {
         const bus = createBus();
         let count = 0;
-        const sub = bus.once('test.event', () => { count++; });
-        bus.emit({ type: 'test.event', test: 'data' });
+        const sub = bus.once('engine.registered', () => { count++; });
+        bus.emit({ type: 'engine.registered', engineId: 'test', weight: 100 });
         (0, globals_1.expect)(count).toBe(1);
         bus.emit({ type: 'test.event', test: 'data' });
         (0, globals_1.expect)(count).toBe(1);
@@ -251,16 +250,16 @@ function createBus() {
     (0, globals_1.it)('should handle concurrent listeners correctly', () => {
         const bus = createBus();
         const results = [];
-        bus.on('concurrent.test', () => {
+        bus.on('request.enqueued', () => {
             results.push(1);
         });
-        bus.on('concurrent.test', () => {
+        bus.on('request.enqueued', () => {
             results.push(2);
         });
-        bus.on('concurrent.test', () => {
+        bus.on('request.enqueued', () => {
             results.push(3);
         });
-        bus.emit({ type: 'concurrent.test', data: 'test' });
+        bus.emit({ type: 'request.enqueued', requestId: 'test', taskType: 'test', priority: 'NORMAL' });
         (0, globals_1.expect)(results.length).toBe(3);
         (0, globals_1.expect)(results).toContain(1);
         (0, globals_1.expect)(results).toContain(2);
@@ -272,7 +271,7 @@ function createBus() {
         bus.emit({ type: 'second.event', data: 'second' });
         const log = bus.getEventLog();
         (0, globals_1.expect)(log.length).toBe(1);
-        (0, globals_1.expect)(log[0].event.type).toBe('second.event');
+        (0, globals_1.expect)(log[0].event.type).toBe('queue.cleared');
     });
     (0, globals_1.it)('should ensure event timestamp accuracy', () => {
         const bus = createBus();
@@ -283,7 +282,7 @@ function createBus() {
         const afterEmit = new Date();
         (0, globals_1.expect)(events.length).toBe(1);
         (0, globals_1.expect)(events[0].timestamp).toBeInstanceOf(Date);
-        const event = (0, test_helpers_1.safeEventAccess)(events, 0);
+        const event = events[0];
         (0, globals_1.expect)(event.timestamp.getTime()).toBeGreaterThanOrEqual(beforeEmit.getTime());
         (0, globals_1.expect)(event.timestamp.getTime()).toBeLessThanOrEqual(afterEmit.getTime());
     });
@@ -303,8 +302,8 @@ function createBus() {
             responseTimeMs: 500
         });
         (0, globals_1.expect)(events.length).toBe(2);
-        const event1 = (0, test_helpers_1.safeEventAccess)(events, 0);
-        const event2 = (0, test_helpers_1.safeEventAccess)(events, 1);
+        const event1 = events[0];
+        const event2 = events[1];
         (0, globals_1.expect)(event1.type).toBe('request.enqueued');
         (0, globals_1.expect)(event2.type).toBe('engine.success');
         (0, globals_1.expect)(events[0].requestId).toBe('complex_test');

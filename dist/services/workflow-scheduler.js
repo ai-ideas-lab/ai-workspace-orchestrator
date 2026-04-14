@@ -129,7 +129,6 @@ class WorkflowScheduler {
         entry.lastRunAt = new Date();
         const context = {
             operation: `workflow_execute:${entry.workflowId}`,
-            userId: entry.workflow.userId,
             correlationId: entry.id,
             metadata: {
                 workflowId: entry.workflowId,

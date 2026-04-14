@@ -1,225 +1,282 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.ErrorHandlingUtils = void 0;
 exports.withErrorHandling = withErrorHandling;
 exports.withRetry = withRetry;
-exports.withTransactionErrorHandler = withTransactionErrorHandler;
+exports.withTimeout = withTimeout;
+exports.withDatabaseErrorHandling = withDatabaseErrorHandling;
 exports.withInputValidation = withInputValidation;
 exports.withPerformanceMonitoring = withPerformanceMonitoring;
-const errors_js_1 = require("./errors.js");
-const enhanced_error_logger_js_1 = require("./enhanced-error-logger.js");
+exports.withLogging = withLogging;
+exports.withCombinedErrorHandling = withCombinedErrorHandling;
+const errors_js_1 = require("../utils/errors.js");
+const async_error_handler_js_1 = require("../utils/async-error-handler.js");
+const enhanced_error_logger_js_1 = require("../enhanced-error-logger.js");
 function withErrorHandling(options = {}) {
-    const { logErrors = true, sanitizeUserError = true, defaultErrorCode = 'INTERNAL_ERROR', defaultStatusCode = 500, } = options;
     return function (target, propertyName, descriptor) {
         const method = descriptor.value;
-        descriptor.value = async function (req, res, next) {
+        const asyncErrorHandler = async_error_handler_js_1.AsyncErrorHandler.getInstance();
+        descriptor.value = (async function (...args) {
+            const context = {
+                operation: `${target.constructor.name}.${propertyName}`,
+                userId: this.user?.id,
+                sessionId: this.session?.id,
+                correlationId: this.requestId || `op_${Date.now()}`,
+                metadata: {
+                    methodName: propertyName,
+                    args: args.slice(0, 10),
+                    timestamp: new Date().toISOString(),
+                    ...this.metadata,
+                },
+            };
             try {
-                const result = await method.apply(this, [req, res, next]);
-                if (res.headersSent) {
-                    return result;
+                if (options.timeout) {
+                    return asyncErrorHandler.executeWithTimeout(() => method.apply(this, args), options.timeout, context);
                 }
-                return result;
-            }
-            catch (error) {
-                if (logErrors) {
-                    enhanced_error_logger_js_1.logger.error(`控制器方法错误: ${target.constructor.name}.${propertyName}`, {
-                        error: error instanceof Error ? error.message : String(error),
-                        stack: error instanceof Error ? error.stack : undefined,
-                        requestId: req.requestId,
-                        userId: req.user?.id,
-                        method: req.method,
-                        url: req.originalUrl,
+                else {
+                    return asyncErrorHandler.executeWithRetry(() => method.apply(this, args), context, {
+                        maxRetries: options.maxRetries,
+                        baseDelayMs: options.baseRetryDelay,
+                        maxDelayMs: options.maxRetryDelay,
+                        retryCondition: options.retryCondition,
+                        onRetry: (error, attempt) => {
+                            if (options.logErrors) {
+                                enhanced_error_logger_js_1.logger.warn(`方法 ${propertyName} 第 ${attempt} 次重试:`, {
+                                    error: error instanceof Error ? error.message : String(error),
+                                    attempt,
+                                    maxRetries: options.maxRetries,
+                                    context,
+                                });
+                            }
+                            options.onError?.(error, context);
+                        },
                     });
                 }
-                const appError = normalizeError(error, options);
-                if (!res.headersSent) {
-                    sendErrorResponse(res, appError);
-                }
-                if (!res.headersSent && next) {
-                    next(appError);
-                }
-            }
-        };
-        return descriptor;
-    };
-}
-function withRetry(options = {}) {
-    const { maxRetries = 2, delayMs = 100, retryCondition = (error) => error instanceof errors_js_1.SystemError ||
-        error.message.includes('timeout') ||
-        error.message.includes('network') } = options;
-    return function (target, propertyName, descriptor) {
-        const method = descriptor.value;
-        descriptor.value = async function (req, res, next) {
-            let lastError;
-            for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                try {
-                    return await method.apply(this, [req, res, next]);
-                }
-                catch (error) {
-                    lastError = error;
-                    if (!retryCondition(error) || attempt === maxRetries) {
-                        break;
-                    }
-                    await new Promise(resolve => setTimeout(resolve, delayMs * attempt));
-                }
-            }
-            throw normalizeError(lastError, options);
-        };
-        return descriptor;
-    };
-}
-function withTransactionErrorHandler(operationName = 'database operation') {
-    return function (target, propertyName, descriptor) {
-        const method = descriptor.value;
-        descriptor.value = async function (req, res, next) {
-            try {
-                const result = await method.apply(this, [req, res, next]);
-                return result;
             }
             catch (error) {
-                enhanced_error_logger_js_1.logger.error(`${operationName} 失败:`, {
-                    error: error instanceof Error ? error.message : String(error),
-                    stack: error instanceof Error ? error.stack : undefined,
-                    requestId: req.requestId,
-                    userId: req.user?.id,
-                    operation: operationName,
-                });
-                const appError = normalizeDatabaseError(error, operationName);
-                sendErrorResponse(res, appError);
-            }
-        };
-        return descriptor;
-    };
-}
-function normalizeError(error, options) {
-    const { sanitizeUserError = true, defaultErrorCode = 'INTERNAL_ERROR', defaultStatusCode = 500, } = options;
-    if (error instanceof errors_js_1.AppError) {
-        return error;
-    }
-    if (error instanceof Error) {
-        let userMessage = error.message;
-        if (sanitizeUserError) {
-            userMessage = sanitizeErrorMessage(error.message);
-        }
-        if (error.message.includes('validation')) {
-            return new errors_js_1.ValidationError(error.message, undefined, { originalError: error.message });
-        }
-        else if (error.message.includes('not found') || error.message.includes('不存在')) {
-            return new errors_js_1.NotFoundError('Resource', undefined, { originalError: error.message });
-        }
-        else if (error.message.includes('network') || error.message.includes('timeout')) {
-            return new errors_js_1.SystemError(error.message, 'network', { originalError: error.message });
-        }
-        return new errors_js_1.SystemError(userMessage, 'controller', { originalError: error.message, stack: error.stack });
-    }
-    const message = String(error);
-    return new errors_js_1.SystemError(sanitizeUserError ? sanitizeErrorMessage(message) : message, 'controller', { originalError: message });
-}
-function normalizeDatabaseError(error, operation) {
-    if (error instanceof Error) {
-        const message = error.message.toLowerCase();
-        if (message.includes('unique constraint') || message.includes('duplicate')) {
-            return new errors_js_1.ValidationError('数据已存在，请使用其他值', undefined, {
-                operation,
-                originalError: error.message
-            });
-        }
-        else if (message.includes('foreign key') || message.includes('constraint')) {
-            return new errors_js_1.ValidationError('关联数据不存在', undefined, {
-                operation,
-                originalError: error.message
-            });
-        }
-        else if (message.includes('not found')) {
-            return new errors_js_1.NotFoundError('记录', undefined, {
-                operation,
-                originalError: error.message
-            });
-        }
-    }
-    return new errors_js_1.SystemError('数据库操作失败', 'database', { operation, originalError: error instanceof Error ? error.message : String(error) });
-}
-function sendErrorResponse(res, error) {
-    res.setHeader('X-Error-Code', error.errorCode);
-    res.setHeader('X-Request-ID', res.requestId || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
-    res.status(error.statusCode).json({
-        success: false,
-        error: {
-            code: error.errorCode,
-            message: error.userMessage || error.message,
-            details: error.details,
-            requestId: res.requestId || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            timestamp: new Date().toISOString(),
-        },
-        meta: {
-            timestamp: new Date().toISOString(),
-            requestId: res.requestId || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        },
-    });
-}
-function sanitizeErrorMessage(message) {
-    const sensitivePatterns = [
-        /password/i,
-        /token/i,
-        /secret/i,
-        /key/i,
-        /api[_-]?key/i,
-        /authorization/i,
-        /bearer/i,
-    ];
-    let sanitized = message;
-    sensitivePatterns.forEach(pattern => {
-        sanitized = sanitized.replace(pattern, '[REDACTED]');
-    });
-    sanitized = sanitized.split('\n')[0];
-    sanitized = sanitized.replace(/at .+$/gm, '');
-    sanitized = sanitized.replace(/\(node:.+?\)/g, '');
-    return sanitized.trim();
-}
-function withInputValidation(validator) {
-    return function (target, propertyName, descriptor) {
-        const method = descriptor.value;
-        descriptor.value = async function (req, res, next) {
-            const validation = validator(req);
-            if (!validation.isValid) {
-                const validationError = new errors_js_1.ValidationError('输入数据验证失败', undefined, { errors: validation.errors });
-                sendErrorResponse(res, validationError);
-                return;
-            }
-            return method.apply(this, [req, res, next]);
-        };
-        return descriptor;
-    };
-}
-function withPerformanceMonitoring() {
-    return function (target, propertyName, descriptor) {
-        const method = descriptor.value;
-        descriptor.value = async function (req, res, next) {
-            const startTime = Date.now();
-            try {
-                const result = await method.apply(this, [req, res, next]);
-                const duration = Date.now() - startTime;
-                enhanced_error_logger_js_1.logger.info(`API端点性能: ${target.constructor.name}.${propertyName}`, {
-                    duration,
-                    method: req.method,
-                    url: req.originalUrl,
-                    requestId: req.requestId,
-                    statusCode: res.statusCode,
-                });
-                return result;
-            }
-            catch (error) {
-                const duration = Date.now() - startTime;
-                enhanced_error_logger_js_1.logger.warn(`API端点性能异常: ${target.constructor.name}.${propertyName}`, {
-                    duration,
-                    method: req.method,
-                    url: req.originalUrl,
-                    requestId: req.requestId,
-                    error: error instanceof Error ? error.message : String(error),
-                });
+                if (options.logErrors) {
+                    enhanced_error_logger_js_1.logger.error(`方法 ${propertyName} 执行失败:`, {
+                        error,
+                        context,
+                        method: propertyName,
+                        className: target.constructor.name,
+                    });
+                }
+                options.onError?.(error, context);
                 throw error;
             }
-        };
+        });
         return descriptor;
     };
 }
+function withRetry(options) {
+    return withErrorHandling({
+        maxRetries: options.maxRetries || 3,
+        baseRetryDelay: options.baseDelay || 1000,
+        maxRetryDelay: options.maxDelay || 10000,
+        retryCondition: options.retryCondition,
+        logErrors: true,
+    });
+}
+function withTimeout(timeoutMs) {
+    return withErrorHandling({
+        timeout: timeoutMs,
+        logErrors: true,
+    });
+}
+function withDatabaseErrorHandling(context) {
+    return function (target, propertyName, descriptor) {
+        const method = descriptor.value;
+        descriptor.value = (async function (...args) {
+            const dbContext = {
+                operation: context.operation,
+                table: context.table,
+                userId: context.userId || this.user?.id,
+                correlationId: this.requestId,
+                metadata: {
+                    methodName: propertyName,
+                    timestamp: new Date().toISOString(),
+                    ...this.metadata,
+                },
+            };
+            try {
+                const result = await method.apply(this, args);
+                enhanced_error_logger_js_1.logger.debug(`数据库操作成功: ${context.operation}`, {
+                    table: context.table,
+                    userId: dbContext.userId,
+                    correlationId: dbContext.correlationId,
+                });
+                return result;
+            }
+            catch (error) {
+                enhanced_error_logger_js_1.logger.error(`数据库操作失败: ${context.operation}`, {
+                    error,
+                    table: context.table,
+                    userId: dbContext.userId,
+                    correlationId: dbContext.correlationId,
+                });
+                if (error instanceof errors_js_1.AppError) {
+                    throw error;
+                }
+                throw new errors_js_1.SystemError(`数据库操作失败: ${error instanceof Error ? error.message : String(error)}`, 'database', {
+                    operation: context.operation,
+                    table: context.table,
+                    originalError: error instanceof Error ? error.message : String(error),
+                    stack: error instanceof Error ? error.stack : undefined,
+                    context: dbContext,
+                });
+            }
+        });
+        return descriptor;
+    };
+}
+function withInputValidation(validateFn) {
+    return function (target, propertyName, descriptor) {
+        const method = descriptor.value;
+        descriptor.value = (function (...args) {
+            try {
+                validateFn(args);
+                return method.apply(this, args);
+            }
+            catch (error) {
+                if (error instanceof errors_js_1.ValidationError) {
+                    throw error;
+                }
+                throw new errors_js_1.ValidationError(`输入验证失败: ${error instanceof Error ? error.message : String(error)}`, undefined, {
+                    methodName: propertyName,
+                    args,
+                    validationError: error instanceof Error ? error.message : String(error),
+                });
+            }
+        });
+        return descriptor;
+    };
+}
+function withPerformanceMonitoring(options) {
+    return function (target, propertyName, descriptor) {
+        const method = descriptor.value;
+        descriptor.value = (async function (...args) {
+            const startTime = Date.now();
+            const startMemory = process.memoryUsage?.();
+            try {
+                const result = await method.apply(this, args);
+                const duration = Date.now() - startTime;
+                const endMemory = process.memoryUsage?.();
+                const memoryUsed = startMemory && endMemory ? endMemory.heapUsed - startMemory.heapUsed : 0;
+                if (duration > (options.thresholdMs || 1000)) {
+                    enhanced_error_logger_js_1.logger.warn(`方法执行时间过长: ${propertyName}`, {
+                        duration,
+                        memoryUsed: Math.round(memoryUsed / 1024 / 1024) + 'MB',
+                        methodName: propertyName,
+                        className: target.constructor.name,
+                    });
+                }
+                if (options.logSuccess) {
+                    enhanced_error_logger_js_1.logger.debug(`方法执行成功: ${propertyName}`, {
+                        duration,
+                        memoryUsed: Math.round(memoryUsed / 1024 / 1024) + 'MB',
+                    });
+                }
+                return result;
+            }
+            catch (error) {
+                const duration = Date.now() - startTime;
+                if (options.logFailure) {
+                    enhanced_error_logger_js_1.logger.error(`方法执行失败: ${propertyName}`, {
+                        duration,
+                        error,
+                        methodName: propertyName,
+                        className: target.constructor.name,
+                    });
+                }
+                throw error;
+            }
+        });
+        return descriptor;
+    };
+}
+function withLogging(options) {
+    return function (target, propertyName, descriptor) {
+        const method = descriptor.value;
+        descriptor.value = (async function (...args) {
+            const logLevel = options.logLevel || 'debug';
+            const logFn = enhanced_error_logger_js_1.logger[logLevel];
+            try {
+                if (options.logArgs) {
+                    logFn(`方法调用: ${propertyName}`, {
+                        args,
+                        className: target.constructor.name,
+                        timestamp: new Date().toISOString(),
+                    });
+                }
+                const result = await method.apply(this, args);
+                if (options.logResult) {
+                    logFn(`方法执行成功: ${propertyName}`, {
+                        result: typeof result === 'object' ? JSON.stringify(result).substring(0, 500) + '...' : result,
+                        duration: 'pending',
+                        className: target.constructor.name,
+                        timestamp: new Date().toISOString(),
+                    });
+                }
+                return result;
+            }
+            catch (error) {
+                if (options.logError) {
+                    enhanced_error_logger_js_1.logger.error(`方法执行失败: ${propertyName}`, {
+                        error,
+                        args,
+                        className: target.constructor.name,
+                        timestamp: new Date().toISOString(),
+                    });
+                }
+                throw error;
+            }
+        });
+        return descriptor;
+    };
+}
+function withCombinedErrorHandling(options) {
+    return function (target, propertyName, descriptor) {
+        const method = descriptor.value;
+        if (options.validation) {
+            descriptor = withInputValidation(options.validation).call(this, target, propertyName, descriptor);
+        }
+        if (options.performance) {
+            descriptor = withPerformanceMonitoring(options.performance).call(this, target, propertyName, descriptor);
+        }
+        descriptor = withErrorHandling(options).call(this, target, propertyName, descriptor);
+        return descriptor;
+    };
+}
+exports.ErrorHandlingUtils = {
+    createContext(target, propertyName, correlationId) {
+        return {
+            operation: `${target.constructor.name}.${propertyName}`,
+            userId: target.user?.id,
+            sessionId: target.session?.id,
+            correlationId: correlationId || `op_${Date.now()}`,
+            metadata: {
+                methodName: propertyName,
+                timestamp: new Date().toISOString(),
+                ...target.metadata,
+            },
+        };
+    },
+    defaultRetryCondition(error) {
+        return (error instanceof errors_js_1.SystemError &&
+            !error.isOperational &&
+            (error.message.includes('timeout') ||
+                error.message.includes('connection') ||
+                error.message.includes('temporary') ||
+                error.code === 'ECONNRESET' ||
+                error.code === 'ETIMEDOUT'));
+    },
+    logError(methodName, error, context) {
+        enhanced_error_logger_js_1.logger.error(`方法 ${methodName} 错误:`, {
+            error,
+            context,
+            timestamp: new Date().toISOString(),
+        });
+    },
+};
 //# sourceMappingURL=errorHandling.decorators.js.map

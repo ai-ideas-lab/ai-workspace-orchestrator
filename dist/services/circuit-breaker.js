@@ -32,7 +32,8 @@ class CircuitBreaker {
             return true;
         }
         if (circuit.state === CircuitState.HALF_OPEN) {
-            return circuit.halfOpenAttempts < this.halfOpenMaxAttempts;
+            circuit.halfOpenAttempts++;
+            return circuit.halfOpenAttempts <= this.halfOpenMaxAttempts;
         }
         if (circuit.openedAt && Date.now() - circuit.openedAt >= this.resetTimeoutMs) {
             circuit.state = CircuitState.HALF_OPEN;
@@ -55,6 +56,13 @@ class CircuitBreaker {
     }
     recordFailure(engineId) {
         const circuit = this.getOrCreate(engineId);
+        if (circuit.state === CircuitState.HALF_OPEN) {
+            circuit.state = CircuitState.OPEN;
+            circuit.openedAt = Date.now();
+            circuit.failureCount = 1;
+            circuit.halfOpenAttempts = 0;
+            return;
+        }
         circuit.failureCount++;
         circuit.successCount = 0;
         if (circuit.failureCount >= this.failureThreshold) {

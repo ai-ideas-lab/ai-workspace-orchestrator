@@ -91,7 +91,6 @@ function paginatedResponse(res, data, total, page, limit, message = '查询成�
             limit,
             total,
             hasNext,
-            totalPages,
         },
     });
 }
