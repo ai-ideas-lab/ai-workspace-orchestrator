@@ -1,54 +1,76 @@
-# 长期记忆 MEMORY.md
+# MEMORY.md - Long-Term Memory
 
-## 经验教训
+This is the curated long-term memory for the AI workspace orchestrator. It contains significant events, decisions, and insights worth remembering across sessions.
 
-### 质量控制
-- **PR vs Ideas质量差异**: PR目录评分(4.6)显著高于ideas目录(3.8)，ideas存在大量骨架文件
-- **模板标准**: 问题背景→核心功能→技术方案→实现步骤，拒绝提交骨架文件
-- **文件膨胀**: pr/目录最大文件31KB，建议15KB上限
+## Timeline
 
-### 协作自动化
-- **Issue转PR自动化**: 4小时定时任务机制成功，协作响应率90%+，任务完成率95%
-- **主动任务分配**: 从被动响应转型为主动分配，效率显著提升
-- **三爪分工**: 卧龙(架构)→凤雏(原型)→孔明(决策)
+- **2026-04-13**: Identified and fixed cron timeout pattern (4 tasks), discovered security vulnerabilities, established tech-stack focused open source contribution strategy (Prisma, TanStack Query, Zod)
+- **2026-04-13**: Organized awesome-ai-ideas repository structure, created social content for technical achievements showcase
+- **2026-04-12**: Completed repository organization (12 projects deployed) and social media content generation
+- **2026-04-11**: Set up GitHub social content posting system
+- **2026-04-10**: Added health monitoring capabilities
+- **2026-04-09**: Implemented social media content generation
+- **2026-04-08**: Established memory management system with daily files
 
-### 社交媒体内容
-- **小红书+X Thread生成**: 基于项目进展自动生成社交媒体内容，emoji丰富+数据驱动风格有效
-- **GitHub Issue跟踪**: Issue #52记录完整项目进展和未来展望
+## System Configuration
 
-## 重要决策
+- **Repository**: ai-ideas-lab/awesome-ai-ideas (current workspace)
+- **Model**: zai/glm-5-turbo
+- **Main directory**: /Users/wangshihao/.openclaw/workspace
+- **Memory system**: Daily files in memory/ + curated MEMORY.md
 
-### 技术栈统一
-- **Go + Neo4j + NATS** — AI Parliament项目技术栈，2026-04-07原型验证通过
+## Key Technical Insights
 
-### 质量守门
-- 建立最小模板标准，拒绝骨架文件提交
+**Cron Timeout Pattern**
+- Recurring timeout issues with long-running tasks
+- Solution: Reduce timeout to 90-120 seconds, simplify task logic
+- Lesson: Monitor task execution times proactively
 
-### 协作协议
-- 基于Issue转PR自动化建立标准协议，4小时定时执行
+**Security Vulnerability Detection**
+- lodash and nodemailer packages have critical vulnerabilities
+- Requires immediate `npm audit fix --force` intervention
+- Pattern: Regular security scanning needed
 
-## 系统问题
+**Network Connectivity Issues**
+- Intermittent GitHub HTTP timeouts despite normal DNS
+- Impact: Git operations and API calls affected
+- Lesson: Network resilience is critical
 
-### 历史问题（已解决）
-- GitHub连接超时(2026-04-06): 持续7小时后恢复，需备用机制
-- TypeScript编译错误: `classifyIntent`属性缺失，已修复
-- AI Engine Service测试: 语法错误+方法不匹配，已修复，12个测试全部通过
+## Strategic Decisions
 
-### 待关注项目阻塞
-1. **AI Rental Detective** (85%) — 测试失败(端口冲突+认证)，P1
-2. **Code Knowledge Map** (80%) — 长期无进展，P2
-3. **AI Voice Notes** (70%) — 长期无进展，P2
+**Open Source Contribution Strategy**
+- Focus on projects matching current tech stack: Prisma, TanStack Query, Zod
+- Prioritize CLI tools and performance optimizations
+- Strategy: "以用促学，以学促用" - use-driven learning
+- Target: Good First Issues with direct practical value
 
-## 关键原则
+**Repository Management**
+- Automated integrity checks at 08:30 daily
+- Force push strategy for sync issues
+- Directory structure: docs/reports, docs/guides, scripts/*
+- Index files for maintainability
 
-- **精炼**: 只保留对未来有参考价值的信息
-- **时效**: 定期清理过时信息
-- **主动规划**: 从被动响应转向主动任务分配
-- **质量优先**: 建立内容审核机制
-- **监控预警**: 实时监控项目状态，及时发现阻塞
+## Content Generation System
 
-## 时间线
+- **Platforms**: Xiaohongshu + X Thread
+- **Focus**: Technical achievements (7 projects in 7 days, 80% efficiency)
+- **Format**: Data-driven, platform-specific templates
+- **Performance**: 12 projects deployed, average score 7.7/10
 
-- **2026-04-06**: 三爪分工建立；GitHub连接中断7小时
-- **2026-04-07**: Issue转PR自动化部署；技术栈原型验证通过
-- **2026-04-09**: 社交媒体内容生成（小红书+X Thread），Issue #52
+## Automation Systems
+
+- **Cron jobs**: Scheduled maintenance with timeout management
+- **Git integration**: Automated commits with conflict resolution
+- **Memory management**: Daily + curated long-term storage
+- **Social media**: Automated technical showcase generation
+
+## Key Learnings
+
+- **Proactive Monitoring**: Cron tasks need regular timeout adjustments
+- **Security First**: Critical vulnerabilities require immediate action
+- **Tech Stack Alignment**: Focus contributions on directly relevant technologies
+- **Network Resilience**: Plan for connectivity interruptions
+- **Documentation Value**: Index files and structured organization improve maintainability
+
+---
+*Updated 2026-04-13 | Memory curated for long-term value*

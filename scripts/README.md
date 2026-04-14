@@ -7,13 +7,13 @@
 - **install/** - 安装脚本
   - setup-cron.sh - 定时任务设置脚本
 - **config/** - 配置脚本
-  - setup-wolong-identity.sh - WOLONG身份设置脚本
+  - setup-wolong-identity.sh - 卧龙身份设置脚本
 - **docker/** - Docker相关脚本
-  - 暂无脚本
+  - Docker相关脚本容器管理
 - **utils/** - 工具脚本
-  - maintain-home.sh - 主目录维护脚本
-  - review-and-merge-prs.sh - PR审核与合并脚本
   - cron-tasks.sh - 定时任务脚本
+  - maintain-home.sh - 主目录维护脚本
+  - review-and-merge-prs.sh - PR审查和合并脚本
 
 ## 使用方法
 
@@ -21,8 +21,6 @@
 ```bash
 bash scripts/install/setup-cron.sh
 bash scripts/config/setup-wolong-identity.sh
-bash scripts/utils/maintain-home.sh
-bash scripts/utils/review-and-merge-prs.sh
 bash scripts/utils/cron-tasks.sh
 ```
 
