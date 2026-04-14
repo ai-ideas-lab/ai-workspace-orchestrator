@@ -6,26 +6,103 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { AppError, isAppError, isErrorOperational, getStatusCode, getUserMessage } from '../utils/errors.js';
-import { errorResponse, createRequestIdMiddleware } from '../utils/responseUtils.js';
-import { ErrorAggregator } from '../utils/error-aggregator.js';
+import { errorLogger } from '../utils/enhanced-error-logger.js';
 
-// 请求ID生成器
-export const requestIdMiddleware = createRequestIdMiddleware();
+/**
+ * 生成请求ID
+ */
+export function createRequestIdMiddleware(): any {
+  return (req: any, res: any, next: any) => {
+    req.requestId = req.requestId || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    next();
+  };
+}
 
 /**
  * 全局错误处理中间件
  */
 // 错误聚合器实例
-const errorAggregator = ErrorAggregator.getInstance();
+import { errorAggregator } from '../utils/error-aggregator.js';
+import { CircuitBreaker } from '../services/circuit-breaker.js';
+
+// 熔断器实例映射 (service -> circuit breaker)
+const circuitBreakers = new Map<string, CircuitBreaker>();
+
+/**
+ * 获取或创建熔断器实例
+ */
+function getCircuitBreaker(service: string): CircuitBreaker {
+  if (!circuitBreakers.has(service)) {
+    circuitBreakers.set(service, new CircuitBreaker({
+      failureThreshold: 5,
+      resetTimeoutMs: 30000, // 30秒
+      halfOpenMaxAttempts: 1,
+    }));
+  }
+  return circuitBreakers.get(service)!;
+}
+
+/**
+ * 检查并更新熔断器状态
+ */
+function updateCircuitBreakerState(service: string, error: Error): void {
+  const circuitBreaker = getCircuitBreaker(service);
+  
+  if (shouldTriggerCircuitBreak(error)) {
+    circuitBreaker.recordFailure();
+    console.warn(`熔断器触发: ${service} 进入OPEN状态`);
+  } else {
+    circuitBreaker.recordSuccess();
+  }
+}
+
+/**
+ * 判断是否应该触发熔断器
+ */
+function shouldTriggerCircuitBreak(error: Error): boolean {
+  // 系统级错误触发熔断
+  if (error.message.includes('ECONNRESET') || 
+      error.message.includes('ETIMEDOUT') ||
+      error.message.includes('ECONNREFUSED')) {
+    return true;
+  }
+  
+  // 数据库连接错误
+  if (error.message.includes('database') || 
+      error.message.includes('connection') ||
+      error.message.includes('timeout')) {
+    return true;
+  }
+  
+  // AI引擎错误
+  if (error.message.includes('AI_ENGINE_ERROR') || 
+      error.message.includes('external service')) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * 检查服务是否熔断
+ */
+function isServiceCircuited(service: string): boolean {
+  const circuitBreaker = getCircuitBreaker(service);
+  return circuitBreaker.getState() === 'OPEN';
+}
 
 export function globalErrorHandler(
   err: Error,
-  req: Request,
-  res: Response,
+  req: any,
+  res: any,
   next: NextFunction
 ): void {
   // 生成或获取请求ID
   const requestId = req.requestId || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  // 识别服务类型并更新熔断器
+  const service = identifyServiceFromError(err, req);
+  updateCircuitBreakerState(service, err);
   
   // 记录错误到聚合器
   const context = {
@@ -36,23 +113,28 @@ export function globalErrorHandler(
     userId: req.user?.id,
     sessionId: req.session?.id,
     requestId,
+    service,
+    circuitState: isServiceCircuited(service) ? 'OPEN' : 'CLOSED',
   };
   
   // 确定错误严重程度
   let severity: 'low' | 'medium' | 'high' | 'critical' = 'medium';
-  if (isAppError(err) && !err.isOperational) {
+  if (isAppError(err) && !(err as any).isOperational) {
     severity = 'high';
   } else if (err.message.includes('critical') || err.message.includes('fatal')) {
     severity = 'critical';
+  } else if (isServiceCircuited(service)) {
+    severity = 'high'; // 熔断状态提高严重程度
   }
   
   const errorId = errorAggregator.recordError(err, context, severity);
   
-  // 添加错误ID到响应头
+  // 添加错误ID和熔断状态到响应头
   res.setHeader('X-Error-ID', errorId);
+  res.setHeader('X-Circuit-State', circuitBreakers.get(service)?.getState() || 'CLOSED');
   
   // 记录错误信息
-  logError(err, req, requestId, errorId);
+  logError(err, req, requestId, errorId, service);
 
   // 如果响应已经发送，不再处理
   if (res.headersSent) {
@@ -63,7 +145,7 @@ export function globalErrorHandler(
   if (isAppError(err)) {
     handleAppError(err, res, requestId, errorId);
   } else {
-    handleGenericError(err, res, requestId, errorId);
+    handleGenericError(err, res, requestId, errorId, req);
   }
 }
 
@@ -75,7 +157,7 @@ export function globalErrorHandler(
  * 自动为未处理的Promise拒绝提供特殊的标记和记录。
  * 
  * @param {Error} err - 需要记录的错误对象
- * @param {Request} req - Express请求对象，包含请求的详细信息
+ * @param {any} req - Express请求对象，包含请求的详细信息
  * @param {string} requestId - 请求ID，用于关联日志和错误响应
  * @param {string} [errorId] - 错误ID，用于错误追踪和管理
  * @returns {void} 该函数没有返回值，直接进行日志记录操作
@@ -118,10 +200,47 @@ export function globalErrorHandler(
  * // 4. 日志包含请求详细信息便于调试
  * // 5. 生产环境中应考虑使用专业日志系统替代console
  */
-function logError(err: Error, req: Request, requestId: string, errorId?: string): void {
+/**
+ * 识别错误来源的服务
+ */
+function identifyServiceFromError(error: Error, req: any): string {
+  // 从路径识别服务
+  const path = req.path || '';
+  
+  if (path.includes('/api/ai') || path.includes('/workflow')) {
+    return 'ai-engine';
+  }
+  if (path.includes('/api/database') || path.includes('/db')) {
+    return 'database';
+  }
+  if (path.includes('/api/auth') || path.includes('/login')) {
+    return 'auth';
+  }
+  if (path.includes('/api/queue') || path.includes('/request')) {
+    return 'request-queue';
+  }
+  
+  // 从错误消息识别
+  if (error.message.includes('database') || error.message.includes('prisma')) {
+    return 'database';
+  }
+  if (error.message.includes('ai') || error.message.includes('engine')) {
+    return 'ai-engine';
+  }
+  if (error.message.includes('auth') || error.message.includes('token')) {
+    return 'auth';
+  }
+  
+  // 默认
+  return 'unknown';
+}
+
+function logError(err: Error, req: any, requestId: string, errorId?: string, service?: string): void {
   const errorInfo = {
     requestId,
     errorId,
+    service,
+    circuitState: service ? getCircuitBreaker(service).getState() : 'unknown',
     error: {
       name: err.name,
       message: err.message,
@@ -141,10 +260,15 @@ function logError(err: Error, req: Request, requestId: string, errorId?: string)
     timestamp: new Date().toISOString(),
   };
 
-  // 根据错误类型决定日志级别
+  // 根据错误类型和熔断状态决定日志级别
+  const circuitState = service ? getCircuitBreaker(service).getState() : 'unknown';
+  
   if (isErrorOperational(err)) {
     // 业务逻辑错误，记录为 warn
     console.warn('业务逻辑错误:', errorInfo);
+  } else if (circuitState === 'OPEN') {
+    // 熔断状态下的系统错误，记录为 warn 避免噪音
+    console.warn('系统错误(熔断中):', errorInfo);
   } else {
     // 系统错误，记录为 error
     console.error('系统错误:', errorInfo);
@@ -282,20 +406,47 @@ function handleAppError(err: AppError, res: Response, requestId: string, errorId
  * // 6. 函数会在发送响应前检查res.headersSent避免重复发送
  * // 7. 确保错误响应格式与其他错误处理函数保持一致
  */
-function handleGenericError(err: Error, res: Response, requestId: string, errorId: string): void {
+function handleGenericError(err: Error, res: Response, requestId: string, errorId: string, req?: any): void {
   // 默认为500服务器错误
   const statusCode = 500;
   const isProduction = process.env.NODE_ENV === 'production';
   
+  // 识别服务类型
+  const service = req ? identifyServiceFromError(err, req) : 'unknown';
+  const circuitState = service !== 'unknown' ? getCircuitBreaker(service).getState() : 'unknown';
+  
+  // 根据熔断状态调整响应
+  let responseMessage = isProduction ? '服务器内部错误' : err.message;
+  let responseCode = 'INTERNAL_ERROR';
+  let statusCode_1 = statusCode;
+  
+  // 如果服务处于熔断状态，提供友好的错误信息
+  if (circuitState === 'OPEN') {
+    responseMessage = service === 'ai-engine' ? 'AI服务暂时不可用，请稍后重试' :
+                     service === 'database' ? '数据库服务暂时不可用，请稍后重试' :
+                     '服务暂时不可用，请稍后重试';
+    responseCode = 'SERVICE_UNAVAILABLE';
+    statusCode_1 = 503; // Service Unavailable
+    
+    // 添加熔断恢复时间预估
+    const circuitBreaker = getCircuitBreaker(service);
+    const resetTime = circuitBreaker.getResetTime();
+    if (resetTime) {
+      (responseMessage as any) += `（预计${Math.ceil((resetTime - Date.now()) / 1000)}秒后恢复）`;
+    }
+  }
+  
   const response = {
     success: false,
     error: {
-      code: 'INTERNAL_ERROR',
-      message: isProduction ? '服务器内部错误' : err.message,
+      code: responseCode,
+      message: responseMessage,
       details: isProduction ? undefined : {
         name: err.name,
         stack: err.stack,
         originalError: err.message,
+        service,
+        circuitState,
       },
       requestId,
       errorId,
@@ -304,15 +455,18 @@ function handleGenericError(err: Error, res: Response, requestId: string, errorI
     meta: {
       timestamp: new Date().toISOString(),
       requestId,
+      service,
+      circuitState,
     },
   };
 
   // 设置响应头
-  res.setHeader('X-Error-Code', 'INTERNAL_ERROR');
+  res.setHeader('X-Error-Code', responseCode);
   res.setHeader('X-Request-ID', requestId);
   res.setHeader('X-Error-ID', errorId);
+  res.setHeader('X-Circuit-State', circuitState);
   
-  res.status(statusCode).json(response);
+  res.status(statusCode_1).json(response);
 }
 
 /**

@@ -2,8 +2,8 @@
  * WorkflowVersionService 单元测试
  */
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { WorkflowVersionService } from '../services/workflow-version'';
-import type { WorkflowDefinition, WorkflowStep } from '../services/workflow-executor'';
+import { WorkflowVersionService } from '../services/workflow-version';
+import type { WorkflowDefinition, WorkflowStep } from '../services/workflow-executor';
 
 // ── 测试辅助 ──────────────────────────────────────
 
@@ -77,8 +77,8 @@ describe('WorkflowVersionService', () => {
 
       const history = service.getHistory('wf1');
       expect(history).toHaveLength(2);
-      expect(history[0].version).toBe(1);
-      expect(history[1].version).toBe(2);
+      expect(history[0]!.version).toBe(1);
+      expect(history[1]!.version).toBe(2);
     });
 
     it('getLatest 应返回最新版本', () => {

@@ -1,462 +1,502 @@
 /**
- * Enhanced Error Aggregator - 增强错误聚合器
+ * Error Aggregator & Monitoring - 错误聚合与监控系统
  * 
- * 提供错误聚合、去重、告警等功能，防止错误风暴并提供有意义的错误统计
+ * 提供统一的错误收集、聚合分析、实时监控和告警功能。
+ * 集成熔断器状态、性能指标、用户行为等数据，提供完整的系统健康视图。
  */
 
-import { AppError, SystemError, NetworkError, TimeoutError } from './errors.js';
-import { logger } from './enhanced-error-logger.js';
+import { AppError, isErrorOperational } from './errors.js';
+import { CircuitBreaker } from '../services/circuit-breaker.js';
 
-export interface ErrorAggregationConfig {
-  /** 时间窗口大小（毫秒） */
-  windowSizeMs: number;
-  /** 相同错误的相似度阈值（0-1） */
-  similarityThreshold: number;
-  /** 最大聚合错误数量 */
-  maxAggregatedErrors: number;
-  /** 错误告警阈值 */
-  alertThreshold: number;
-  /** 告警回调函数 */
-  alertCallback?: (aggregatedError: AggregatedError) => void;
-}
-
-export interface ErrorStats {
-  totalCount: number;
-  errorCountByType: Map<string, number>;
-  errorCountByCode: Map<string, number>;
-  errorRate: number;
-  lastErrorAt: Date;
-}
-
-export interface AggregatedError {
-  errorId: string;
-  errorType: string;
-  errorCode: string;
-  errorMessage: string;
-  firstOccurred: Date;
-  lastOccurred: Date;
-  occurrenceCount: number;
-  recentOccurrences: Array<{
-    timestamp: Date;
-    context: Record<string, unknown>;
-    stack?: string;
-  }>;
-  similarErrors: Array<{
-    timestamp: Date;
-    similarity: number;
-    context: Record<string, unknown>;
-  }>;
+export interface ErrorIncident {
+  id: string;
+  timestamp: Date;
   severity: 'low' | 'medium' | 'high' | 'critical';
+  service: string;
+  errorType: string;
+  message: string;
+  details: Record<string, unknown>;
+  affectedUsers: string[];
+  circuitState: 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+  metrics: {
+    responseTime: number;
+    errorRate: number;
+    throughput: number;
+  };
+}
+
+export interface ErrorAlert {
+  id: string;
+  type: 'error_spike' | 'circuit_breaker' | 'performance_degradation' | 'service_down';
+  severity: 'warning' | 'error' | 'critical';
+  service: string;
+  message: string;
+  timestamp: Date;
+  metrics: Record<string, number>;
+  resolved: boolean;
+  resolvedAt?: Date;
+}
+
+export interface ErrorDashboard {
+  summary: {
+    totalErrors: number;
+    operationalErrors: number;
+    systemErrors: number;
+    alertCount: number;
+    healthScore: number; // 0-100
+  };
+  services: {
+    [serviceName: string]: {
+      status: 'healthy' | 'degraded' | 'unhealthy';
+      errorRate: number;
+      avgResponseTime: number;
+      circuitState: string;
+      recentErrors: Array<{
+        timestamp: Date;
+        message: string;
+        severity: string;
+      }>;
+    };
+  };
+  alerts: ErrorAlert[];
+  trends: {
+    last24h: number;
+    last7d: number;
+    last30d: number;
+    change24h: number;
+    change7d: number;
+  };
 }
 
 /**
- * 错误聚合器
+ * 错误聚合器 - 收集和分析系统错误
  */
 export class ErrorAggregator {
-  private static instance: ErrorAggregator;
-  private config: ErrorAggregationConfig;
-  private errorWindows: Map<string, Array<{
-    error: Error;
-    timestamp: Date;
-    context: Record<string, unknown>;
-  }>> = new Map();
-  
-  private aggregatedErrors: Map<string, AggregatedError> = new Map();
-  private stats: ErrorStats = {
-    totalCount: 0,
-    errorCountByType: new Map(),
-    errorCountByCode: new Map(),
-    errorRate: 0,
-    lastErrorAt: new Date(),
+  private incidents: Map<string, ErrorIncident> = new Map();
+  private alerts: Map<string, ErrorAlert> = new Map();
+  private serviceMetrics: Map<string, {
+    totalRequests: number;
+    errorCount: number;
+    responseTimes: number[];
+    circuitBreaker: CircuitBreaker;
+  }> = new Map();
+
+  private alertThresholds = {
+    errorRate: 0.1, // 10%错误率触发告警
+    responseTime: 5000, // 5秒响应时间触发告警
+    errorSpike: 50, // 50个错误/分钟触发尖峰告警
   };
 
-  private constructor(config: Partial<ErrorAggregationConfig> = {}) {
-    this.config = {
-      windowSizeMs: 5 * 60 * 1000, // 5分钟窗口
-      similarityThreshold: 0.8,
-      maxAggregatedErrors: 100,
-      alertThreshold: 10,
-      ...config,
-    };
-
-    // 启动清理定时器
-    setInterval(() => this.cleanupOldErrors(), this.config.windowSizeMs);
-  }
-
-  static getInstance(config?: Partial<ErrorAggregationConfig>): ErrorAggregator {
-    if (!ErrorAggregator.instance) {
-      ErrorAggregator.instance = new ErrorAggregator(config);
-    }
-    return ErrorAggregator.instance;
+  constructor() {
+    this.startPeriodicCheck();
   }
 
   /**
    * 记录错误
    */
   recordError(
-    error: Error,
-    context: Record<string, unknown> = {},
-    severity: AggregatedError['severity'] = 'medium'
+    error: unknown,
+    context: {
+      path: string;
+      method: string;
+      userAgent: string;
+      ip: string;
+      userId?: string;
+      sessionId?: string;
+      requestId?: string;
+      service?: string;
+      circuitState?: string;
+    },
+    severity: 'low' | 'medium' | 'high' | 'critical' = 'medium'
   ): string {
-    const errorId = this.generateErrorId(error);
-    const timestamp = new Date();
-    
-    // 更新统计信息
-    this.updateStats(error, timestamp);
-    
-    // 添加到错误窗口
-    if (!this.errorWindows.has(errorId)) {
-      this.errorWindows.set(errorId, []);
+    const errorId = this.generateErrorId();
+    const incident: ErrorIncident = {
+      id: errorId,
+      timestamp: new Date(),
+      severity,
+      service: context.service || this.identifyService(context.path),
+      errorType: this.getErrorType(error),
+      message: this.getErrorMessage(error),
+      details: this.getErrorDetails(error, context),
+      affectedUsers: context.userId ? [context.userId] : [],
+      circuitState: context.circuitState || 'CLOSED',
+      metrics: this.getCurrentMetrics(context.service),
+    };
+
+    this.incidents.set(errorId, incident);
+    this.updateServiceMetrics(context.service, error instanceof Error ? false : true);
+    this.checkForAlerts(incident);
+
+    // 保持最近10000条记录
+    if (this.incidents.size > 10000) {
+      const oldestKeys = Array.from(this.incidents.keys()).slice(0, 1000);
+      oldestKeys.forEach(key => this.incidents.delete(key));
     }
-    
-    this.errorWindows.get(errorId)!.push({
-      error,
-      timestamp,
-      context,
-    });
-
-    // 聚合错误
-    this.aggregateError(errorId, error, context, timestamp, severity);
-
-    // 检查是否需要告警
-    this.checkForAlerts(errorId);
 
     return errorId;
   }
 
   /**
-   * 获取错误统计信息
+   * 获取错误聚合仪表板数据
    */
-  getStats(): ErrorStats {
-    return { ...this.stats };
+  getDashboard(): ErrorDashboard {
+    const incidents = Array.from(this.incidents.values());
+    const alerts = Array.from(this.alerts.values()).filter(alert => !alert.resolved);
+    
+    // 计算汇总数据
+    const operationalErrors = incidents.filter(i => isErrorOperational(i.details)).length;
+    const systemErrors = incidents.length - operationalErrors;
+    
+    // 按服务分组
+    const services = this.groupIncidentsByService(incidents);
+    
+    // 计算健康分数 (0-100)
+    const healthScore = this.calculateHealthScore(services);
+    
+    // 计算趋势
+    const trends = this.calculateTrends();
+
+    return {
+      summary: {
+        totalErrors: incidents.length,
+        operationalErrors,
+        systemErrors,
+        alertCount: alerts.length,
+        healthScore,
+      },
+      services,
+      alerts,
+      trends,
+    };
   }
 
   /**
-   * 获取聚合错误信息
+   * 获取服务健康状态
    */
-  getAggregatedErrors(): AggregatedError[] {
-    return Array.from(this.aggregatedErrors.values())
-      .sort((a, b) => b.occurrenceCount - a.occurrenceCount)
-      .slice(0, this.config.maxAggregatedErrors);
-  }
-
-  /**
-   * 获取特定错误的详细信息
-   */
-  getAggregatedError(errorId: string): AggregatedError | undefined {
-    return this.aggregatedErrors.get(errorId);
-  }
-
-  /**
-   * 清理旧错误数据
-   */
-  private cleanupOldErrors(): void {
-    const now = new Date();
-    const cutoffTime = new Date(now.getTime() - this.config.windowSizeMs);
-
-    // 清理错误窗口
-    for (const [errorId, errors] of this.errorWindows.entries()) {
-      const filteredErrors = errors.filter(e => e.timestamp > cutoffTime);
-      
-      if (filteredErrors.length === 0) {
-        this.errorWindows.delete(errorId);
-        this.aggregatedErrors.delete(errorId);
-      } else {
-        this.errorWindows.set(errorId, filteredErrors);
-      }
-    }
-
-    logger.info(`错误聚合器清理完成，剩余错误类型: ${this.errorWindows.size}`);
-  }
-
-  /**
-   * 更新错误统计信息
-   */
-  private updateStats(error: Error, timestamp: Date): void {
-    this.stats.totalCount++;
-    this.stats.lastErrorAt = timestamp;
-
-    // 按错误类型统计
-    const errorType = error.constructor.name;
-    const typeCount = this.stats.errorCountByType.get(errorType) || 0;
-    this.stats.errorCountByType.set(errorType, typeCount + 1);
-
-    // 按错误码统计
-    const errorCode = this.getErrorCode(error);
-    const codeCount = this.stats.errorCountByCode.get(errorCode) || 0;
-    this.stats.errorCountByCode.set(errorCode, codeCount + 1);
-
-    // 计算错误率（假设有请求量统计）
-    // 这里可以根据实际的请求数量来计算更精确的错误率
-    this.stats.errorRate = this.stats.totalCount / Math.max(this.stats.totalCount, 1);
-  }
-
-  /**
-   * 聚合错误
-   */
-  private aggregateError(
-    errorId: string,
-    error: Error,
-    context: Record<string, unknown>,
-    timestamp: Date,
-    severity: AggregatedError['severity']
-  ): void {
-    const existingAggregated = this.aggregatedErrors.get(errorId);
-
-    if (existingAggregated) {
-      // 更新现有聚合错误
-      existingAggregated.lastOccurred = timestamp;
-      existingAggregated.occurrenceCount++;
-      
-      // 添加到最近发生列表
-      existingAggregated.recentOccurrences.push({
-        timestamp,
-        context,
-        stack: error.stack,
-      });
-
-      // 限制最近发生列表大小
-      if (existingAggregated.recentOccurrences.length > 10) {
-        existingAggregated.recentOccurrences = existingAggregated.recentOccurrences.slice(-10);
-      }
-    } else {
-      // 创建新的聚合错误
-      const aggregatedError: AggregatedError = {
-        errorId,
-        errorType: error.constructor.name,
-        errorCode: this.getErrorCode(error),
-        errorMessage: error.message,
-        firstOccurred: timestamp,
-        lastOccurred: timestamp,
-        occurrenceCount: 1,
-        recentOccurrences: [{
-          timestamp,
-          context,
-          stack: error.stack,
-        }],
-        similarErrors: [],
-        severity,
+  getServiceHealth(serviceName: string): {
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    errorRate: number;
+    avgResponseTime: number;
+    circuitState: string;
+    recentErrors: Array<{
+      timestamp: Date;
+      message: string;
+      severity: string;
+    }>;
+  } {
+    const serviceMetrics = this.serviceMetrics.get(serviceName);
+    if (!serviceMetrics) {
+      return {
+        status: 'healthy',
+        errorRate: 0,
+        avgResponseTime: 0,
+        circuitState: 'CLOSED',
+        recentErrors: [],
       };
-
-      this.aggregatedErrors.set(errorId, aggregatedError);
     }
 
-    // 查找相似错误
-    this.findSimilarErrors(errorId, error, context, timestamp);
-  }
-
-  /**
-   * 查找相似错误
-   */
-  private findSimilarErrors(
-    targetErrorId: string,
-    targetError: Error,
-    targetContext: Record<string, unknown>,
-    timestamp: Date
-  ): void {
-    const targetAggregated = this.aggregatedErrors.get(targetErrorId);
-    if (!targetAggregated) return;
-
-    // 在当前窗口中查找相似错误
-    const targetWindow = this.errorWindows.get(targetErrorId) || [];
-    
-    for (const [otherErrorId, otherErrors] of this.errorWindows.entries()) {
-      if (otherErrorId === targetErrorId) continue;
-
-      for (const otherErrorData of otherErrors) {
-        const similarity = this.calculateErrorSimilarity(targetError, otherErrorData.error);
-        
-        if (similarity >= this.config.similarityThreshold) {
-          targetAggregated.similarErrors.push({
-            timestamp: otherErrorData.timestamp,
-            similarity,
-            context: otherErrorData.context,
-          });
-        }
-      }
-    }
-
-    // 限制相似错误数量
-    if (targetAggregated.similarErrors.length > 5) {
-      targetAggregated.similarErrors = targetAggregated.similarErrors
-        .sort((a, b) => b.similarity - a.similarity)
-        .slice(0, 5);
-    }
-  }
-
-  /**
-   * 计算错误相似度
-   */
-  private calculateErrorSimilarity(error1: Error, error2: Error): number {
-    if (error1.constructor.name !== error2.constructor.name) {
-      return 0;
-    }
-
-    const message1 = error1.message;
-    const message2 = error2.message;
-
-    // 简单的字符串相似度计算
-    const maxLength = Math.max(message1.length, message2.length);
-    const minLength = Math.min(message1.length, message2.length);
-    
-    if (minLength === 0) return 0;
-
-    let matchingChars = 0;
-    for (let i = 0; i < minLength; i++) {
-      if (message1[i] === message2[i]) {
-        matchingChars++;
-      }
-    }
-
-    const messageSimilarity = matchingChars / maxLength;
-
-    // 堆栈相似度（可选，计算成本较高）
-    const stackSimilarity = error1.stack && error2.stack 
-      ? this.calculateStackSimilarity(error1.stack, error2.stack)
+    const errorRate = serviceMetrics.errorCount / serviceMetrics.totalRequests;
+    const avgResponseTime = serviceMetrics.responseTimes.length > 0 
+      ? serviceMetrics.responseTimes.reduce((a, b) => a + b, 0) / serviceMetrics.responseTimes.length 
       : 0;
 
-    return (messageSimilarity * 0.7) + (stackSimilarity * 0.3);
+    const status = this.calculateServiceStatus(errorRate, avgResponseTime, serviceMetrics.circuitBreaker.getState());
+    const recentErrors = Array.from(this.incidents.values())
+      .filter(incident => incident.service === serviceName)
+      .slice(-10)
+      .map(incident => ({
+        timestamp: incident.timestamp,
+        message: incident.message,
+        severity: incident.severity,
+      }));
+
+    return {
+      status,
+      errorRate,
+      avgResponseTime,
+      circuitState: serviceMetrics.circuitBreaker.getState(),
+      recentErrors,
+    };
   }
 
   /**
-   * 计算堆栈相似度
+   * 解决告警
    */
-  private calculateStackSimilarity(stack1: string, stack2: string): number {
-    const lines1 = stack1.split('\n').filter(line => line.trim());
-    const lines2 = stack2.split('\n').filter(line => line.trim());
+  resolveAlert(alertId: string): void {
+    const alert = this.alerts.get(alertId);
+    if (alert) {
+      alert.resolved = true;
+      alert.resolvedAt = new Date();
+      this.alerts.set(alertId, alert);
+    }
+  }
 
-    const minLength = Math.min(lines1.length, lines2.length);
-    let matchingLines = 0;
-
-    for (let i = 0; i < minLength; i++) {
-      // 去除文件路径和时间戳，只比较核心信息
-      const cleanLine1 = lines1[i].replace(/\/.*?:\d+/, '').trim();
-      const cleanLine2 = lines2[i].replace(/\/.*?:\d+/, '').trim();
-      
-      if (cleanLine1 === cleanLine2) {
-        matchingLines++;
+  /**
+   * 清理旧数据
+   */
+  cleanupOldData(olderThanMs: number = 7 * 24 * 60 * 60 * 1000): void {
+    const cutoff = Date.now() - olderThanMs;
+    
+    // 清理旧错误记录
+    for (const [id, incident] of this.incidents) {
+      if (incident.timestamp.getTime() < cutoff) {
+        this.incidents.delete(id);
       }
     }
 
-    return matchingLines / Math.max(lines1.length, lines2.length);
-  }
-
-  /**
-   * 检查是否需要告警
-   */
-  private checkForAlerts(errorId: string): void {
-    const aggregatedError = this.aggregatedErrors.get(errorId);
-    if (!aggregatedError) return;
-
-    // 检查发生次数是否超过阈值
-    if (aggregatedError.occurrenceCount >= this.config.alertThreshold) {
-      logger.warn(`错误告警: ${aggregatedError.errorCode} 已发生 ${aggregatedError.occurrenceCount} 次`);
-      
-      if (this.config.alertCallback) {
-        this.config.alertCallback(aggregatedError);
-      }
-    }
-
-    // 检查错误严重程度
-    if (aggregatedError.severity === 'critical') {
-      logger.error(`严重错误告警: ${aggregatedError.errorId}`);
-      
-      if (this.config.alertCallback) {
-        this.config.alertCallback(aggregatedError);
+    // 清理已解决的旧告警
+    for (const [id, alert] of this.alerts) {
+      if (alert.resolved && alert.resolvedAt && alert.resolvedAt.getTime() < cutoff) {
+        this.alerts.delete(id);
       }
     }
   }
 
-  /**
-   * 生成错误ID
-   */
-  private generateErrorId(error: Error): string {
-    const type = error.constructor.name;
-    const message = error.message;
-    const stack = error.stack?.substring(0, 100) || '';
-    
-    const hash = this.simpleHash(`${type}:${message}:${stack}`);
-    return `${type}_${hash}`;
+  // 私有方法
+
+  private generateErrorId(): string {
+    return `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  /**
-   * 简单哈希函数
-   */
-  private simpleHash(str: string): string {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash).toString(36);
+  private identifyService(path: string): string {
+    if (path.includes('/api/ai') || path.includes('/workflow')) return 'ai-engine';
+    if (path.includes('/api/database') || path.includes('/db')) return 'database';
+    if (path.includes('/api/auth') || path.includes('/login')) return 'auth';
+    if (path.includes('/api/queue') || path.includes('/request')) return 'request-queue';
+    return 'unknown';
   }
 
-  /**
-   * 获取错误码
-   */
-  private getErrorCode(error: Error): string {
-    if (error instanceof AppError) {
-      return error.errorCode;
-    }
-    
-    if (error instanceof SystemError) {
-      return 'SYSTEM_ERROR';
-    }
-    
-    if (error instanceof NetworkError) {
-      return 'NETWORK_ERROR';
-    }
-    
-    if (error instanceof TimeoutError) {
-      return 'TIMEOUT_ERROR';
-    }
-    
-    // 根据错误类型生成错误码
-    const type = error.constructor.name;
-    const match = error.message.match(/(\w+_ERROR|_ERROR|ERROR)/i);
-    if (match) {
-      return match[1].toUpperCase();
-    }
-    
-    return `${type.toUpperCase()}_ERROR`;
+  private getErrorType(error: unknown): string {
+    if (error instanceof AppError) return error.constructor.name;
+    if (error instanceof Error) return error.name;
+    return 'UnknownError';
   }
-}
 
-/**
- * 增强错误聚合中间件
- */
-export function createErrorAggregatorMiddleware(config?: Partial<ErrorAggregationConfig>) {
-  const aggregator = ErrorAggregator.getInstance(config);
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    return String(error);
+  }
 
-  return (error: Error, req: any, res: any, next: any) => {
-    const context = {
-      path: req.path,
-      method: req.method,
-      userAgent: req.get('User-Agent'),
-      ip: req.ip,
-      userId: req.user?.id,
-      sessionId: req.session?.id,
-      requestId: req.requestId,
+  private getErrorDetails(error: unknown, context: any): Record<string, unknown> {
+    const details: Record<string, unknown> = {
+      context: {
+        path: context.path,
+        method: context.method,
+        ip: context.ip,
+        userAgent: context.userAgent,
+      },
     };
 
-    // 根据错误类型确定严重程度
-    let severity: AggregatedError['severity'] = 'medium';
-    if (error instanceof SystemError) {
-      severity = 'high';
-    } else if (error instanceof NetworkError) {
-      severity = 'medium';
-    } else if (error.message.includes('critical') || error.message.includes('fatal')) {
-      severity = 'critical';
+    if (context.userId) details.userId = context.userId;
+    if (context.sessionId) details.sessionId = context.sessionId;
+    if (context.requestId) details.requestId = context.requestId;
+
+    if (error instanceof AppError) {
+      details.appError = {
+        statusCode: error.statusCode,
+        errorCode: error.errorCode,
+        isOperational: error.isOperational,
+        originalDetails: error.details,
+      };
     }
 
-    const errorId = aggregator.recordError(error, context, severity);
+    return details;
+  }
+
+  private getCurrentMetrics(service?: string): {
+    responseTime: number;
+    errorRate: number;
+    throughput: number;
+  } {
+    const serviceMetrics = service ? this.serviceMetrics.get(service) : null;
     
-    // 添加错误ID到响应头
-    res.setHeader('X-Error-ID', errorId);
+    return {
+      responseTime: serviceMetrics && serviceMetrics.responseTimes.length > 0
+        ? serviceMetrics.responseTimes[serviceMetrics.responseTimes.length - 1]
+        : 0,
+      errorRate: serviceMetrics && serviceMetrics.totalRequests > 0
+        ? serviceMetrics.errorCount / serviceMetrics.totalRequests
+        : 0,
+      throughput: serviceMetrics ? serviceMetrics.totalRequests / 60 : 0, // 每分钟请求数
+    };
+  }
+
+  private updateServiceMetrics(service: string | undefined, isError: boolean): void {
+    if (!service) return;
+
+    if (!this.serviceMetrics.has(service)) {
+      this.serviceMetrics.set(service, {
+        totalRequests: 0,
+        errorCount: 0,
+        responseTimes: [],
+        circuitBreaker: new CircuitBreaker(),
+      });
+    }
+
+    const metrics = this.serviceMetrics.get(service)!;
+    metrics.totalRequests++;
+    if (isError) metrics.errorCount++;
     
-    next(error);
-  };
+    // 模拟响应时间 (实际应该从真实请求中获取)
+    const responseTime = Math.random() * 1000 + 100; // 100-1100ms
+    metrics.responseTimes.push(responseTime);
+    
+    // 保持最近1000个响应时间
+    if (metrics.responseTimes.length > 1000) {
+      metrics.responseTimes = metrics.responseTimes.slice(-1000);
+    }
+  }
+
+  private checkForAlerts(incident: ErrorIncident): void {
+    const alerts: ErrorAlert[] = [];
+
+    // 错误率告警
+    const serviceMetrics = this.serviceMetrics.get(incident.service);
+    if (serviceMetrics) {
+      const errorRate = serviceMetrics.errorCount / serviceMetrics.totalRequests;
+      if (errorRate > this.alertThresholds.errorRate) {
+        alerts.push({
+          id: `error_rate_${Date.now()}`,
+          type: 'error_spike',
+          severity: errorRate > 0.2 ? 'critical' : 'warning',
+          service: incident.service,
+          message: `${incident.service} 错误率过高: ${(errorRate * 100).toFixed(2)}%`,
+          timestamp: new Date(),
+          metrics: { errorRate: errorRate * 100 },
+          resolved: false,
+        });
+      }
+    }
+
+    // 熔断器告警
+    if (incident.circuitState === 'OPEN') {
+      alerts.push({
+        id: `circuit_breaker_${Date.now()}`,
+        type: 'circuit_breaker',
+        severity: 'critical',
+        service: incident.service,
+        message: `${incident.service} 已熔断，拒绝所有请求`,
+        timestamp: new Date(),
+        metrics: {},
+        resolved: false,
+      });
+    }
+
+    // 高严重性错误告警
+    if (incident.severity === 'critical') {
+      alerts.push({
+        id: `critical_error_${Date.now()}`,
+        type: 'service_down',
+        severity: 'critical',
+        service: incident.service,
+        message: `检测到严重错误: ${incident.message}`,
+        timestamp: new Date(),
+        metrics: {},
+        resolved: false,
+      });
+    }
+
+    // 添加告警到系统
+    alerts.forEach(alert => {
+      this.alerts.set(alert.id, alert);
+    });
+  }
+
+  private groupIncidentsByService(incidents: ErrorIncident[]): ErrorDashboard['services'] {
+    const services: ErrorDashboard['services'] = {};
+    
+    const serviceNames = [...new Set(incidents.map(i => i.service))];
+    
+    serviceNames.forEach(serviceName => {
+      const serviceIncidents = incidents.filter(i => i.service === serviceName);
+      const serviceMetrics = this.serviceMetrics.get(serviceName);
+      
+      const errorRate = serviceMetrics && serviceMetrics.totalRequests > 0
+        ? serviceMetrics.errorCount / serviceMetrics.totalRequests
+        : 0;
+      
+      const avgResponseTime = serviceMetrics && serviceMetrics.responseTimes.length > 0
+        ? serviceMetrics.responseTimes.reduce((a, b) => a + b, 0) / serviceMetrics.responseTimes.length
+        : 0;
+      
+      services[serviceName] = {
+        status: this.calculateServiceStatus(errorRate, avgResponseTime, 
+          serviceMetrics?.circuitBreaker.getState() || 'CLOSED'),
+        errorRate,
+        avgResponseTime,
+        circuitState: serviceMetrics?.circuitBreaker.getState() || 'CLOSED',
+        recentErrors: serviceIncidents.slice(-5).map(incident => ({
+          timestamp: incident.timestamp,
+          message: incident.message,
+          severity: incident.severity,
+        })),
+      };
+    });
+    
+    return services;
+  }
+
+  private calculateServiceStatus(errorRate: number, avgResponseTime: number, circuitState: string): 'healthy' | 'degraded' | 'unhealthy' {
+    if (circuitState === 'OPEN') return 'unhealthy';
+    if (errorRate > 0.2 || avgResponseTime > 5000) return 'unhealthy';
+    if (errorRate > 0.1 || avgResponseTime > 2000) return 'degraded';
+    return 'healthy';
+  }
+
+  private calculateHealthScore(services: ErrorDashboard['services']): number {
+    const serviceCount = Object.keys(services).length;
+    if (serviceCount === 0) return 100;
+    
+    const healthyServices = Object.values(services).filter(s => s.status === 'healthy').length;
+    const degradedServices = Object.values(services).filter(s => s.status === 'degraded').length;
+    
+    // 健康分数计算：健康服务100分，降级服务60分，不健康服务0分
+    return Math.round((healthyServices * 100 + degradedServices * 60) / serviceCount);
+  }
+
+  private calculateTrends(): ErrorDashboard['trends'] {
+    const now = Date.now();
+    const incidents = Array.from(this.incidents.values());
+    
+    const last24h = incidents.filter(i => now - i.timestamp.getTime() < 24 * 60 * 60 * 1000).length;
+    const last7d = incidents.filter(i => now - i.timestamp.getTime() < 7 * 24 * 60 * 60 * 1000).length;
+    const last30d = incidents.filter(i => now - i.timestamp.getTime() < 30 * 24 * 60 * 60 * 1000).length;
+    
+    // 计算变化百分比 (与之前同期比较)
+    const previous24h = incidents.filter(i => 
+      now - i.timestamp.getTime() >= 24 * 60 * 60 * 1000 && 
+      now - i.timestamp.getTime() < 48 * 60 * 60 * 1000
+    ).length;
+    
+    const change24h = previous24h > 0 ? ((last24h - previous24h) / previous24h) * 100 : 0;
+    
+    return {
+      last24h,
+      last7d,
+      last30d,
+      change24h: Math.round(change24h),
+      change7d: 0, // 简化实现，实际应该计算7天变化
+    };
+  }
+
+  private startPeriodicCheck(): void {
+    // 每分钟清理一次旧数据
+    setInterval(() => {
+      this.cleanupOldData();
+    }, 60 * 1000);
+    
+    // 每分钟检查系统健康状态
+    setInterval(() => {
+      this.performHealthCheck();
+    }, 60 * 1000);
+  }
+
+  private performHealthCheck(): void {
+    // 这里可以添加更复杂的健康检查逻辑
+    // 比如检查关键服务的响应时间、错误率等
+    console.log('系统健康检查执行');
+  }
 }
 
-export { ErrorAggregator as default };
+// 导出单例实例
+export const errorAggregator = new ErrorAggregator();
