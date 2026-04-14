@@ -14,6 +14,14 @@ export interface WorkflowLog {
   metadata?: Record<string, any>;
 }
 
+/**
+ * 记录工作流步骤开始执行
+ * @param workflowId 工作流ID
+ * @param stepId 步骤ID
+ * @param agentId 执行代理ID
+ * @param metadata 可选的元数据
+ * @returns 日志记录ID
+ */
 export function logWorkflowStart(
   workflowId: string,
   stepId: string,
@@ -34,6 +42,13 @@ export function logWorkflowStart(
   return log.id;
 }
 
+/**
+ * 记录工作流步骤完成
+ * @param logId 日志记录ID
+ * @param status 执行状态
+ * @param duration 执行时长（毫秒）
+ * @param result 执行结果
+ */
 export function logWorkflowComplete(
   logId: string,
   status: 'completed' | 'failed',
@@ -53,10 +68,18 @@ export function logWorkflowComplete(
   saveLog(log);
 }
 
+/**
+ * 生成唯一的日志ID
+ * @returns 日志ID字符串
+ */
 function generateLogId(): string {
   return `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
+/**
+ * 保存日志记录到内存存储
+ * @param log 日志记录
+ */
 function saveLog(log: WorkflowLog): void {
   if (!global.workflowLogs) {
     global.workflowLogs = [];
@@ -64,14 +87,28 @@ function saveLog(log: WorkflowLog): void {
   global.workflowLogs.push(log);
 }
 
+/**
+ * 根据ID获取日志记录
+ * @param logId 日志ID
+ * @returns 日志记录或undefined
+ */
 function getLog(logId: string): WorkflowLog | undefined {
   return global.workflowLogs?.find(log => log.id === logId);
 }
 
+/**
+ * 获取工作流的所有执行日志
+ * @param workflowId 工作流ID
+ * @returns 日志记录数组
+ */
 export function getWorkflowLogs(workflowId: string): WorkflowLog[] {
   return global.workflowLogs?.filter(log => log.workflowId === workflowId) || [];
 }
 
+/**
+ * 清理过期的日志记录
+ * @param maxAge 最大保留时间（毫秒）
+ */
 export function cleanupLogs(maxAge: number = 86400000): void {
   const cutoff = Date.now() - maxAge;
   if (global.workflowLogs) {

@@ -32,3 +32,14 @@ export function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 }
+
+/**
+ * 从文本中提取动作动词
+ * @param text 工作流描述文本
+ * @returns 动作动词数组
+ */
+export function extractActionVerbs(text: string): string[] {
+  const actionVerbs = ['创建', '执行', '更新', '删除', '获取', '设置', '验证', '发送', '接收', '分析', '处理', '转换', '同步', '备份', '恢复'];
+  const words = cleanText(text).split(' ');
+  return words.filter(word => actionVerbs.includes(word));
+}
