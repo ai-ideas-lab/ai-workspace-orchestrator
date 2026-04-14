@@ -18,7 +18,6 @@
  */
 
 import { createHash, randomBytes } from 'crypto';
-import { AppError, DatabaseError, ConflictError, ValidationError } from '../utils/errors.js';
 
 // ── 类型定义 ──────────────────────────────────────────────
 
@@ -114,6 +113,7 @@ function decodeJWT(token: string, secret: string): TokenPayload | null {
   if (signature !== expectedSig) return null;
 
   try {
+    if (!body) return null;
     const payload: TokenPayload = JSON.parse(
       Buffer.from(body, 'base64url').toString('utf-8')
     );

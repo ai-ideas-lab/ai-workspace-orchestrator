@@ -243,6 +243,13 @@ export class NotificationService {
     ).length;
   }
 
+  /** 按用户和状态组合查询通知（优化版） */
+  getNotificationsByUserAndStatus(userId: string, status: NotificationStatus): Notification[] {
+    return this.notifications.filter(
+      (n) => n.userId === userId && n.status === status
+    ).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
   // ── 规则管理 ────────────────────────────────────────────
 
   /** 添加自定义通知规则 */
