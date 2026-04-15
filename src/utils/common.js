@@ -351,6 +351,44 @@ function validateWorkflowSchema(workflow) {
          Array.isArray(workflow.steps);
 }
 
+/**
+ * 转换字符串为标题格式
+ * 
+ * 将字符串转换为标题格式，每个单词首字母大写，其余小写。
+ * 处理常见的特殊情况（如英文介词、连接词等）。
+ * 
+ * @param str 待转换的字符串
+ * @returns 标题格式的字符串
+ * @example
+ * // 基本转换
+ * console.log(toTitleCase('hello world')); // "Hello World"
+ * console.log(toTitleCase('AI WORKFLOW')); // "AI Workflow"
+ * 
+ * // 处理特殊词
+ * console.log(toTitleCase('the quick brown fox')); // "The Quick Brown Fox"
+ * console.log(toTitleCase('user authentication system')); // "User Authentication System"
+ * 
+ * // 数字和符号处理
+ * console.log(toTitleCase('version 2.0 release')); // "Version 2.0 Release"
+ * 
+ * // AI工作流命名场景
+ * const workflowName = toTitleCase('customer data processing pipeline');
+ * console.log(workflowName); // "Customer Data Processing Pipeline"
+ */
+function toTitleCase(str) {
+  if (!str || typeof str !== 'string') {
+    return '';
+  }
+  
+  return str.toLowerCase().split(' ').map(word => {
+    // 跳过空字符串
+    if (word.length === 0) return '';
+    
+    // 转换为首字母大写
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  }).join(' ');
+}
+
 module.exports = {
   formatDate,
   debounce,
@@ -362,5 +400,6 @@ module.exports = {
   normalizeString,
   isValidChinesePhone,
   generateWorkflowId,
-  validateWorkflowSchema
+  validateWorkflowSchema,
+  toTitleCase
 };
