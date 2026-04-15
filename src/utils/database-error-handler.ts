@@ -58,8 +58,21 @@ export class DatabaseErrorHandler {
       stack: error.stack,
     });
 
-    switch (errorCode) {
-      case 'P2002':
+    return this.handlePrismaErrorByCode(error, context, meta);
+  }
+
+  /**
+   * 根据错误代码处理Prisma错误
+   */
+  private static handlePrismaErrorByCode(
+    error: Prisma.PrismaClientKnownRequestError,
+    context: DatabaseErrorContext,
+    meta?: Record<string, unknown>
+  ): AppError {
+    const errorCode = error.code;
+
+    const errorHandlers: Record<string, () => AppError> = {
+      'P2002': () => {
         // 唯一约束冲突
         const field = (meta?.target as string[])?.[0] || '字段';
         return new ValidationError(
@@ -71,8 +84,8 @@ export class DatabaseErrorHandler {
             target: meta?.target,
           }
         );
-
-      case 'P2003':
+      },
+      'P2003': () => {
         // 外键约束失败
         const relationField = (meta?.field_name as string) || '关联字段';
         return new ValidationError(
@@ -84,8 +97,8 @@ export class DatabaseErrorHandler {
             relationField: meta?.field_name,
           }
         );
-
-      case 'P2025':
+      },
+      'P2025': () => {
         // 记录未找到
         const modelName = (meta?.model_name as string) || '记录';
         return new AppError(
@@ -100,12 +113,12 @@ export class DatabaseErrorHandler {
           },
           `请求的${modelName}不存在`
         );
-
-      case 'P2016':
+      },
+      'P2016': () => {
         // 记录已被删除
-        const deletedModel = (meta?.model_name as string) || '记录';
+        const modelName = (meta?.model_name as string) || '记录';
         return new AppError(
-          `${deletedModel}已被删除或不存在`,
+          `${modelName}已被删除或不存在`,
           404,
           'RECORD_DELETED',
           true,
@@ -113,10 +126,10 @@ export class DatabaseErrorHandler {
             code: errorCode,
             model: meta?.model_name,
           },
-          `请求的${deletedModel}不存在或已被删除`
+          `请求的${modelName}不存在或已被删除`
         );
-
-      case 'P2022':
+      },
+      'P2022': () => {
         // 数据库连接问题
         return new SystemError(
           '数据库连接失败',
@@ -127,8 +140,8 @@ export class DatabaseErrorHandler {
             context,
           }
         );
-
-      case 'P2001':
+      },
+      'P2001': () => {
         // 查询结果为空
         return new AppError(
           '查询结果为空',
@@ -141,8 +154,8 @@ export class DatabaseErrorHandler {
           },
           '未找到匹配的记录'
         );
-
-      case 'P2010':
+      },
+      'P2010': () => {
         // 查询错误
         return new DatabaseError(
           `数据库查询错误: ${error.message}`,
@@ -153,11 +166,11 @@ export class DatabaseErrorHandler {
             originalError: error.message,
           }
         );
-
-      default:
-        // 其他已知错误
+      },
+      'P2000': () => {
+        // 通用约束错误
         return new DatabaseError(
-          `数据库操作失败: ${error.message}`,
+          `数据库约束错误: ${error.message}`,
           {
             code: errorCode,
             table: context.table,
@@ -165,7 +178,25 @@ export class DatabaseErrorHandler {
             originalError: error.message,
           }
         );
-    }
+      },
+    };
+
+    // 使用错误处理器或返回默认错误
+    const handler = errorHandlers[errorCode] || this.createDefaultDatabaseError.bind(this);
+    return handler();
+  }
+
+  /**
+   * 创建默认数据库错误
+   */
+  private static createDefaultDatabaseError(): AppError {
+    return new DatabaseError(
+      '数据库操作失败',
+      {
+        code: 'UNKNOWN_PRISMA_ERROR',
+        operation: 'unknown',
+      }
+    );
   }
 
   /**
