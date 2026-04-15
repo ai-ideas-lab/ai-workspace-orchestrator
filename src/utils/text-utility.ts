@@ -53,3 +53,11 @@ export function capitalizeText(text: string): string {
   if (!text) return '';
   return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
 }
+
+/**
+ * 生成时间戳唯一标识符
+ * @returns 时间戳格式的唯一标识符
+ */
+export function generateTimestampId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
