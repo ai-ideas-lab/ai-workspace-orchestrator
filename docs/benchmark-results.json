@@ -1,102 +1,66 @@
 {
-  "timestamp": "2026-04-14T14:28:13.385Z",
+  "timestamp": "2026-04-15T21:37:29.353Z",
   "summary": {
     "totalEndpoints": 6,
-    "functionalEndpoints": 0,
-    "failedEndpoints": 6,
-    "overallSuccessRate": 0,
-    "avgResponseTime": null
+    "functionalEndpoints": 6,
+    "failedEndpoints": 0,
+    "overallSuccessRate": 100,
+    "avgResponseTime": 38.3665717
   },
   "detailedResults": [
     {
       "endpoint": "/api/users-with-orders",
-      "successRate": 0,
-      "avgTime": null,
-      "maxTime": null,
-      "minTime": null,
-      "timeouts": 5,
-      "errors": [
-        "",
-        "",
-        "",
-        "",
-        ""
-      ]
+      "successRate": 100,
+      "avgTime": 128.76344419999998,
+      "maxTime": 307.62645899999995,
+      "minTime": 21.199849000000086,
+      "timeouts": 0,
+      "errors": []
     },
     {
       "endpoint": "/api/orders-with-products",
-      "successRate": 0,
-      "avgTime": null,
-      "maxTime": null,
-      "minTime": null,
-      "timeouts": 5,
-      "errors": [
-        "",
-        "",
-        "",
-        "",
-        ""
-      ]
+      "successRate": 100,
+      "avgTime": 28.944655599999987,
+      "maxTime": 38.14369600000009,
+      "minTime": 18.410425000000032,
+      "timeouts": 0,
+      "errors": []
     },
     {
       "endpoint": "/api/user-stats",
-      "successRate": 0,
-      "avgTime": null,
-      "maxTime": null,
-      "minTime": null,
-      "timeouts": 5,
-      "errors": [
-        "",
-        "",
-        "",
-        "",
-        ""
-      ]
+      "successRate": 100,
+      "avgTime": 10.841473600000018,
+      "maxTime": 23.611417000000074,
+      "minTime": 5.99924400000009,
+      "timeouts": 0,
+      "errors": []
     },
     {
       "endpoint": "/api/users/1",
-      "successRate": 0,
-      "avgTime": null,
-      "maxTime": null,
-      "minTime": null,
-      "timeouts": 5,
-      "errors": [
-        "",
-        "",
-        "",
-        "",
-        ""
-      ]
+      "successRate": 100,
+      "avgTime": 39.481556599999976,
+      "maxTime": 139.38190299999997,
+      "minTime": 9.787115999999969,
+      "timeouts": 0,
+      "errors": []
     },
     {
       "endpoint": "/api/users/2",
-      "successRate": 0,
-      "avgTime": null,
-      "maxTime": null,
-      "minTime": null,
-      "timeouts": 5,
-      "errors": [
-        "",
-        "",
-        "",
-        "",
-        ""
-      ]
+      "successRate": 100,
+      "avgTime": 12.534859600000027,
+      "maxTime": 17.414441000000124,
+      "minTime": 9.99376200000006,
+      "timeouts": 0,
+      "errors": []
     },
     {
       "endpoint": "/api/users/3",
-      "successRate": 0,
-      "avgTime": null,
-      "maxTime": null,
-      "minTime": null,
-      "timeouts": 5,
-      "errors": [
-        "",
-        "",
-        "",
-        "",
-        ""
-      ]
+      "successRate": 100,
+      "avgTime": 9.63344060000004,
+      "maxTime": 10.22246999999993,
+      "minTime": 9.237697000000026,
+      "timeouts": 0,
+      "errors": []
     }
   ]
 }
