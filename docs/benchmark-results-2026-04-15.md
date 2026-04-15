@@ -1,36 +1,20 @@
 # AI Workspace Orchestrator Performance Benchmark Report
 
-**Date:** 2026-04-15T00:52:02.853Z
+**Date:** 2026-04-15T12:23:43.384Z
 **Focus:** N+1 Query Issues and Performance Bottlenecks
 
 ## Executive Summary
-
-⚠️ **Slow Endpoints:**
-- [object Object]: 10000.00ms average
-- [object Object]: 10000.00ms average
-- [object Object]: 10000.00ms average
-- [object Object]: 10000.00ms average
-- [object Object]: 10000.00ms average
-- [object Object]: 10000.00ms average
-
-❌ **Error-Prone Endpoints:**
-- [object Object]: 0.0% success rate
-- [object Object]: 0.0% success rate
-- [object Object]: 0.0% success rate
-- [object Object]: 0.0% success rate
-- [object Object]: 0.0% success rate
-- [object Object]: 0.0% success rate
 
 ## Detailed Results
 
 | Endpoint | Success Rate | Avg Time | Max Time | Timeouts |
 |----------|-------------|----------|----------|----------|
-| /api/users-with-orders | 0.0% | 10000.00ms | 10000.00ms | 5/5 |
-| /api/orders-with-products | 0.0% | 10000.00ms | 10000.00ms | 5/5 |
-| /api/user-stats | 0.0% | 10000.00ms | 10000.00ms | 5/5 |
-| /api/users/1 | 0.0% | 10000.00ms | 10000.00ms | 5/5 |
-| /api/users/2 | 0.0% | 10000.00ms | 10000.00ms | 5/5 |
-| /api/users/3 | 0.0% | 10000.00ms | 10000.00ms | 5/5 |
+| /api/users-with-orders | 100.0% | 7.00ms | 25.84ms | 0/5 |
+| /api/orders-with-products | 100.0% | 2.40ms | 3.27ms | 0/5 |
+| /api/user-stats | 100.0% | 0.95ms | 1.47ms | 0/5 |
+| /api/users/1 | 100.0% | 1.18ms | 1.48ms | 0/5 |
+| /api/users/2 | 100.0% | 1.07ms | 1.10ms | 0/5 |
+| /api/users/3 | 100.0% | 1.02ms | 1.14ms | 0/5 |
 
 ## N+1 Query Issues Analysis
 
@@ -83,7 +67,7 @@
 
 ## Performance Metrics
 
-- **Average Response Time**: 10000.00ms
-- **Overall Success Rate**: 0.0%
-- **Timeout Rate**: 100%
+- **Average Response Time**: 2.27ms
+- **Overall Success Rate**: 100.0%
+- **Timeout Rate**: 0%
 
