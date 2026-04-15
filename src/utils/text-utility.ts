@@ -43,3 +43,13 @@ export function extractActionVerbs(text: string): string[] {
   const words = cleanText(text).split(' ');
   return words.filter(word => actionVerbs.includes(word));
 }
+
+/**
+ * 首字母大写
+ * @param text 需要格式化的文本
+ * @returns 首字母大写的文本
+ */
+export function capitalizeText(text: string): string {
+  if (!text) return '';
+  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+}
