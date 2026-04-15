@@ -20,3 +20,12 @@ export async function scheduleAITasks(tasks: Array<{
   }
   return schedule;
 }
+
+export function calculateTotalDuration(tasks: Array<{
+  id: string;
+  priority: number;
+  aiEngine: string;
+  estimatedDuration: number;
+}>): number {
+  return tasks.reduce((total, task) => total + task.estimatedDuration, 0);
+}
