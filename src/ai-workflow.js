@@ -359,4 +359,34 @@ function validateCommand(command) {
            ['admin', 'user'].includes(command.role || 'user');
 }
 
-module.exports = { aiWorkflowProcessor, extractIntent, calculatePriority, validateCommand };
+/**
+ * 处理AI工作流执行中的错误
+ * 
+ * 统一处理工作流执行过程中的各类错误，包括用户权限验证失败、
+ * 命令格式错误、AI服务异常等。提供结构化的错误信息和处理建议。
+ * 
+ * @param {Error} error - 捕获的错误对象
+ * @param {Object} context - 执行上下文，包含用户信息和命令详情
+ * @returns {Object} 格式化的错误响应对象
+ */
+function handleWorkflowError(error, context = {}) {
+    const timestamp = new Date().toISOString();
+    const errorType = error.name || 'UnknownError';
+    
+    return {
+        success: false,
+        error: {
+            type: errorType,
+            message: error.message || '工作流执行失败',
+            timestamp,
+            context: {
+                userId: context.user?.id || 'anonymous',
+                command: context.text || 'unknown',
+                attempt: context.attempt || 1
+            },
+            suggestion: errorType === 'ValidationError' ? '请检查输入格式和用户权限' : '请稍后重试或联系系统管理员'
+        }
+    };
+}
+
+module.exports = { aiWorkflowProcessor, extractIntent, calculatePriority, validateCommand, handleWorkflowError };

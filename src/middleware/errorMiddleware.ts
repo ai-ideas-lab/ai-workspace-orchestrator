@@ -9,7 +9,51 @@ import { AppError, isAppError, isErrorOperational, getStatusCode, getUserMessage
 import { errorLogger } from '../utils/enhanced-error-logger.js';
 
 /**
- * 生成请求ID
+ * 生成请求ID中间件
+ * 
+ * 为每个HTTP请求生成唯一的请求标识符，用于请求追踪、错误日志关联和调试。
+ * 请求ID采用时间戳+随机数的方式生成，确保全局唯一性。如果请求已经包含
+ * request-id头或之前的中间件已经设置了requestId，则使用现有的值。
+ * 
+ * @returns {Function} Express中间件函数，接收(req, res, next)三个参数
+ * @throws {Error} 当生成随机数失败时可能抛出异常（概率极低）
+ * 
+ * @example
+ * // 基本用法：在Express应用中使用
+ * app.use(createRequestIdMiddleware());
+ * 
+ * // 使用生成的请求ID
+ * app.get('/api/test', (req, res) => {
+ *   console.log(`请求ID: ${req.requestId}`);
+ *   res.json({ requestId: req.requestId });
+ * });
+ * 
+ * // 在错误处理中使用请求ID
+ * app.use((err, req, res, next) => {
+ *   console.error(`请求ID: ${req.requestId}, 错误: ${err.message}`);
+ *   next(err);
+ * });
+ * 
+ * // 结合其他中间件使用
+ * app.use(cors());
+ * app.use(createRequestIdMiddleware()); // 在CORS之后添加
+ * app.use(express.json());
+ * 
+ * // 测试请求ID的生成
+ * const testMiddleware = createRequestIdMiddleware();
+ * const mockReq = { requestId: undefined };
+ * const mockRes = {};
+ * const mockNext = jest.fn();
+ * 
+ * testMiddleware(mockReq, mockRes, mockNext);
+ * expect(mockReq.requestId).toBeDefined();
+ * expect(mockNext).toHaveBeenCalled();
+ * 
+ * // 注意事项：
+ * // 1. 该中间件应该在路由之前添加到应用中
+ * // 2. 请求ID可以在整个请求生命周期中使用
+ * // 3. 适用于分布式系统和微服务架构的请求追踪
+ * // 4. 生产环境可以考虑使用UUID或更标准的ID生成算法
  */
 export function createRequestIdMiddleware(): any {
   return (req: any, res: any, next: any) => {

@@ -117,3 +117,37 @@ export function cleanupLogs(maxAge: number = 86400000): void {
     );
   }
 }
+
+/**
+ * 记录工作流错误日志
+ * @param workflowId 工作流ID
+ * @param stepId 步骤ID
+ * @param agentId 执行代理ID
+ * @param error 错误信息
+ * @param metadata 额外的错误元数据
+ * @returns 错误日志记录ID
+ */
+export function logWorkflowError(
+  workflowId: string,
+  stepId: string,
+  agentId: string,
+  error: Error | string,
+  metadata?: Record<string, any>
+): string {
+  const errorLog: WorkflowLog = {
+    id: generateLogId(),
+    workflowId,
+    stepId,
+    agentId,
+    status: 'failed',
+    timestamp: new Date(),
+    metadata: {
+      ...metadata,
+      error: typeof error === 'string' ? error : error.message,
+      errorStack: typeof error === 'object' ? error.stack : undefined
+    }
+  };
+  
+  saveLog(errorLog);
+  return errorLog.id;
+}
