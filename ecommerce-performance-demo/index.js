@@ -5,6 +5,13 @@ const { body, validationResult } = require('express-validator');
 const app = express();
 app.use(express.json());
 
+// Simple in-memory cache for user stats (5 minute TTL)
+const userStatsCache = {
+    data: null,
+    timestamp: null,
+    ttl: 5 * 60 * 1000 // 5 minutes
+};
+
 // Initialize database
 const db = new sqlite3.Database('./database.sqlite');
 
@@ -46,6 +53,7 @@ db.serialize(() => {
     db.run(`CREATE INDEX IF NOT EXISTS idx_orders_user_date ON orders(user_id, order_date)`);
     db.run(`CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id)`);
     db.run(`CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON order_items(product_id)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_order_items_product_order ON order_items(product_id, order_id)`);
     
     // Insert sample data
     db.run(`INSERT OR IGNORE INTO users (name, email) VALUES 
@@ -204,8 +212,19 @@ app.get('/api/orders-with-products', (req, res) => {
     });
 });
 
-// OPTIMIZED: Get user order statistics (fixed N+1 problem)
+// OPTIMIZED: Get user order statistics (fixed N+1 problem) with caching
 app.get('/api/user-stats', (req, res) => {
+    const now = Date.now();
+    
+    // Check if cache is valid
+    if (userStatsCache.data && userStatsCache.timestamp && (now - userStatsCache.timestamp) < userStatsCache.ttl) {
+        return res.json({
+            data: userStatsCache.data,
+            cached: true,
+            cache_age_ms: now - userStatsCache.timestamp
+        });
+    }
+    
     // Use JOIN and aggregation to get stats in a single query
     const query = `
         SELECT 
@@ -239,7 +258,15 @@ app.get('/api/user-stats', (req, res) => {
             average_order_value: row.average_order_value
         }));
         
-        res.json(userStats);
+        // Update cache
+        userStatsCache.data = userStats;
+        userStatsCache.timestamp = now;
+        
+        res.json({
+            data: userStats,
+            cached: false,
+            cache_age_ms: 0
+        });
     });
 });
 
