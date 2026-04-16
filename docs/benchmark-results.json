@@ -1,64 +1,64 @@
 {
-  "timestamp": "2026-04-15T21:37:29.353Z",
+  "timestamp": "2026-04-16T11:50:27.792Z",
   "summary": {
     "totalEndpoints": 6,
     "functionalEndpoints": 6,
     "failedEndpoints": 0,
     "overallSuccessRate": 100,
-    "avgResponseTime": 38.3665717
+    "avgResponseTime": 2.1892464999999985
   },
   "detailedResults": [
     {
       "endpoint": "/api/users-with-orders",
       "successRate": 100,
-      "avgTime": 128.76344419999998,
-      "maxTime": 307.62645899999995,
-      "minTime": 21.199849000000086,
+      "avgTime": 5.643161799999999,
+      "maxTime": 18.167582999999993,
+      "minTime": 2.2847380000000044,
       "timeouts": 0,
       "errors": []
     },
     {
       "endpoint": "/api/orders-with-products",
       "successRate": 100,
-      "avgTime": 28.944655599999987,
-      "maxTime": 38.14369600000009,
-      "minTime": 18.410425000000032,
+      "avgTime": 2.680048000000002,
+      "maxTime": 3.0941159999999996,
+      "minTime": 2.3119489999999985,
       "timeouts": 0,
       "errors": []
     },
     {
       "endpoint": "/api/user-stats",
       "successRate": 100,
-      "avgTime": 10.841473600000018,
-      "maxTime": 23.611417000000074,
-      "minTime": 5.99924400000009,
+      "avgTime": 0.9809967999999998,
+      "maxTime": 1.5298640000000034,
+      "minTime": 0.7280410000000046,
       "timeouts": 0,
       "errors": []
     },
     {
       "endpoint": "/api/users/1",
       "successRate": 100,
-      "avgTime": 39.481556599999976,
-      "maxTime": 139.38190299999997,
-      "minTime": 9.787115999999969,
+      "avgTime": 1.4026149999999944,
+      "maxTime": 1.6311729999999898,
+      "minTime": 1.2849279999999936,
       "timeouts": 0,
       "errors": []
     },
     {
       "endpoint": "/api/users/2",
       "successRate": 100,
-      "avgTime": 12.534859600000027,
-      "maxTime": 17.414441000000124,
-      "minTime": 9.99376200000006,
+      "avgTime": 1.198076999999995,
+      "maxTime": 1.2832049999999953,
+      "minTime": 1.1147239999999954,
       "timeouts": 0,
       "errors": []
     },
     {
       "endpoint": "/api/users/3",
       "successRate": 100,
-      "avgTime": 9.63344060000004,
-      "maxTime": 10.22246999999993,
-      "minTime": 9.237697000000026,
+      "avgTime": 1.2305804000000022,
+      "maxTime": 1.4079270000000008,
+      "minTime": 1.1309140000000042,
       "timeouts": 0,
       "errors": []
     }
