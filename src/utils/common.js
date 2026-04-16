@@ -1,4 +1,29 @@
 /**
+ * 验证输入是否为有效字符串
+ * 
+ * 通用字符串验证函数，检查输入是否为非空字符串类型。
+ * 用于其他验证函数的前置检查，减少重复代码。
+ * 
+ * @param input 待验证的输入
+ * @returns 如果是有效字符串返回 true，否则返回 false
+ * @example
+ * // 基本验证
+ * console.log(isValidString('hello')); // true
+ * console.log(isValidString('')); // false
+ * console.log(isValidString(null)); // false
+ * console.log(isValidString(undefined)); // false
+ * 
+ * // 在其他函数中使用
+ * function isValidEmail(email) {
+ *   if (!isValidString(email)) return false;
+ *   // 邮箱验证逻辑...
+ * }
+ */
+function isValidString(input) {
+  return typeof input === 'string' && input.trim().length > 0;
+}
+
+/**
  * 格式化日期为 YYYY-MM-DD 格式
  * 
  * 将 JavaScript Date 对象转换为标准的日期字符串格式，
@@ -44,6 +69,7 @@ function formatDate(date) {
  * console.log(isValidEmail('user@.com')); // false
  */
 function isValidEmail(email) {
+  if (!isValidString(email)) return false;
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 }
@@ -189,9 +215,7 @@ function generateSimpleId(length = 8) {
  * }
  */
 function isValidUrl(url) {
-  if (typeof url !== 'string') {
-    throw new TypeError('URL必须是字符串类型');
-  }
+  if (!isValidString(url)) return false;
   
   try {
     const urlObj = new URL(url);
@@ -304,7 +328,7 @@ function normalizeString(str) {
  * console.log(isValidChinesePhone('138123456789')); // false (位数过多)
  */
 function isValidChinesePhone(phone) {
-  if (typeof phone !== 'string') return false;
+  if (!isValidString(phone)) return false;
   if (phone.length !== 11) return false;
   if (!/^\d+$/.test(phone)) return false;
   if (phone[0] !== '1') return false;
@@ -389,6 +413,39 @@ function toTitleCase(str) {
   }).join(' ');
 }
 
+/**
+ * 将字符串首字母大写
+ * 
+ * 简单的字符串首字母大写功能，用于格式化标题或名称。
+ * 保持字符串其余部分不变，只处理第一个字符。
+ * 
+ * @param str 待处理的字符串
+ * @returns 首字母大写的字符串
+ * @example
+ * // 基本转换
+ * console.log(capitalize('hello')); // "Hello"
+ * console.log(capitalize('world')); // "World"
+ * 
+ * // 处理已经大写的字符串
+ * console.log(capitalize('Hello')); // "Hello"
+ * 
+ * // 空字符串处理
+ * console.log(capitalize('')); // ""
+ * 
+ * // 单字符字符串
+ * console.log(capitalize('a')); // "A"
+ * 
+ * // 在AI工作流中使用
+ * const workflowName = capitalize('data processing');
+ * console.log(workflowName); // "Data processing"
+ */
+function capitalize(str) {
+  if (!str || typeof str !== 'string' || str.length === 0) {
+    return str;
+  }
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
 module.exports = {
   formatDate,
   debounce,
@@ -401,5 +458,6 @@ module.exports = {
   isValidChinesePhone,
   generateWorkflowId,
   validateWorkflowSchema,
-  toTitleCase
+  toTitleCase,
+  capitalize
 };
