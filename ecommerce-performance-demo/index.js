@@ -83,6 +83,32 @@ db.serialize(() => {
         (3, 3, 1, 299.99)`);
 });
 
+// OPTIMIZED: Helper function to build base query for users with orders
+function buildUserOrdersQuery() {
+    return `
+        SELECT 
+            u.id as user_id, u.name as user_name, u.email,
+            o.id as order_id, o.order_date, o.total_amount,
+            oi.id as item_id, oi.product_id, oi.quantity, oi.price as item_price,
+            p.name as product_name, p.price as product_price
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        LEFT JOIN products p ON oi.product_id = p.id
+        ORDER BY u.id, o.id, oi.id
+    `;
+}
+
+// Helper function to execute query and handle errors
+function executeQuery(query, params, callback) {
+    db.all(query, params, (err, rows) => {
+        if (err) {
+            return callback(err, null);
+        }
+        callback(null, rows);
+    });
+}
+
 // Helper function to process user orders data (extracted to eliminate code duplication)
 function processUserOrdersData(rows) {
     const usersWithOrders = {};
@@ -131,25 +157,11 @@ function processUserOrdersData(rows) {
 
 // OPTIMIZED: Get all users with their orders (fixed N+1 problem)
 app.get('/api/users-with-orders', (req, res) => {
-    // Use JOIN to get users with orders in a single query
-    const query = `
-        SELECT 
-            u.id as user_id, u.name as user_name, u.email,
-            o.id as order_id, o.order_date, o.total_amount,
-            oi.id as item_id, oi.product_id, oi.quantity, oi.price as item_price,
-            p.name as product_name, p.price as product_price
-        FROM users u
-        LEFT JOIN orders o ON u.id = o.user_id
-        LEFT JOIN order_items oi ON o.id = oi.order_id
-        LEFT JOIN products p ON oi.product_id = p.id
-        ORDER BY u.id, o.id, oi.id
-    `;
-    
-    db.all(query, [], (err, rows) => {
+    const query = buildUserOrdersQuery();
+    executeQuery(query, [], (err, rows) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
-        
         const result = processUserOrdersData(rows);
         res.json(result);
     });
@@ -274,10 +286,10 @@ app.get('/api/user-stats', (req, res) => {
 app.get('/api/users/:id', (req, res) => {
     const userId = req.params.id;
     
-    // Use JOIN to get user with orders in a single query
+    // Use base query and add WHERE clause for specific user
     const query = `
         SELECT 
-            u.id, u.name, u.email,
+            u.id as user_id, u.name as user_name, u.email,
             o.id as order_id, o.order_date, o.total_amount,
             oi.id as item_id, oi.product_id, oi.quantity, oi.price as item_price,
             p.name as product_name, p.price as product_price
@@ -286,10 +298,10 @@ app.get('/api/users/:id', (req, res) => {
         LEFT JOIN order_items oi ON o.id = oi.order_id
         LEFT JOIN products p ON oi.product_id = p.id
         WHERE u.id = ?
-        ORDER BY o.id, oi.id
+        ORDER BY u.id, o.id, oi.id
     `;
     
-    db.all(query, [userId], (err, rows) => {
+    executeQuery(query, [userId], (err, rows) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
@@ -311,20 +323,9 @@ app.get('/api/performance-test', (req, res) => {
     const startTime = Date.now();
     
     // Test the optimized users-with-orders endpoint using the same query
-    const query = `
-        SELECT 
-            u.id as user_id, u.name as user_name, u.email,
-            o.id as order_id, o.order_date, o.total_amount,
-            oi.id as item_id, oi.product_id, oi.quantity, oi.price as item_price,
-            p.name as product_name, p.price as product_price
-        FROM users u
-        LEFT JOIN orders o ON u.id = o.user_id
-        LEFT JOIN order_items oi ON o.id = oi.order_id
-        LEFT JOIN products p ON oi.product_id = p.id
-        ORDER BY u.id, o.id, oi.id
-    `;
+    const query = buildUserOrdersQuery();
     
-    db.all(query, [], (err, rows) => {
+    executeQuery(query, [], (err, rows) => {
         const endTime = Date.now();
         const executionTime = endTime - startTime;
         
