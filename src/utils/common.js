@@ -229,10 +229,11 @@ function isValidUrl(url) {
  * 验证字符串是否为空或只包含空白字符
  * 
  * 检查输入字符串是否为null、undefined或只包含空格、制表符、换行符等空白字符。
- * 常用于表单验证和数据处理前的输入检查。
+ * 常用于表单验证和数据处理前的输入检查，确保数据有效性和完整性。
  * 
- * @param str 待验证的字符串
- * @returns 如果为空或只包含空白字符返回true，否则返回false
+ * @param {string|null|undefined} str - 待验证的字符串，可以是字符串类型或null/undefined
+ * @returns {boolean} - 如果为空或只包含空白字符返回true，否则返回false
+ * @throws {TypeError} - 当str参数类型无效时可能抛出异常
  * @example
  * // 验证空字符串
  * console.log(isEmpty('')); // true
@@ -243,26 +244,51 @@ function isValidUrl(url) {
  * console.log(isEmpty('hello')); // false
  * console.log(isEmpty('  hello  ')); // false
  * 
+ * // 边界情况处理
+ * console.log(isEmpty(null)); // true
+ * console.log(isEmpty(undefined)); // true
+ * 
  * // 使用场景：表单验证
  * function validateRequiredField(value) {
  *   if (isEmpty(value)) {
  *     throw new Error('此字段不能为空');
  *   }
  * }
+ * 
+ * // AI工作流中的参数验证
+ * function validateWorkflowInput(input) {
+ *   if (isEmpty(input)) {
+ *     throw new Error('AI工作流输入不能为空');
+ *   }
+ *   return input.trim();
+ * }
+ * 
+ * // 注意事项：
+ * // 1. 函数会自动处理null和undefined情况
+ * // 2. 空字符串和空白字符串都会返回true
+ * // 3. 非字符串类型会被转换为字符串再检查
+ * // 4. 常用于表单验证、数据处理前的清洁检查
  */
-
 function isEmpty(str) {
-  return str == null || str.trim().length === 0;
+  if (str == null) {
+    return true;
+  }
+  if (typeof str !== 'string') {
+    str = String(str);
+  }
+  return str.trim().length === 0;
 }
 
 /**
  * 规范化字符串格式
  * 
  * 对输入字符串进行基本格式化处理，包括去除首尾空白、
- * 移除多余空格、标准化特殊字符等操作。常用于用户输入预处理。
+ * 移除多余空格、标准化特殊字符等操作。常用于用户输入预处理，
+ * 确保AI工作流接收到标准化的输入数据。
  * 
- * @param str 待规范化的字符串
- * @returns 规范化后的字符串
+ * @param {string|null|undefined} str - 待规范化的字符串，可以是任何类型
+ * @returns {string} - 规范化后的字符串，如果输入无效则返回空字符串
+ * @throws {TypeError} - 当输入处理过程中出现异常时可能抛出异常
  * @example
  * // 基本字符串清理
  * console.log(normalizeString('  hello world  ')); // "hello world"
@@ -286,6 +312,18 @@ function isEmpty(str) {
  *   }
  *   return normalized;
  * }
+ * 
+ * // 工作流名称规范化
+ * function normalizeWorkflowName(name) {
+ *   const normalized = normalizeString(name);
+ *   return toTitleCase(normalized);
+ * }
+ * 
+ * // 注意事项：
+ * // 1. 函数会处理null和undefined，返回空字符串
+ * // 2. 会将多个连续空格替换为单个空格
+ * // 3. 会移除换行符、制表符等空白字符
+ * // 4. 适用于用户输入处理和AI工作流数据标准化
  */
 function normalizeString(str) {
   if (!str || typeof str !== 'string') {
@@ -312,9 +350,11 @@ function normalizeString(str) {
  * 
  * 验证输入字符串是否符合中国大陆手机号码的格式规范。
  * 支持常见的11位手机号码格式，以1开头，第二位为3-9。
+ * 常用于用户注册、身份验证等场景，确保联系方式有效。
  * 
- * @param phone 待验证的手机号码字符串
- * @returns 如果格式正确返回 true，否则返回 false
+ * @param {string|null|undefined} phone - 待验证的手机号码字符串
+ * @returns {boolean} - 如果格式正确返回 true，否则返回 false
+ * @throws {TypeError} - 当phone参数类型无效时可能抛出异常
  * @example
  * // 验证有效手机号
  * console.log(isValidChinesePhone('13812345678')); // true
@@ -326,6 +366,33 @@ function normalizeString(str) {
  * console.log(isValidChinesePhone('1381234567'));  // false (位数不对)
  * console.log(isValidChinesePhone('abc1234567'));  // false (包含非数字)
  * console.log(isValidChinesePhone('138123456789')); // false (位数过多)
+ * 
+ * // 边界情况处理
+ * console.log(isValidChinesePhone(null)); // false
+ * console.log(isValidChinesePhone(undefined)); // false
+ * console.log(isValidChinesePhone('')); // false
+ * 
+ * // 使用场景：用户注册验证
+ * function validateUserPhone(phone) {
+ *   if (!isValidChinesePhone(phone)) {
+ *     throw new Error('请输入有效的中国大陆手机号码');
+ *   }
+ *   return phone; // 手机号格式正确
+ * }
+ * 
+ * // AI工作流中的用户数据验证
+ * function validateUserData(userData) {
+ *   if (!isValidChinesePhone(userData.phone)) {
+ *     userData.phone = null; // 无效手机号标记为null
+ *   }
+ *   return userData;
+ * }
+ * 
+ * // 注意事项：
+ * // 1. 只验证格式，不验证号码是否真实存在
+ * // 2. 严格的11位数字验证，第二位必须是3-9
+ * // 3. 支持null和undefined输入，返回false
+ * // 4. 常用于表单验证和用户数据清洗
  */
 function isValidChinesePhone(phone) {
   if (!isValidString(phone)) return false;
@@ -340,12 +407,46 @@ function isValidChinesePhone(phone) {
  * 生成AI工作流唯一ID
  * 
  * 创建格式为 'wf_YYYYMMDD_HHMMSS_RRRR' 的工作流标识符，
- * 包含时间戳和随机字符，确保唯一性。
+ * 包含时间戳和随机字符，确保唯一性。用于AI工作流的追踪和管理。
+ * 时间戳精确到秒，随机部分4位数字，冲突概率极低。
  * 
- * @returns {string} 格式化的工作流ID
+ * @returns {string} - 格式化的工作流ID，格式为 'wf_YYYYMMDD_HHMMSS_RRRR'
+ * @throws {Error} - 当日期对象创建失败时可能抛出异常（概率极低）
  * @example
  * const workflowId = generateWorkflowId();
  * console.log(workflowId); // 输出: "wf_20260413_1445_1234"
+ * 
+ * // 生成多个工作流ID验证唯一性
+ * const id1 = generateWorkflowId();
+ * const id2 = generateWorkflowId();
+ * console.log(id1 !== id2); // 输出: true (通常情况下)
+ * 
+ * // 工作流创建场景
+ * function createWorkflow(name, steps) {
+ *   const workflowId = generateWorkflowId();
+ *   const workflow = {
+ *     id: workflowId,
+ *     name: normalizeString(name),
+ *     steps: steps,
+ *     createdAt: new Date(),
+ *     status: 'pending'
+ *   };
+ *   return workflow;
+ * }
+ * 
+ * // 工作流队列管理
+ * function addToWorkflowQueue(workflow) {
+ *   const workflowId = generateWorkflowId();
+ *   workflow.id = workflowId;
+ *   workflowQueue.push(workflow);
+ *   return workflowId;
+ * }
+ * 
+ * // 注意事项：
+ * // 1. ID包含时间戳，可用于按时间排序
+ * // 2. 4位随机数字，同一秒内生成冲突概率极低
+ * // 3. 格式统一，便于数据库索引和查询
+ * // 4. 适用于AI工作流、任务队列、日志记录等场景
  */
 function generateWorkflowId() {
   const now = new Date();
@@ -358,31 +459,79 @@ function generateWorkflowId() {
  * 验证AI工作流JSON Schema
  * 
  * 快速验证工作流配置是否包含必需字段且格式正确。
- * 用于AI工作流执行前的预检查。
+ * 用于AI工作流执行前的预检查，确保工作流配置有效。
+ * 验证工作流名称存在且步骤数组不为空。
  * 
- * @param workflow 工作流配置对象
- * @returns {boolean} 是否有效
+ * @param {Object|null|undefined} workflow - 工作流配置对象
+ * @returns {boolean} - 是否有效（包含必需字段且格式正确）
+ * @throws {TypeError} - 当workflow参数不是对象类型时可能抛出异常
  * @example
+ * // 基本验证
  * const isValid = validateWorkflowSchema({
  *   name: "test",
  *   steps: []
  * });
+ * console.log(isValid); // true
+ * 
+ * // 验证有效工作流
+ * const validWorkflow = {
+ *   name: "客户数据处理",
+ *   description: "处理客户数据的工作流",
+ *   steps: [
+ *     { id: "step1", type: "data", config: {} },
+ *     { id: "step2", type: "ai", config: {} }
+ *   ]
+ * };
+ * console.log(validateWorkflowSchema(validWorkflow)); // true
+ * 
+ * // 验证无效工作流
+ * const invalidWorkflow1 = { name: "test" }; // 缺少steps
+ * const invalidWorkflow2 = { steps: [] }; // 缺少name
+ * const invalidWorkflow3 = null; // 非对象
+ * console.log(validateWorkflowSchema(invalidWorkflow1)); // false
+ * console.log(validateWorkflowSchema(invalidWorkflow2)); // false
+ * console.log(validateWorkflowSchema(invalidWorkflow3)); // false
+ * 
+ * // 工作流执行前的验证
+ * function executeWorkflow(workflowConfig) {
+ *   if (!validateWorkflowSchema(workflowConfig)) {
+ *     throw new Error('工作流配置无效：缺少必需字段');
+ *   }
+ *   // 继续执行工作流...
+ * }
+ * 
+ * // 工作流模板验证
+ * function validateWorkflowTemplate(template) {
+ *   const isValid = validateWorkflowSchema(template);
+ *   if (!isValid) {
+ *     throw new Error('工作流模板配置无效');
+ *   }
+ *   return template;
+ * }
+ * 
+ * // 注意事项：
+ * // 1. 只验证基本字段存在性，不验证字段详细结构
+ * // 2. 支持null和undefined输入，返回false
+ * // 3. 常用于工作流执行前的快速预检查
+ * // 4. 可作为更复杂验证的前置条件
  */
 function validateWorkflowSchema(workflow) {
-  return workflow && 
-         typeof workflow === 'object' && 
-         workflow.name && 
-         Array.isArray(workflow.steps);
+  if (!workflow || typeof workflow !== 'object') {
+    return false;
+  }
+  return workflow.name && Array.isArray(workflow.steps);
 }
 
 /**
  * 转换字符串为标题格式
  * 
  * 将字符串转换为标题格式，每个单词首字母大写，其余小写。
- * 处理常见的特殊情况（如英文介词、连接词等）。
+ * 处理常见的特殊情况（如英文介词、连接词等），适用于AI工作流
+ * 和用户界面的标题显示。支持中文和英文混合输入。
  * 
- * @param str 待转换的字符串
- * @returns 标题格式的字符串
+ * @param {string|null|undefined} str - 待转换的字符串
+ * @returns {string} - 标题格式的字符串，如果输入无效则返回空字符串
+ * @throws {TypeError} - 当字符串处理过程中出现异常时可能抛出异常
  * @example
  * // 基本转换
  * console.log(toTitleCase('hello world')); // "Hello World"
@@ -398,6 +547,33 @@ function validateWorkflowSchema(workflow) {
  * // AI工作流命名场景
  * const workflowName = toTitleCase('customer data processing pipeline');
  * console.log(workflowName); // "Customer Data Processing Pipeline"
+ * 
+ * // 中文和混合输入
+ * console.log(toTitleCase('用户管理系统')); // "用户管理系统"
+ * console.log(toTitleCase('AI 数据分析助手')); // "AI 数据分析助手"
+ * 
+ * // 边界情况处理
+ * console.log(toTitleCase('')); // ""
+ * console.log(toTitleCase(null)); // ""
+ * console.log(toTitleCase(undefined)); // ""
+ * 
+ * // 工作流名称标准化
+ * function standardizeWorkflowName(name) {
+ *   return toTitleCase(normalizeString(name));
+ * }
+ * 
+ * // 错误消息格式化
+ * function formatErrorMessage(errorType, message) {
+ *   const title = toTitleCase(errorType.replace(/[-_]/g, ' '));
+ *   return `${title}: ${message}`;
+ * }
+ * 
+ * // 注意事项：
+ * // 1. 处理中文和英文混合输入
+ * // 2. 自动转换小写，确保格式统一
+ * // 3. 适用于标题、按钮、菜单等UI元素
+ * // 4. 支持null和undefined输入，返回空字符串
+ * // 5. 在AI工作流中用于标准化显示文本
  */
 function toTitleCase(str) {
   if (!str || typeof str !== 'string') {
@@ -411,39 +587,6 @@ function toTitleCase(str) {
     // 转换为首字母大写
     return word.charAt(0).toUpperCase() + word.slice(1);
   }).join(' ');
-}
-
-/**
- * 将字符串首字母大写
- * 
- * 简单的字符串首字母大写功能，用于格式化标题或名称。
- * 保持字符串其余部分不变，只处理第一个字符。
- * 
- * @param str 待处理的字符串
- * @returns 首字母大写的字符串
- * @example
- * // 基本转换
- * console.log(capitalize('hello')); // "Hello"
- * console.log(capitalize('world')); // "World"
- * 
- * // 处理已经大写的字符串
- * console.log(capitalize('Hello')); // "Hello"
- * 
- * // 空字符串处理
- * console.log(capitalize('')); // ""
- * 
- * // 单字符字符串
- * console.log(capitalize('a')); // "A"
- * 
- * // 在AI工作流中使用
- * const workflowName = capitalize('data processing');
- * console.log(workflowName); // "Data processing"
- */
-function capitalize(str) {
-  if (!str || typeof str !== 'string' || str.length === 0) {
-    return str;
-  }
-  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 module.exports = {
