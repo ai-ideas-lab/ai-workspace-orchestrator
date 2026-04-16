@@ -446,6 +446,70 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+/**
+ * 将数字格式化为千位分隔符格式
+ * 
+ * 将大数字添加千位分隔符（逗号），提高数字的可读性。
+ * 支持整数和小数，保持原有精度。
+ * 
+ * @param {number|string} num 待格式化的数字或数字字符串
+ * @returns {string} 格式化后的数字字符串
+ * @throws {TypeError} 当输入不是数字或数字字符串时抛出异常
+ * @example
+ * // 整数格式化
+ * console.log(formatNumber(1000)); // "1,000"
+ * console.log(formatNumber(1234567)); // "1,234,567"
+ * 
+ * // 小数格式化
+ * console.log(formatNumber(1234.56)); // "1,234.56"
+ * console.log(formatNumber(1234567.89)); // "1,234,567.89"
+ * 
+ * // 字符串输入
+ * console.log(formatNumber("1234567")); // "1,234,567"
+ * console.log(formatNumber("1234.56")); // "1,234.56"
+ * 
+ * // AI工作流中的数字显示场景
+ * function displayMetricValue(value) {
+ *   return `处理数量: ${formatNumber(value)}`;
+ * }
+ * 
+ * console.log(displayMetricValue(1234567)); // "处理数量: 1,234,567"
+ */
+function formatNumber(num) {
+  if (num == null) {
+    throw new TypeError('输入参数不能为null或undefined');
+  }
+  
+  // 转换为数字类型
+  const number = typeof num === 'string' ? parseFloat(num) : num;
+  
+  if (typeof number !== 'number' || isNaN(number)) {
+    throw new TypeError('输入必须是有效的数字');
+  }
+  
+  // 转换为字符串并分割整数和小数部分
+  const str = number.toString();
+  const parts = str.split('.');
+  let integerPart = parts[0];
+  let decimalPart = parts.length > 1 ? '.' + parts[1] : '';
+  
+  // 添加千位分隔符
+  if (integerPart.length > 3) {
+    const formatted = [];
+    let start = integerPart.length % 3;
+    if (start > 0) {
+      formatted.push(integerPart.substring(0, start));
+    }
+    while (start < integerPart.length) {
+      formatted.push(integerPart.substring(start, start + 3));
+      start += 3;
+    }
+    integerPart = formatted.join(',');
+  }
+  
+  return integerPart + decimalPart;
+}
+
 module.exports = {
   formatDate,
   debounce,
