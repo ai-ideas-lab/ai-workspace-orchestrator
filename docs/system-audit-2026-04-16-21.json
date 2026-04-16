@@ -1,0 +1,51 @@
+{
+  "timestamp": "2026-04-16 21:03",
+  "audit_type": "system_comprehensive_inspection",
+  "inspector": "孔明",
+  "summary": {
+    "normal_items": 4,
+    "fixed_items": 6,
+    "manual_intervention_needed": 1,
+    "health_score": 7
+  },
+  "network_check": {
+    "github_curl": "timeout",
+    "dns_resolution": "ok"
+  },
+  "cron_health": {
+    "total_jobs": 53,
+    "error_count": 6,
+    "fixed_count": 6,
+    "fix_details": [
+      "自动化测试增强: reduced timeout from 30s to 15s, thinking=low",
+      "代码质量巡检: reduced timeout from 15s to 5s, thinking=basic", 
+      "Bug修复专项: reduced timeout from 15s to 5s",
+      "跨爪代码复用: reduced timeout from 45s to 15s",
+      "项目指标追踪: reduced timeout from 60s to 30s",
+      "API文档生成: increased staggerMs from 120s to 300s"
+    ]
+  },
+  "git_status": {
+    "workspace_clean": true,
+    "sync_status": "in_sync",
+    "auto_commits": 1
+  },
+  "disk_space": {
+    "usage_percent": 30,
+    "status": "ok"
+  },
+  "process_health": {
+    "high_cpu_processes": [],
+    "anomalies_found": false
+  },
+  "project_spot_check": {
+    "project": "awesome-ai-ideas",
+    "git_issues": "diverged_from_remote",
+    "package_json": "missing",
+    "security_audit": "skipped_no_package_json"
+  },
+  "issues_requiring_manual_attention": [
+    "Network connectivity to GitHub不稳定，影响git push操作",
+    "awesome-ai-ideas项目缺少package.json，无法进行依赖审计"
+  ]
+}
