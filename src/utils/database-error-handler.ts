@@ -296,16 +296,76 @@ export class DatabaseErrorHandler {
   }
 
   /**
-   * 包装数据库操作，自动处理错误
+   * 包装数据库操作，自动处理错误和重试
    */
   static wrapDatabaseOperation<T>(
     operation: () => Promise<T>,
-    context: DatabaseErrorContext
+    context: DatabaseErrorContext,
+    options: {
+      maxRetries?: number;
+      baseDelayMs?: number;
+      maxDelayMs?: number;
+      fallbackValue?: T;
+    } = {}
   ): Promise<T> {
-    return operation().catch((error) => {
-      const appError = this.handlePrismaError(error, context);
-      throw appError;
-    });
+    const { 
+      maxRetries = 3, 
+      baseDelayMs = 1000, 
+      maxDelayMs = 5000,
+      fallbackValue 
+    } = options;
+
+    let attemptCount = 0;
+
+    const executeWithRetry = async (): Promise<T> => {
+      try {
+        return await operation();
+      } catch (error) {
+        attemptCount++;
+        
+        // 检查是否应该重试
+        const shouldRetry = this.isRetryableDatabaseError(error) && attemptCount < maxRetries;
+        
+        if (shouldRetry) {
+          // 计算延迟时间（指数退避）
+          const delay = Math.min(
+            baseDelayMs * Math.pow(2, attemptCount - 1),
+            maxDelayMs
+          );
+          
+          console.warn(`数据库操作重试 ${attemptCount}/${maxRetries}: ${context.operation}`, {
+            error: error instanceof Error ? error.message : String(error),
+            delay,
+            table: context.table,
+            operation: context.operation
+          });
+          
+          // 等待延迟时间
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return executeWithRetry();
+        } else {
+          // 不重试或达到最大重试次数，处理错误
+          const appError = this.handlePrismaError(error, context);
+          
+          // 如果有回退值，记录错误但返回回退值
+          if (fallbackValue !== undefined) {
+            console.error(`数据库操作失败，使用回退值: ${context.operation}`, {
+              error: appError.message,
+              table: context.table,
+              operation: context.operation,
+              attemptCount,
+              fallbackUsed: true
+            });
+            return fallbackValue;
+          }
+          
+          // 否则抛出错误
+          throw appError;
+        }
+      }
+    };
+
+    return executeWithRetry();
   }
 
   /**
