@@ -83,20 +83,22 @@ db.serialize(() => {
         (3, 3, 1, 299.99)`);
 });
 
+// OPTIMIZED: Base query template for user orders (DRY principle)
+const baseUserOrdersQuery = `
+    SELECT 
+        u.id as user_id, u.name as user_name, u.email,
+        o.id as order_id, o.order_date, o.total_amount,
+        oi.id as item_id, oi.product_id, oi.quantity, oi.price as item_price,
+        p.name as product_name, p.price as product_price
+    FROM users u
+    LEFT JOIN orders o ON u.id = o.user_id
+    LEFT JOIN order_items oi ON o.id = oi.order_id
+    LEFT JOIN products p ON oi.product_id = p.id
+`;
+
 // OPTIMIZED: Helper function to build base query for users with orders
-function buildUserOrdersQuery() {
-    return `
-        SELECT 
-            u.id as user_id, u.name as user_name, u.email,
-            o.id as order_id, o.order_date, o.total_amount,
-            oi.id as item_id, oi.product_id, oi.quantity, oi.price as item_price,
-            p.name as product_name, p.price as product_price
-        FROM users u
-        LEFT JOIN orders o ON u.id = o.user_id
-        LEFT JOIN order_items oi ON o.id = oi.order_id
-        LEFT JOIN products p ON oi.product_id = p.id
-        ORDER BY u.id, o.id, oi.id
-    `;
+function buildUserOrdersQuery(whereClause = '', orderByClause = 'ORDER BY u.id, o.id, oi.id') {
+    return `${baseUserOrdersQuery} ${whereClause} ${orderByClause}`.trim();
 }
 
 // Helper function to execute query and handle errors
@@ -282,24 +284,12 @@ app.get('/api/user-stats', (req, res) => {
     });
 });
 
-// OPTIMIZED: Get user by ID with orders (fixed N+1 problem)
+// OPTIMIZED: Get user by ID with orders (fixed N+1 problem and refactored)
 app.get('/api/users/:id', (req, res) => {
     const userId = req.params.id;
     
-    // Use base query and add WHERE clause for specific user
-    const query = `
-        SELECT 
-            u.id as user_id, u.name as user_name, u.email,
-            o.id as order_id, o.order_date, o.total_amount,
-            oi.id as item_id, oi.product_id, oi.quantity, oi.price as item_price,
-            p.name as product_name, p.price as product_price
-        FROM users u
-        LEFT JOIN orders o ON u.id = o.user_id
-        LEFT JOIN order_items oi ON o.id = oi.order_id
-        LEFT JOIN products p ON oi.product_id = p.id
-        WHERE u.id = ?
-        ORDER BY u.id, o.id, oi.id
-    `;
+    // Use refactored query with WHERE clause parameterization
+    const query = buildUserOrdersQuery('WHERE u.id = ?');
     
     executeQuery(query, [userId], (err, rows) => {
         if (err) {
@@ -318,11 +308,11 @@ app.get('/api/users/:id', (req, res) => {
     });
 });
 
-// Performance test endpoint - OPTIMIZED: Uses shared helper function
+// Performance test endpoint - OPTIMIZED: Uses shared helper function and refactored query
 app.get('/api/performance-test', (req, res) => {
     const startTime = Date.now();
     
-    // Test the optimized users-with-orders endpoint using the same query
+    // Test the optimized users-with-orders endpoint using the refactored query
     const query = buildUserOrdersQuery();
     
     executeQuery(query, [], (err, rows) => {
