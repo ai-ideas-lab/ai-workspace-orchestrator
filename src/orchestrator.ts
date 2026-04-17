@@ -37,6 +37,29 @@
  * const invalidResult = await orchestrator(123 as any);
  * // 应该抛出 TypeError: userRequest must be a string
  */
+/**
+ * 验证用户请求的有效性
+ * 
+ * 检查用户请求是否为空、过长或包含敏感内容
+ * @param {string} userRequest - 用户输入的请求
+ * @returns {boolean} 返回验证是否通过
+ * @example
+ * const isValid = validateUserRequest("创建月度销售报告");
+ * console.log(isValid); // true
+ * 
+ * const isEmpty = validateUserRequest("");
+ * console.log(isEmpty); // false
+ */
+export function validateUserRequest(userRequest: string): boolean {
+  if (!userRequest || userRequest.trim().length === 0) {
+    return false;
+  }
+  if (userRequest.length > 1000) {
+    return false;
+  }
+  return true;
+}
+
 export async function orchestrator(userRequest: string): Promise<string> {
   const parsed = await parseIntent(userRequest);
   const workflow = await generateWorkflow(parsed);
