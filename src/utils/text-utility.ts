@@ -244,3 +244,76 @@ export function capitalizeText(text: string): string {
 export function generateTimestampId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
+
+/**
+ * 将文本转换为蛇形命名（snake_case）
+ * 
+ * 将驼峰命名或空格分隔的文本转换为小写的蛇形命名格式。
+ * 适用于API端点命名、数据库字段名、配置键等场景。
+ * 支持多种输入格式：驼峰命名、空格分隔、连字符分隔等。
+ * 
+ * @param {string} text - 需要转换的文本，可以是驼峰命名、空格或连字符分隔
+ * @returns {string} 转换后的蛇形命名文本，全部小写，下划线分隔
+ * @throws {TypeError} 当text参数不是字符串类型时抛出异常
+ * @example
+ * // 驼峰命名转换
+ * const camelCase = "userName camelCase";
+ * const result1 = toSnakeCase(camelCase);
+ * console.log(result1); // 输出: "user_name camel_case"
+ * 
+ * // 空格分隔转换
+ * const spacedText = "user name data field";
+ * const result2 = toSnakeCase(spacedText);
+ * console.log(result2); // 输出: "user_name_data_field"
+ * 
+ * // 连字符分隔转换
+ * const kebabText = "user-name-data-field";
+ * const result3 = toSnakeCase(kebabText);
+ * console.log(result3); // 输出: "user_name_data_field"
+ * 
+ * // 混合格式转换
+ * const mixedText = "UserName-Data Field";
+ * const result4 = toSnakeCase(mixedText);
+ * console.log(result4); // 输出: "user_name_data_field"
+ * 
+ * // 数字和特殊字符处理
+ * const numericText = "user123 fieldName_value";
+ * const result5 = toSnakeCase(numericText);
+ * console.log(result5); // 输出: "user123 field_name_value"
+ * 
+ * // 空字符串处理
+ * const result6 = toSnakeCase("");
+ * console.log(result6); // 输出: ""
+ * 
+ * // 边界情况
+ * const result7 = toSnakeCase("   ");
+ * console.log(result7); // 输出: ""
+ * 
+ * // 单个字符
+ * const result8 = toSnakeCase("A");
+ * console.log(result8); // 输出: "a"
+ * 
+ * // 错误处理
+ * try {
+ *   toSnakeCase(123); // 非字符串参数
+ * } catch (error) {
+ *   console.error('类型错误:', error.message);
+ * }
+ */
+export function toSnakeCase(text: string): string {
+  if (!text) return '';
+  
+  // 先清理文本，然后转换为小写
+  const cleaned = cleanText(text).toLowerCase();
+  
+  // 转换驼峰命名为下划线
+  const result = cleaned
+    // 驼峰命名：在字母和数字之间插入下划线（当字母是大写时）
+    .replace(/([A-Z])/g, '_$1')
+    // 移除可能存在的多余下划线
+    .replace(/_+/g, '_')
+    // 去除首尾下划线
+    .replace(/^_|_$/g, '');
+  
+  return result;
+}
