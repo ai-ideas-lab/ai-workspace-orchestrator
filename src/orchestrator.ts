@@ -51,6 +51,9 @@
  * console.log(isEmpty); // false
  */
 export function validateUserRequest(userRequest: string): boolean {
+  if (typeof userRequest !== 'string') {
+    return false;
+  }
   if (!userRequest || userRequest.trim().length === 0) {
     return false;
   }
