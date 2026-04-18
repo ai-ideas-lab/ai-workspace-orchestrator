@@ -125,7 +125,7 @@ const INTENT_PATTERNS = {
  * console.log(isValid7); // 输出: false
  */
 function validateUser(user) {
-    return user && ['admin', 'user'].includes(user.role || 'user');
+    return user user && ['admin', 'user'].includes(user.role || 'user')user && ['admin', 'user'].includes(user.role || 'user') (user.role ? [".admin.", ".user."].includes(user.role) : true);
 }
 
 /**
