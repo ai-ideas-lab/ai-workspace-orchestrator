@@ -55,3 +55,36 @@ export function generateQuickReport(tasks: string[], completed: number): string 
 状态: ${percentage >= 80 ? '✅ 接近完成' : percentage >= 50 ? '🔄 进行中' : '🚀 刚开始'}
 预计剩余时间: ${Math.ceil((total - completed) * 0.5)}分钟`;
 }
+
+export function checkSystemHealth(): { status: 'healthy' | 'warning' | 'critical'; score: number; message: string } {
+    /**
+     * 快速系统健康检查
+     * @returns 健康状态对象
+     */
+    const metrics = {
+        memory: Math.random() > 0.3,  // 模拟内存检查
+        cpu: Math.random() > 0.2,     // 模拟CPU检查
+        network: Math.random() > 0.1,  // 模拟网络检查
+        storage: Math.random() > 0.25  // 模拟存储检查
+    };
+    
+    const healthScore = Object.values(metrics).filter(Boolean).length;
+    const maxScore = Object.keys(metrics).length;
+    const percentage = (healthScore / maxScore) * 100;
+    
+    let status: 'healthy' | 'warning' | 'critical';
+    let message: string;
+    
+    if (percentage >= 80) {
+        status = 'healthy';
+        message = '🟢 系统运行正常';
+    } else if (percentage >= 50) {
+        status = 'warning';
+        message = '🟡 系统部分组件需要关注';
+    } else {
+        status = 'critical';
+        message = '🔴 系统存在严重问题，需要立即处理';
+    }
+    
+    return { status, score: percentage, message };
+}
