@@ -1,5 +1,7 @@
-async function schedulePriorityWorkflow(workflows) {
-  const sorted = workflows.sort((a, b) => b.priority - a.priority);
+function schedulePriorityWorkflow(workflows) {
   const now = Date.now();
-  return sorted.filter(w => w.due >= now).slice(0, 3);
+  return workflows
+    .sort((a, b) => b.priority - a.priority)
+    .filter(w => w.due >= now)
+    .slice(0, 3);
 }
