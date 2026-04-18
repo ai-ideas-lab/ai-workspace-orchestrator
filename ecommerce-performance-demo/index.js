@@ -53,7 +53,9 @@ db.serialize(() => {
     db.run(`CREATE INDEX IF NOT EXISTS idx_orders_user_date ON orders(user_id, order_date)`);
     db.run(`CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id)`);
     db.run(`CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON order_items(product_id)`);
-    db.run(`CREATE INDEX IF NOT EXISTS idx_order_items_product_order ON order_items(product_id, order_id)`);
+    // OPTIMIZED: Replace composite index with more targeted indexes for common query patterns
+    db.run(`CREATE INDEX IF NOT EXISTS idx_order_items_product_quantity ON order_items(product_id, quantity)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_order_items_product_price ON order_items(product_id, price)`);
     
     // Insert sample data
     db.run(`INSERT OR IGNORE INTO users (name, email) VALUES 
