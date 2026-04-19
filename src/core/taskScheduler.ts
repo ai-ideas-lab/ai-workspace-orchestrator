@@ -29,3 +29,4 @@ export function calculateTotalDuration(tasks: Array<{
 }>): number {
   return tasks.reduce((total, task) => total + task.estimatedDuration, 0);
 }// test change
+
