@@ -237,4 +237,4 @@ async function executeStep(step: {step: string, action: string, params: Record<s
   } else {
     return `⚠️ [步骤${stepNumber}] 未知动作: ${action}，使用默认处理`;
   }
-}
+}// test
