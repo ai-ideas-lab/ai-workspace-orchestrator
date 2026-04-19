@@ -33,6 +33,40 @@
  * }
  */
 
+// ── 常量定义 ───────────────────────────────────────────
+
+export const EXECUTION_CONSTANTS = {
+  STATUS: {
+    COMPLETED: 'completed' as const,
+    FAILED: 'failed' as const,
+    PENDING: 'pending' as const,
+    SYSTEM_ERROR: 'system-error' as const
+  },
+  RETRY_CONFIG: {
+    DEFAULT_MAX_RETRIES: 2,
+    WORKFLOW_FETCH_MAX_RETRIES: 3,
+    BASE_DELAY_MS: 1000,
+    MAX_DELAY_MS: 5000
+  },
+  ERROR_TYPES: {
+    WORKFLOW_EXECUTION_ERROR: 'workflow-execution-error' as const,
+    DATABASE_CONNECTION_ERROR: 'database' as const,
+    AI_ENGINE_ERROR: 'ai' as const
+  },
+  METADATA_KEYS: {
+    ENGINE_TYPE: 'engineType' as const,
+    ORDER: 'order' as const,
+    SUCCESS: 'success' as const,
+    RETRIES: 'retries' as const,
+    FINAL_ERROR: 'finalError' as const,
+    UNEXPECTED_ERROR: 'unexpectedError' as const,
+    STEP_ID: 'stepId' as const,
+    USER_ID: 'userId' as const,
+    SESSION_ID: 'sessionId' as const,
+    CORRELATION_ID: 'correlationId' as const
+  }
+} as const;
+
 // ── 类型定义 ────────────────────────────────────────────
 
 export interface WorkflowStep {
@@ -56,7 +90,7 @@ export interface Workflow {
 export interface ExecutionResult {
   stepId: string;
   output: any;
-  status: 'completed' | 'failed' | 'pending';
+  status: typeof EXECUTION_CONSTANTS.STATUS.COMPLETED | typeof EXECUTION_CONSTANTS.STATUS.FAILED | typeof EXECUTION_CONSTANTS.STATUS.PENDING;
   error?: string;
   duration?: number;
   metadata?: Record<string, any>;
@@ -132,9 +166,9 @@ async function executeWorkflowStep(
       status: 'completed',
       duration: Date.now() - startTime,
       metadata: {
-        engineType: step.engineType,
-        order: step.order,
-        success: true
+        [EXECUTION_CONSTANTS.METADATA_KEYS.ENGINE_TYPE]: step.engineType,
+        [EXECUTION_CONSTANTS.METADATA_KEYS.ORDER]: step.order,
+        [EXECUTION_CONSTANTS.METADATA_KEYS.SUCCESS]: true
       }
     };
   } catch (error) {
@@ -163,9 +197,9 @@ async function executeWorkflowStep(
         },
         context,
         {
-          maxRetries: 2,
-          baseDelayMs: 1000,
-          maxDelayMs: 5000,
+          maxRetries: EXECUTION_CONSTANTS.RETRY_CONFIG.DEFAULT_MAX_RETRIES,
+          baseDelayMs: EXECUTION_CONSTANTS.RETRY_CONFIG.BASE_DELAY_MS,
+          maxDelayMs: EXECUTION_CONSTANTS.RETRY_CONFIG.MAX_DELAY_MS,
           retryCondition: (error) => {
             return !(error instanceof AppError && error.isOperational);
           },
@@ -183,13 +217,13 @@ async function executeWorkflowStep(
       return {
         stepId: step.id,
         output,
-        status: 'completed',
+        status: EXECUTION_CONSTANTS.STATUS.COMPLETED,
         duration: Date.now() - startTime,
         metadata: {
-          engineType: step.engineType,
-          order: step.order,
-          success: true,
-          retries: 2 // 标记为重试后成功
+          [EXECUTION_CONSTANTS.METADATA_KEYS.ENGINE_TYPE]: step.engineType,
+          [EXECUTION_CONSTANTS.METADATA_KEYS.ORDER]: step.order,
+          [EXECUTION_CONSTANTS.METADATA_KEYS.SUCCESS]: true,
+          retries: EXECUTION_CONSTANTS.RETRY_CONFIG.DEFAULT_MAX_RETRIES // 标记为重试后成功
         }
       };
     } catch (finalError) {
@@ -208,11 +242,11 @@ async function executeWorkflowStep(
         error: finalError instanceof Error ? finalError.message : String(finalError),
         duration: Date.now() - startTime,
         metadata: {
-          engineType: step.engineType,
-          order: step.order,
-          success: false,
-          retries: 2,
-          finalError: finalError instanceof Error ? finalError.constructor.name : String(finalError)
+          [EXECUTION_CONSTANTS.METADATA_KEYS.ENGINE_TYPE]: step.engineType,
+          [EXECUTION_CONSTANTS.METADATA_KEYS.ORDER]: step.order,
+          [EXECUTION_CONSTANTS.METADATA_KEYS.SUCCESS]: false,
+          retries: EXECUTION_CONSTANTS.RETRY_CONFIG.DEFAULT_MAX_RETRIES,
+          [EXECUTION_CONSTANTS.METADATA_KEYS.FINAL_ERROR]: finalError instanceof Error ? finalError.constructor.name : String(finalError)
         }
       };
     }
