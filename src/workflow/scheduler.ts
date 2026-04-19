@@ -21,11 +21,11 @@ export const generateWorkflowScheduler = async (workflow: Workflow): Promise<Wor
 
 const validateStep = (step: WorkflowStep): boolean => {
   if (!step.id || !step.name) {
-    console.error('Invalid step: missing id or name');
+    console.error(`Invalid step: missing ${!step.id ? 'id' : 'name'} - Step: ${JSON.stringify(step)}`);
     return false;
   }
   if (!Array.isArray(step.parameters) && step.parameters !== undefined) {
-    console.error('Invalid step: parameters must be an array');
+    console.error(`Invalid step: parameters must be an array, got ${typeof step.parameters} - Step: ${step.name}`);
     return false;
   }
   return true;
