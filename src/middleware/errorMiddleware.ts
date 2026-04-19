@@ -101,30 +101,31 @@ function updateCircuitBreakerState(service: string, error: Error): void {
 }
 
 /**
+ * 错误模式常量定义
+ */
+const CIRCUIT_BREAK_PATTERNS = [
+  // 系统级错误
+  'ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED',
+  // 数据库连接错误  
+  'database', 'connection', 'timeout',
+  // AI引擎错误
+  'AI_ENGINE_ERROR', 'external service'
+] as const;
+
+/**
+ * 检查错误消息是否包含触发熔断的关键词
+ */
+function containsCircuitBreakPattern(error: Error): boolean {
+  return CIRCUIT_BREAK_PATTERNS.some(pattern => 
+    error.message.includes(pattern)
+  );
+}
+
+/**
  * 判断是否应该触发熔断器
  */
 function shouldTriggerCircuitBreak(error: Error): boolean {
-  // 系统级错误触发熔断
-  if (error.message.includes('ECONNRESET') || 
-      error.message.includes('ETIMEDOUT') ||
-      error.message.includes('ECONNREFUSED')) {
-    return true;
-  }
-  
-  // 数据库连接错误
-  if (error.message.includes('database') || 
-      error.message.includes('connection') ||
-      error.message.includes('timeout')) {
-    return true;
-  }
-  
-  // AI引擎错误
-  if (error.message.includes('AI_ENGINE_ERROR') || 
-      error.message.includes('external service')) {
-    return true;
-  }
-  
-  return false;
+  return containsCircuitBreakPattern(error);
 }
 
 /**
