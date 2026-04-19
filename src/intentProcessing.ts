@@ -179,62 +179,66 @@ export async function executeWorkflow(workflow: Array<{step: string, action: str
 async function executeStep(step: {step: string, action: string, params: Record<string, any>}): Promise<string> {
   const { step: stepNumber, action, params } = step;
   
-  // 模拟不同类型的动作执行
-  const actionResults: Record<string, () => Promise<string>> = {
-    'collect_data': async () => {
-      return `✅ [步骤${stepNumber}] 已收集${params.category || '通用'}数据(${params.period || '月度'})`;
-    },
-    'process_data': async () => {
-      return `✅ [步骤${stepNumber}] 数据处理完成，格式化为${params.format}结构`;
-    },
-    'generate_report': async () => {
-      return `✅ [步骤${stepNumber}] 报告生成${params.include_charts ? '(包含图表)' : ''}`;
-    },
-    'validate_requirements': async () => {
-      return `✅ [步骤${stepNumber}] 需求验证通过(${params.strict ? '严格模式' : '标准模式'})`;
-    },
-    'prepare_template': async () => {
-      return `✅ [步骤${stepNumber}] 已准备${params.category || '通用'}模板`;
-    },
-    'execute_creation': async () => {
-      return `✅ [步骤${stepNumber}] 创建执行完成(${params.auto_save ? '已自动保存' : ''})`;
-    },
-    'gather_data': async () => {
-      return `✅ [步骤${stepNumber}] 数据收集完成(来源:${params.source}, 范围:${params.scope})`;
-    },
-    'analyze_patterns': async () => {
-      return `✅ [步骤${stepNumber}] 模式分析完成(深度:${params.depth}, 方法:${params.methods.join(',')})`;
-    },
-    'generate_insights': async () => {
-      return `✅ [步骤${stepNumber}] 洞察生成完成(格式:${params.format}, 建议:${params.recommendations ? '已生成' : '无'})`;
-    },
-    'fetch_current': async () => {
-      return `✅ [步骤${stepNumber}] 当前状态获取完成(${params.cache_buster ? '已刷新缓存' : ''})`;
-    },
-    'apply_changes': async () => {
-      return `✅ [步骤${stepNumber}] 变更应用完成(${params.backup ? '已备份' : ''}, ${params.validate ? '已验证' : ''})`;
-    },
-    'verify_changes': async () => {
-      return `✅ [步骤${stepNumber}] 变更验证完成(${params.consistency_check ? '一致性检查通过' : ''})`;
-    },
-    'confirm_target': async () => {
-      return `✅ [步骤${stepNumber}] 目标确认完成(${params.require_confirmation ? '已确认' : '跳过确认'})`;
-    },
-    'create_backup': async () => {
-      return `✅ [步骤${stepNumber}] 备份创建完成(位置:${params.location}, 保留:${params.retention})`;
-    },
-    'execute_deletion': async () => {
-      return `✅ [步骤${stepNumber}] 删除执行完成(${params.permanent ? '永久删除' : '软删除'})`;
-    },
-    'generic_process': async () => {
-      return `✅ [步骤${stepNumber}] 通用处理完成(输入: ${params.input.substring(0, 50)}...)`;
-    }
-  };
+  try {
+    // 模拟不同类型的动作执行
+    const actionResults: Record<string, () => Promise<string>> = {
+      'collect_data': async () => {
+        return `✅ [步骤${stepNumber}] 已收集${params.category || '通用'}数据(${params.period || '月度'})`;
+      },
+      'process_data': async () => {
+        return `✅ [步骤${stepNumber}] 数据处理完成，格式化为${params.format}结构`;
+      },
+      'generate_report': async () => {
+        return `✅ [步骤${stepNumber}] 报告生成${params.include_charts ? '(包含图表)' : ''}`;
+      },
+      'validate_requirements': async () => {
+        return `✅ [步骤${stepNumber}] 需求验证通过(${params.strict ? '严格模式' : '标准模式'})`;
+      },
+      'prepare_template': async () => {
+        return `✅ [步骤${stepNumber}] 已准备${params.category || '通用'}模板`;
+      },
+      'execute_creation': async () => {
+        return `✅ [步骤${stepNumber}] 创建执行完成(${params.auto_save ? '已自动保存' : ''})`;
+      },
+      'gather_data': async () => {
+        return `✅ [步骤${stepNumber}] 数据收集完成(来源:${params.source}, 范围:${params.scope})`;
+      },
+      'analyze_patterns': async () => {
+        return `✅ [步骤${stepNumber}] 模式分析完成(深度:${params.depth}, 方法:${params.methods.join(',')})`;
+      },
+      'generate_insights': async () => {
+        return `✅ [步骤${stepNumber}] 洞察生成完成(格式:${params.format}, 建议:${params.recommendations ? '已生成' : '无'})`;
+      },
+      'fetch_current': async () => {
+        return `✅ [步骤${stepNumber}] 当前状态获取完成(${params.cache_buster ? '已刷新缓存' : ''})`;
+      },
+      'apply_changes': async () => {
+        return `✅ [步骤${stepNumber}] 变更应用完成(${params.backup ? '已备份' : ''}, ${params.validate ? '已验证' : ''})`;
+      },
+      'verify_changes': async () => {
+        return `✅ [步骤${stepNumber}] 变更验证完成(${params.consistency_check ? '一致性检查通过' : ''})`;
+      },
+      'confirm_target': async () => {
+        return `✅ [步骤${stepNumber}] 目标确认完成(${params.require_confirmation ? '已确认' : '跳过确认'})`;
+      },
+      'create_backup': async () => {
+        return `✅ [步骤${stepNumber}] 备份创建完成(位置:${params.location}, 保留:${params.retention})`;
+      },
+      'execute_deletion': async () => {
+        return `✅ [步骤${stepNumber}] 删除执行完成(${params.permanent ? '永久删除' : '软删除'})`;
+      },
+      'generic_process': async () => {
+        return `✅ [步骤${stepNumber}] 通用处理完成(输入: ${params.input.substring(0, 50)}...)`;
+      }
+    };
 
-  // 执行对应动作
-  if (actionResults[action]) {
-    return await actionResults[action]();
-  } else {
-    return `⚠️ [步骤${stepNumber}] 未知动作: ${action}，使用默认处理`;
+    // 执行对应动作
+    if (actionResults[action]) {
+      return await actionResults[action]();
+    } else {
+      return `⚠️ [步骤${stepNumber}] 未知动作: ${action}，使用默认处理`;
+    }
+  } catch (error) {
+    return `❌ [步骤${stepNumber}] 执行失败: ${error instanceof Error ? error.message : '未知错误'}`;
   }
 }// test
