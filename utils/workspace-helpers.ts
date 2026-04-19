@@ -88,3 +88,11 @@ export function checkSystemHealth(): { status: 'healthy' | 'warning' | 'critical
     
     return { status, score: percentage, message };
 }
+
+export function quickStart(): string {
+    /**
+     * 快速开始工作流执行
+     * @returns 启动消息
+     */
+    return '🚀 AI工作流执行器已启动，准备处理您的指令！';
+}
