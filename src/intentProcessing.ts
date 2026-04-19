@@ -163,6 +163,19 @@ export async function executeWorkflow(workflow: Array<{step: string, action: str
  * @returns {Promise<string>} 返回步骤执行结果描述
  * @throws {Error} 当步骤执行失败时抛出异常
  */
+/**
+ * 单步执行函数 - 执行单个工作流步骤
+ * 
+ * 执行工作流中的单个步骤，支持多种动作类型。
+ * 实际项目中这里会连接到具体的AI引擎或服务。
+ * 
+ * @param {Object} step - 工作流步骤对象
+ * @param {string} step.step - 步骤编号
+ * @param {string} step.action - 动作类型
+ * @param {Record<string, any>} step.params - 动作参数
+ * @returns {Promise<string>} 返回步骤执行结果描述
+ * @throws {Error} 当步骤执行失败时抛出异常
+ */
 async function executeStep(step: {step: string, action: string, params: Record<string, any>}): Promise<string> {
   const { step: stepNumber, action, params } = step;
   
