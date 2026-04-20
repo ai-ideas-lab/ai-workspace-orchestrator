@@ -32,60 +32,80 @@ class DatabaseErrorHandler {
             context,
             stack: error.stack,
         });
-        switch (errorCode) {
-            case 'P2002':
+        return this.handlePrismaErrorByCode(error, context, meta);
+    }
+    static handlePrismaErrorByCode(error, context, meta) {
+        const errorCode = error.code;
+        const errorHandlers = {
+            'P2002': () => {
                 const field = meta?.target?.[0] || '字段';
                 return new errors_js_1.ValidationError(`${field}已存在，请使用其他值`, field, {
                     code: errorCode,
                     table: context.table,
                     target: meta?.target,
                 });
-            case 'P2003':
+            },
+            'P2003': () => {
                 const relationField = meta?.field_name || '关联字段';
                 return new errors_js_1.ValidationError(`关联的${relationField}不存在`, relationField, {
                     code: errorCode,
                     table: context.table,
                     relationField: meta?.field_name,
                 });
-            case 'P2025':
+            },
+            'P2025': () => {
                 const modelName = meta?.model_name || '记录';
                 return new errors_js_1.AppError(`${modelName}不存在`, 404, 'RECORD_NOT_FOUND', true, {
                     code: errorCode,
                     model: meta?.model_name,
                     cause: meta?.cause,
                 }, `请求的${modelName}不存在`);
-            case 'P2016':
-                const deletedModel = meta?.model_name || '记录';
-                return new errors_js_1.AppError(`${deletedModel}已被删除或不存在`, 404, 'RECORD_DELETED', true, {
+            },
+            'P2016': () => {
+                const modelName = meta?.model_name || '记录';
+                return new errors_js_1.AppError(`${modelName}已被删除或不存在`, 404, 'RECORD_DELETED', true, {
                     code: errorCode,
                     model: meta?.model_name,
-                }, `请求的${deletedModel}不存在或已被删除`);
-            case 'P2022':
+                }, `请求的${modelName}不存在或已被删除`);
+            },
+            'P2022': () => {
                 return new errors_js_1.SystemError('数据库连接失败', 'database', {
                     code: errorCode,
                     originalError: error.message,
                     context,
                 });
-            case 'P2001':
+            },
+            'P2001': () => {
                 return new errors_js_1.AppError('查询结果为空', 404, 'QUERY_EMPTY', true, {
                     code: errorCode,
                     table: context.table,
                 }, '未找到匹配的记录');
-            case 'P2010':
+            },
+            'P2010': () => {
                 return new errors_js_1.DatabaseError(`数据库查询错误: ${error.message}`, {
                     code: errorCode,
                     table: context.table,
                     query: context.query,
                     originalError: error.message,
                 });
-            default:
-                return new errors_js_1.DatabaseError(`数据库操作失败: ${error.message}`, {
+            },
+            'P2000': () => {
+                return new errors_js_1.DatabaseError(`数据库约束错误: ${error.message}`, {
                     code: errorCode,
                     table: context.table,
                     operation: context.operation,
                     originalError: error.message,
                 });
-        }
+            },
+        };
+        const handler = errorHandlers[errorCode] || this.createDefaultDatabaseError.bind(this);
+        return handler();
+    }
+    static createDefaultDatabaseError() {
+        return new errors_js_1.DatabaseError('数据库操作失败', {
+            code: 'UNKNOWN_PRISMA_ERROR',
+            operation: 'unknown',
+        });
     }
     static handleValidationError(error, context) {
         enhanced_error_logger_js_1.logger.error('Prisma验证错误:', {
@@ -137,11 +157,44 @@ class DatabaseErrorHandler {
             stack: error instanceof Error ? error.stack : undefined,
         });
     }
-    static wrapDatabaseOperation(operation, context) {
-        return operation().catch((error) => {
-            const appError = this.handlePrismaError(error, context);
-            throw appError;
-        });
+    static wrapDatabaseOperation(operation, context, options = {}) {
+        const { maxRetries = 3, baseDelayMs = 1000, maxDelayMs = 5000, fallbackValue } = options;
+        let attemptCount = 0;
+        const executeWithRetry = async () => {
+            try {
+                return await operation();
+            }
+            catch (error) {
+                attemptCount++;
+                const shouldRetry = this.isRetryableDatabaseError(error) && attemptCount < maxRetries;
+                if (shouldRetry) {
+                    const delay = Math.min(baseDelayMs * Math.pow(2, attemptCount - 1), maxDelayMs);
+                    console.warn(`数据库操作重试 ${attemptCount}/${maxRetries}: ${context.operation}`, {
+                        error: error instanceof Error ? error.message : String(error),
+                        delay,
+                        table: context.table,
+                        operation: context.operation
+                    });
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return executeWithRetry();
+                }
+                else {
+                    const appError = this.handlePrismaError(error, context);
+                    if (fallbackValue !== undefined) {
+                        console.error(`数据库操作失败，使用回退值: ${context.operation}`, {
+                            error: appError.message,
+                            table: context.table,
+                            operation: context.operation,
+                            attemptCount,
+                            fallbackUsed: true
+                        });
+                        return fallbackValue;
+                    }
+                    throw appError;
+                }
+            }
+        };
+        return executeWithRetry();
     }
     static async executeBatchWithPartialFailure(operations, overallContext) {
         const successes = [];

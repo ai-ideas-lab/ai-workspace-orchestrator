@@ -10,11 +10,18 @@ export interface DatabaseErrorContext {
 export declare class DatabaseErrorHandler {
     static handlePrismaError(error: unknown, context: DatabaseErrorContext): AppError;
     private static handleKnownPrismaError;
+    private static handlePrismaErrorByCode;
+    private static createDefaultDatabaseError;
     private static handleValidationError;
     private static handleRustPanicError;
     private static handleUnknownRequestError;
     private static handleGenericError;
-    static wrapDatabaseOperation<T>(operation: () => Promise<T>, context: DatabaseErrorContext): Promise<T>;
+    static wrapDatabaseOperation<T>(operation: () => Promise<T>, context: DatabaseErrorContext, options?: {
+        maxRetries?: number;
+        baseDelayMs?: number;
+        maxDelayMs?: number;
+        fallbackValue?: T;
+    }): Promise<T>;
     static executeBatchWithPartialFailure<T>(operations: Array<{
         id: string;
         operation: () => Promise<T>;

@@ -2,8 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const globals_1 = require("@jest/globals");
 const workflow_version_1 = require("../services/workflow-version");
-';;
-';;
 function makeWorkflow(id, steps) {
     return { id, name: `workflow-${id}`, steps };
 }

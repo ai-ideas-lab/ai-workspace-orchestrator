@@ -54,6 +54,7 @@ export declare class NotificationService {
     getNotifications(filter?: NotificationFilter): Notification[];
     markAsRead(notificationId: string): boolean;
     getUnreadCount(userId: string): number;
+    getNotificationsByUserAndStatus(userId: string, status: NotificationStatus): Notification[];
     addRule(rule: NotificationRule): void;
     getRules(): NotificationRule[];
     getStats(): {

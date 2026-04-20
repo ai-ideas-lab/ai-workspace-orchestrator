@@ -30,6 +30,8 @@ function decodeJWT(token, secret) {
     if (signature !== expectedSig)
         return null;
     try {
+        if (!body)
+            return null;
         const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf-8'));
         if (payload.exp < Math.floor(Date.now() / 1000))
             return null;

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-export declare const requestIdMiddleware: (req: any, res: any, next: any) => void;
-export declare function globalErrorHandler(err: Error, req: Request, res: Response, next: NextFunction): void;
+export declare function createRequestIdMiddleware(): any;
+export declare function globalErrorHandler(err: Error, req: any, res: any, next: NextFunction): void;
 export declare function notFoundHandler(req: Request, res: Response): void;
 export declare function methodNotAllowedHandler(req: Request, res: Response): void;
 export declare function asyncRouteHandler(fn: Function): (req: Request, res: Response, next: NextFunction) => void;

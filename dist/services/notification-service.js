@@ -128,6 +128,9 @@ class NotificationService {
     getUnreadCount(userId) {
         return this.notifications.filter((n) => n.userId === userId && n.status === 'delivered').length;
     }
+    getNotificationsByUserAndStatus(userId, status) {
+        return this.notifications.filter((n) => n.userId === userId && n.status === status).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    }
     addRule(rule) {
         this.rules.push(rule);
     }

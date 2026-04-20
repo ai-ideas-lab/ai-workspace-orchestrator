@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.requestIdMiddleware = void 0;
+exports.createRequestIdMiddleware = createRequestIdMiddleware;
 exports.globalErrorHandler = globalErrorHandler;
 exports.notFoundHandler = notFoundHandler;
 exports.methodNotAllowedHandler = methodNotAllowedHandler;
@@ -11,12 +11,54 @@ exports.setupWarningListener = setupWarningListener;
 exports.setupUnhandledAsyncErrorListener = setupUnhandledAsyncErrorListener;
 exports.setupGlobalErrorMonitoring = setupGlobalErrorMonitoring;
 const errors_js_1 = require("../utils/errors.js");
-const responseUtils_js_1 = require("../utils/responseUtils.js");
+function createRequestIdMiddleware() {
+    return (req, res, next) => {
+        req.requestId = req.requestId || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        next();
+    };
+}
 const error_aggregator_js_1 = require("../utils/error-aggregator.js");
-exports.requestIdMiddleware = (0, responseUtils_js_1.createRequestIdMiddleware)();
-const errorAggregator = error_aggregator_js_1.ErrorAggregator.getInstance();
+const circuit_breaker_js_1 = require("../services/circuit-breaker.js");
+const circuitBreakers = new Map();
+function getCircuitBreaker(service) {
+    if (!circuitBreakers.has(service)) {
+        circuitBreakers.set(service, new circuit_breaker_js_1.CircuitBreaker({
+            failureThreshold: 5,
+            resetTimeoutMs: 30000,
+            halfOpenMaxAttempts: 1,
+        }));
+    }
+    return circuitBreakers.get(service);
+}
+function updateCircuitBreakerState(service, error) {
+    const circuitBreaker = getCircuitBreaker(service);
+    if (shouldTriggerCircuitBreak(error)) {
+        circuitBreaker.recordFailure();
+        console.warn(`熔断器触发: ${service} 进入OPEN状态`);
+    }
+    else {
+        circuitBreaker.recordSuccess();
+    }
+}
+const CIRCUIT_BREAK_PATTERNS = [
+    'ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED',
+    'database', 'connection', 'timeout',
+    'AI_ENGINE_ERROR', 'external service'
+];
+function containsCircuitBreakPattern(error) {
+    return CIRCUIT_BREAK_PATTERNS.some(pattern => error.message.includes(pattern));
+}
+function shouldTriggerCircuitBreak(error) {
+    return containsCircuitBreakPattern(error);
+}
+function isServiceCircuited(service) {
+    const circuitBreaker = getCircuitBreaker(service);
+    return circuitBreaker.getState() === 'OPEN';
+}
 function globalErrorHandler(err, req, res, next) {
     const requestId = req.requestId || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const service = identifyServiceFromError(err, req);
+    updateCircuitBreakerState(service, err);
     const context = {
         path: req.path,
         method: req.method,
@@ -25,6 +67,8 @@ function globalErrorHandler(err, req, res, next) {
         userId: req.user?.id,
         sessionId: req.session?.id,
         requestId,
+        service,
+        circuitState: isServiceCircuited(service) ? 'OPEN' : 'CLOSED',
     };
     let severity = 'medium';
     if ((0, errors_js_1.isAppError)(err) && !err.isOperational) {
@@ -33,9 +77,13 @@ function globalErrorHandler(err, req, res, next) {
     else if (err.message.includes('critical') || err.message.includes('fatal')) {
         severity = 'critical';
     }
-    const errorId = errorAggregator.recordError(err, context, severity);
+    else if (isServiceCircuited(service)) {
+        severity = 'high';
+    }
+    const errorId = error_aggregator_js_1.errorAggregator.recordError(err, context, severity);
     res.setHeader('X-Error-ID', errorId);
-    logError(err, req, requestId, errorId);
+    res.setHeader('X-Circuit-State', circuitBreakers.get(service)?.getState() || 'CLOSED');
+    logError(err, req, requestId, errorId, service);
     if (res.headersSent) {
         return next(err);
     }
@@ -43,13 +91,40 @@ function globalErrorHandler(err, req, res, next) {
         handleAppError(err, res, requestId, errorId);
     }
     else {
-        handleGenericError(err, res, requestId, errorId);
+        handleGenericError(err, res, requestId, errorId, req);
     }
 }
-function logError(err, req, requestId, errorId) {
+function identifyServiceFromError(error, req) {
+    const path = req.path || '';
+    if (path.includes('/api/ai') || path.includes('/workflow')) {
+        return 'ai-engine';
+    }
+    if (path.includes('/api/database') || path.includes('/db')) {
+        return 'database';
+    }
+    if (path.includes('/api/auth') || path.includes('/login')) {
+        return 'auth';
+    }
+    if (path.includes('/api/queue') || path.includes('/request')) {
+        return 'request-queue';
+    }
+    if (error.message.includes('database') || error.message.includes('prisma')) {
+        return 'database';
+    }
+    if (error.message.includes('ai') || error.message.includes('engine')) {
+        return 'ai-engine';
+    }
+    if (error.message.includes('auth') || error.message.includes('token')) {
+        return 'auth';
+    }
+    return 'unknown';
+}
+function logError(err, req, requestId, errorId, service) {
     const errorInfo = {
         requestId,
         errorId,
+        service,
+        circuitState: service ? getCircuitBreaker(service).getState() : 'unknown',
         error: {
             name: err.name,
             message: err.message,
@@ -68,8 +143,12 @@ function logError(err, req, requestId, errorId) {
         },
         timestamp: new Date().toISOString(),
     };
+    const circuitState = service ? getCircuitBreaker(service).getState() : 'unknown';
     if ((0, errors_js_1.isErrorOperational)(err)) {
         console.warn('业务逻辑错误:', errorInfo);
+    }
+    else if (circuitState === 'OPEN') {
+        console.warn('系统错误(熔断中):', errorInfo);
     }
     else {
         console.error('系统错误:', errorInfo);
@@ -100,18 +179,37 @@ function handleAppError(err, res, requestId, errorId) {
     res.setHeader('X-Error-ID', errorId);
     res.status(statusCode).json(response);
 }
-function handleGenericError(err, res, requestId, errorId) {
+function handleGenericError(err, res, requestId, errorId, req) {
     const statusCode = 500;
     const isProduction = process.env.NODE_ENV === 'production';
+    const service = req ? identifyServiceFromError(err, req) : 'unknown';
+    const circuitState = service !== 'unknown' ? getCircuitBreaker(service).getState() : 'unknown';
+    let responseMessage = isProduction ? '服务器内部错误' : err.message;
+    let responseCode = 'INTERNAL_ERROR';
+    let statusCode_1 = statusCode;
+    if (circuitState === 'OPEN') {
+        responseMessage = service === 'ai-engine' ? 'AI服务暂时不可用，请稍后重试' :
+            service === 'database' ? '数据库服务暂时不可用，请稍后重试' :
+                '服务暂时不可用，请稍后重试';
+        responseCode = 'SERVICE_UNAVAILABLE';
+        statusCode_1 = 503;
+        const circuitBreaker = getCircuitBreaker(service);
+        const resetTime = circuitBreaker.getResetTime();
+        if (resetTime) {
+            responseMessage += `（预计${Math.ceil((resetTime - Date.now()) / 1000)}秒后恢复）`;
+        }
+    }
     const response = {
         success: false,
         error: {
-            code: 'INTERNAL_ERROR',
-            message: isProduction ? '服务器内部错误' : err.message,
+            code: responseCode,
+            message: responseMessage,
             details: isProduction ? undefined : {
                 name: err.name,
                 stack: err.stack,
                 originalError: err.message,
+                service,
+                circuitState,
             },
             requestId,
             errorId,
@@ -120,12 +218,15 @@ function handleGenericError(err, res, requestId, errorId) {
         meta: {
             timestamp: new Date().toISOString(),
             requestId,
+            service,
+            circuitState,
         },
     };
-    res.setHeader('X-Error-Code', 'INTERNAL_ERROR');
+    res.setHeader('X-Error-Code', responseCode);
     res.setHeader('X-Request-ID', requestId);
     res.setHeader('X-Error-ID', errorId);
-    res.status(statusCode).json(response);
+    res.setHeader('X-Circuit-State', circuitState);
+    res.status(statusCode_1).json(response);
 }
 function notFoundHandler(req, res) {
     const requestId = req.requestId || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
