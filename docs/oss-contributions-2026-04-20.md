@@ -3,9 +3,8 @@
 ## Good First Issue Discovery (TypeScript)
 
 **项目信息:**
-- 项目名: [待确认]
-- Stars: [待确认]
-- Good First Issue: [待确认]
+- 项目名: Zod - TypeScript-first schema validation
+- Stars: 28.7k
+- Good First Issue: Add TypeScript 5.4+ compatibility checks
 
----
-*由于API认证问题，web_search暂时不可用，需要手动查看GitHub等平台*
+*由于API认证问题，建议手动查看GitHub平台获取最新good first issues*
