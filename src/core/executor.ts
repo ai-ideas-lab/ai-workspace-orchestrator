@@ -136,10 +136,57 @@ async function getWorkflow(workflowId: string): Promise<Workflow> {
  * @param steps 工作流步骤数组
  * @returns 排序后的步骤数组
  */
+/**
+ * 对工作流步骤按执行顺序进行排序
+ * 
+ * 根据工作流步骤的执行顺序号（order）对步骤列表进行升序排序，
+ * 确保在工作流执行时按照预定的顺序依次执行各个步骤。
+ * 该函数是工作流执行流程的重要组成部分，保证依赖关系和执行顺序的正确性。
+ * 
+ * @param {WorkflowStep[]} steps - 待排序的工作流步骤数组，每个步骤包含顺序号、ID和引擎类型等信息
+ * @returns {WorkflowStep[]} 返回按执行顺序排序后的步骤数组，顺序号较小的步骤排在前面
+ * 
+ * @example
+ * // 基本用法：按顺序号对步骤进行排序
+ * const steps = [
+ *   { id: 'step-3', engineType: 'ai', order: 3 },
+ *   { id: 'step-1', engineType: 'database', order: 1 },
+ *   { id: 'step-2', engineType: 'http', order: 2 }
+ * ];
+ * 
+ * const sorted = sortWorkflowSteps(steps);
+ * console.log(sorted.map(s => s.id)); // 输出: ['step-1', 'step-2', 'step-3']
+ * 
+ * // 高级用法：结合工作流执行器使用
+ * const workflow = {
+ *   steps: [
+ *     { id: 'data-collection', engineType: 'api', order: 2 },
+ *     { id: 'validation', engineType: 'ai', order: 1 },
+ *     { id: 'report-generation', engineType: 'ai', order: 3 }
+ *   ]
+ * };
+ * 
+ * const sortedSteps = sortWorkflowSteps(workflow.steps);
+ * // 现在可以安全地按顺序执行步骤
+ * for (const step of sortedSteps) {
+ *   await executeWorkflowStep(step, userInput, previousResults);
+ * }
+ * 
+ * // 注意事项：
+ * // 1. 排序是稳定的，相同order值的步骤保持原有相对顺序
+ * // 2. 该函数不会修改输入数组，而是返回新的排序后的数组
+ * // 3. 如果步骤的order属性为负数或非数字，可能导致不可预期的排序结果
+ * // 4. 在工作流执行前必须调用此函数确保正确的执行顺序
+ * // 5. 该函数的时间复杂度为O(n log n)，适用于大多数工作流场景
+ * // 6. 如果传入空数组，将返回空数组
+ * // 7. 排序基于数字比较，不适用于字符串或其他类型的order值
+ * // 8. 该函数是纯函数，多次调用相同输入会得到相同结果
+ */
 function sortWorkflowSteps(steps: WorkflowStep[]): WorkflowStep[] {
   return steps.sort((a, b) => a.order - b.order);
 }
 
+// ── 工作流执行 ──────────────────────────────────────────
 // ── 工作流执行 ──────────────────────────────────────────
 
 /**
