@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-04-16T20:22:00+08:00",
+  "normalItems": 4,
+  "fixedItems": 0,
+  "issues": [
+    "网络连通性: GitHub HTTP访问失败，DNS正常",
+    "Cron任务: 6个任务处于error状态，需要检查consecutiveErrors"
+  ],
+  "systemHealth": 7,
+  "summary": "✅4项正常 🔧0项修复 ⚠️2项需人工介入 📊7分"
+}

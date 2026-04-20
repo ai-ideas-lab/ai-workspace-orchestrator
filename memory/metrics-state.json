@@ -1,0 +1,43 @@
+{
+  "lastUpdate": "2026-04-13T10:20:00Z",
+  "analysisType": "cron_project_metrics",
+  "projectMetrics": {
+    "ai-workspace-orchestrator": {
+      "commits_24h": 0,
+      "commits_7d": 129,
+      "insertions_7d": 63999,
+      "deletions_7d": 0,
+      "status": "high-activity"
+    },
+    "ai-gardening-designer": {
+      "commits_24h": 0,
+      "commits_7d": 5,
+      "insertions_7d": 4,
+      "deletions_7d": 0,
+      "status": "maintenance"
+    },
+    "openclaws-main": {
+      "commits_24h": 0,
+      "commits_7d": 77,
+      "insertions_7d": 128,
+      "deletions_7d": 0,
+      "status": "stable"
+    }
+  },
+  "summary": {
+    "total_commits_24h": 0,
+    "total_commits_7d": 211,
+    "total_insertions_7d": 64131,
+    "average_commits_per_day": 30.14,
+    "high_activity_projects": 1,
+    "maintenance_projects": 1,
+    "stable_projects": 1,
+    "security_issues_detected": 0
+  },
+  "recommendations": [
+    "高优先级项目需要人力支持",
+    "建议建立每日最小提交标准",
+    "新增代码需要质量审查机制"
+  ],
+  "nextAnalysis": "2026-04-15T10:20:00Z"
+}
