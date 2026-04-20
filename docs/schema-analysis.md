@@ -1,1 +1,1 @@
-ai-workspace-orchestrator: No database schema found (Prisma dependency present but no .prisma directory) - 2026-04-19
+ai-workspace-orchestrator: User, Workflow, WorkflowExecution - 2026-04-20
