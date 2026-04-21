@@ -21,7 +21,29 @@ import { logger } from './utils/logger.js';
 import { WorkflowService } from './services/workflow-scheduler.js';
 import { EventBus } from './services/event-bus.js';
 
-// 辅助函数：格式化运行时间
+/**
+ * 格式化运行时间为可读字符串
+ * 
+ * 将秒数转换为易读的时间格式，支持小时、分钟、秒的自动组合显示
+ * @param {number} seconds - 要格式化的秒数（必须为非负数）
+ * @returns {string} 格式化后的时间字符串，格式为：
+ *   - HHh MMm Ss（当小时数 > 0时）
+ *   - MMm Ss（当分钟数 > 0但小时数为0时）
+ *   - Ss（当秒数 > 0但分钟数和小时数都为0时）
+ * @example
+ * // 完整时间格式
+ * formatUptime(3661); // 返回 "1h 1m 1s"
+ * 
+ * // 仅分钟和秒
+ * formatUptime(125); // 返回 "2m 5s"
+ * 
+ * // 仅秒数
+ * formatUptime(30); // 返回 "30s"
+ * 
+ * // 边界情况
+ * formatUptime(0); // 返回 "0s"
+ * formatUptime(3600); // 返回 "1h 0m 0s"
+ */
 function formatUptime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
