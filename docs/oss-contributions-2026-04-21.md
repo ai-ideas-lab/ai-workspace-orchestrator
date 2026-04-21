@@ -1,8 +1,7 @@
 # OSS Contributions - 2026-04-21
 
-## 项目推荐
-- **项目名**: NestJS
-- **Stars**: 65,234
-- **Good First Issue**: Improve TypeScript error messages for validation decorators
+## Project: Vite
+**Stars**: 66.8k
+**Good First Issue**: "Add TypeScript declaration file for `import.meta.env` helpers"
 
-这个issue适合新手，需要改善装饰器的错误提示信息，涉及TypeScript类型系统和用户体验优化。
+This would help users who want to use environment helpers with better TypeScript support and autocomplete, making it easier for newcomers to contribute to the ecosystem.
