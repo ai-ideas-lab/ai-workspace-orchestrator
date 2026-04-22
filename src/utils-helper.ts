@@ -28,15 +28,19 @@ export function formatFileSize(bytes: number, decimals: number = 2): string {
     throw new TypeError('Bytes must be a valid number');
   }
   
-  if (bytes === 0) return '0B';
+  // Handle 0 bytes case
+  if (bytes === 0) {
+    return '0B';
+  }
   
   const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
   
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  // For bytes (B), don't show decimals
+  const dm = i === 0 ? 0 : Math.max(0, decimals);
   
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + sizes[i];
+  return `${(bytes / Math.pow(k, i)).toFixed(dm)}${sizes[i]}`;
 }
 
 /**
@@ -70,7 +74,7 @@ export function debounce<T extends (...args: any[]) => any>(func: T, wait: numbe
   return ((...args: any[]) => {
     clearTimeout(timeout);
     timeout = setTimeout(() => {
-      func.apply(this, args);
+      func(...args);
     }, wait);
   }) as T;
 }
