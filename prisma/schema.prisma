@@ -1,0 +1,81 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      String   @default("user")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  workflows        Workflow[]
+  workflowExecutions WorkflowExecution[]
+  dashboardAlerts  DashboardAlert[]
+  
+  @@map("users")
+}
+
+model Workflow {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      String   @default("draft")
+  config      String   // JSON configuration for workflow
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user           User           @relation(fields: [userId], references: [id])
+  executions     WorkflowExecution[]
+  
+  @@map("workflows")
+}
+
+model WorkflowExecution {
+  id          String   @id @default(cuid())
+  workflowId  String
+  status      String   @default("pending")
+  input       String?  // JSON input data
+  output      String?  // JSON output data
+  error       String?
+  startTime   DateTime?
+  endTime     DateTime?
+  duration    Int?     // Duration in milliseconds
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  workflow   Workflow   @relation(fields: [workflowId], references: [id])
+  user       User       @relation(fields: [userId], references: [id])
+  
+  @@map("workflow_executions")
+}
+
+model DashboardAlert {
+  id          String   @id @default(cuid())
+  title       String
+  message     String
+  type        String   @default("info") // info, warning, error, success
+  userId      String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id])
+  
+  @@map("dashboard_alerts")
+}

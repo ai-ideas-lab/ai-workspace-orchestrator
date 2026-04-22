@@ -1,1 +1,1 @@
-ai-workspace-orchestrator: No database schema found
+ai-workspace-orchestrator: User, Workflow, WorkflowExecution, DashboardAlert
