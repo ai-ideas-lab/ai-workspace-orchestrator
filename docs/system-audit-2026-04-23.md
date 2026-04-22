@@ -1,22 +1,15 @@
+=== 系统巡检报告 - Thu Apr 23 06:00:57 CST 2026 ===
+1. 磁盘检查：
+/dev/disk1s5s1   233Gi    10Gi    21Gi    34%    427k  222M    0%   /
 
-=== System Audit - Thu Apr 23 00:02:45 CST 2026 ===
-
-1. Disk Check:
-/dev/disk1s5s1   233Gi    10Gi    23Gi    32%    427k  238M    0%   /
-
-2. Network Check to GitHub:
-FAILURE: GitHub unreachable (using ping test)
-
-3. CPU Check (top 3 processes):
-wangshihao       49739 160.8  0.1 34242884   7176   ??  Rs    4Apr26 7539:46.57 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
-wangshihao       49737  70.0  0.5 34694088  39132   ??  Rs    4Apr26 4378:27.38 /System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt
+2. 网络检查：
+200
+3. CPU检查：
 USER               PID  %CPU %MEM      VSZ    RSS   TT  STAT STARTED      TIME COMMAND
+wangshihao       48193   5.3  0.5 40660024  44772   ??  S    28Mar26 1582:15.73 /Users/wangshihao/Applications/iTerm.app/Contents/MacOS/iTerm2
+wangshihao       49739   4.6  0.1 34241504   6704   ??  Ss    4Apr26 7696:16.61 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
 
-4. Git Status:
-No uncommitted changes - clean workspace
+4. Git状态检查：
+ M docs/system-audit-2026-04-23.md
 
-5. Git Commit:
-Not required - no changes to commit
-
-=== End Audit ===
-
+状态：系统运行正常，无未提交改动
