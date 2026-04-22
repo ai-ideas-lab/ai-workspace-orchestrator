@@ -1,0 +1,1 @@
+{"version":3,"file":"quick-helper.js","sourceRoot":"","sources":["../../src/utils/quick-helper.ts"],"names":[],"mappings":";;AAMA,kCAEC;AAQD,sCAEC;AAZD,SAAgB,WAAW,CAAC,KAAa;IACvC,OAAO,KAAK,CAAC,IAAI,EAAE,CAAC,OAAO,CAAC,MAAM,EAAE,GAAG,CAAC,CAAC;AAC3C,CAAC;AAQD,SAAgB,aAAa,CAAC,KAAa;IACzC,OAAO,KAAK,CAAC,MAAM,GAAG,CAAC,IAAI,KAAK,CAAC,MAAM,GAAG,IAAI,CAAC;AACjD,CAAC"}

@@ -1,2 +1,2 @@
-export declare function coordinateTask(task: Task, agents: Agent[]): TaskResult;
+export {};
 //# sourceMappingURL=coordination.d.ts.map
