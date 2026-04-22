@@ -35,4 +35,4 @@ export function generateRandomId(length: number = 8): string {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return result;
-}
+}// Dummy line for git test
