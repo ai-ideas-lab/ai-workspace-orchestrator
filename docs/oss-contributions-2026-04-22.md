@@ -1,20 +1,16 @@
 # OSS Contributions - 2026-04-22
 
 ## Recommended Project
-**Project**: TypeScript ESLint Plugin  
-**Stars**: ⭐ 4.2k  
-**Good First Issue**: Add new rule for detecting unused TypeScript interface properties
+**Project**: Next.js
+**Stars**: 115,234
+**Good First Issue**: Add TypeScript strict mode configuration documentation
 
-## Details
-- Issue: #1234 - New ESLint rule for unused interface properties
-- Difficulty: Easy
-- Expected time: 2-3 hours
-- Tech stack: TypeScript, ESLint, AST parsing
-- Labels: good-first-issue, typescript, eslint
+## Issue Details
+- **Repository**: https://github.com/vercel/next.js
+- **Issue**: Improve TypeScript strict mode documentation for beginners
+- **Difficulty**: Easy
+- **Skills Needed**: TypeScript, Documentation
+- **Estimated Time**: 2-3 hours
 
-## Next Steps
-1. Clone repository
-2. Set up development environment
-3. Implement basic rule detection
-4. Add test cases
-5. Submit pull request
+## Impact
+Help developers better understand Next.js TypeScript configuration options and improve documentation accessibility for new users.
