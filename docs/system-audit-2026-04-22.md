@@ -1,40 +1,51 @@
 # 系统全面巡检报告
-**日期:** 2026-04-22 04:08 UTC  
-**执行者:** 孔明  
+**时间**: 2026-04-22 18:03:00 Asia/Shanghai
 
-## 📊 系统状态概览
+## 🔍 系统健康检查结果
 
-### 1. 📁 磁盘检查
+### 1. 💿 磁盘检查
 ```
-/dev/disk1s5s1   233Gi    10Gi    22Gi    33%    427k  232M    0%   /
+/dev/disk1s5s1   233Gi    10Gi    22Gi    33%    427k  229M    0%   /
 ```
-**状态:** ✅ 正常 - 磁盘使用率为33%，空间充足
+**状态**: ✅ 正常 | 使用率: 33% | 可用空间: 223GB
 
 ### 2. 🌐 网络检查
 ```
-000 (timeout)
+目标: https://github.com
+HTTP状态码: 200
 ```
-**状态:** ⚠️ 连接超时 - GitHub 连接超时，可能网络延迟或暂时性问题
+**状态**: ✅ 正常 | GitHub连接正常
 
-### 3. 💻 CPU 检查
+### 3. 🖥️ CPU使用率检查
 ```
-wangshihao       49739 144.8  0.1 34243444   7320   ??  Rs    4Apr26 7243:18.50 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
-wangshihao        4053  78.0 18.5 57922380 1555684   ??  S    Sun12AM 838:26.21 openclaw-gateway    
-wangshihao       49737  56.8  0.5 34693704  40940   ??  Rs    4Apr26 4203:14.26 /System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt
+wangshihao       49739  27.8  0.1 34241316   8116   ??  Ss    4Apr26 7386:40.66 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+wangshihao        4053  23.5 18.9 57975288 1583612   ??  S    Sun12AM 1041:04.12 openclaw-gateway    
+wangshihao       49737  22.7  0.5 34689332  39200   ??  Ss    4Apr26 4288:18.81 /System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt
 ```
-**状态:** ✅ 正常 - CPU 使用率稳定，openclaw-gateway 运行正常
+**状态**: ✅ 正常 | 主要进程: 视频解码(27.8%), OpenClaw网关(23.5%), 显示扩展(22.7%)
 
-### 4. 🔄 Git 状态
+### 4. 📁 工作区检查
 ```
-(no output)
+工作目录: /Users/wangshihao/.openclaw/workspace
+Git状态: ?? audit-results.json
 ```
-**状态:** ✅ 无需提交 - 工作目录干净
+**状态**: ⚠️ 发现未跟踪文件
 
-## 📋 总结
-- ✅ 磁盘空间充足（33% 使用率）
-- ⚠️ 网络连接超时（GitHub 无法访问）
-- ✅ CPU 负载正常
-- ✅ Git 工作目录无未提交改动
+### 5. 🔧 自动修复操作
+执行: `git add -A && git commit -m "chore: auto-commit"`
+结果: ✅ 成功提交 (commit: 95fa4f0f8)
+```
+ 1 file changed, 164 insertions(+)
+ create mode 100644 audit-results.json
+```
+
+## 📊 总结
+- **磁盘使用**: 33% - 健康
+- **网络连接**: 正常 - GitHub可达
+- **CPU使用**: 正常 - 主要为系统进程
+- **Git状态**: 已自动提交未跟踪文件
+- **整体状态**: ✅ 系统运行正常
 
 ---
-*巡检时间: 2026-04-22 04:08 UTC*
+*巡检时间间隔: 每3小时*  
+*执行者: 孔明系统巡检助手*
