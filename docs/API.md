@@ -236,31 +236,55 @@ Authorization: Bearer <your-jwt-token>
 
 **POST** `/api/workflows/:id/execute`
 
-执行指定ID的工作流。
+执行指定ID的工作流，支持变量注入和优先级设置。
 
 **请求体:**
 ```json
 {
-  "variables": {
-    "input_param": "value"
+  "inputVariables": {
+    "data_source": "database",
+    "query": "SELECT * FROM users",
+    "output_file": "/tmp/output.csv"
   },
-  "priority": 5
+  "priority": 1,
+  "timeout": 30000
 }
 ```
+
+**参数说明:**
+- `inputVariables` (object): 工作流执行变量，用于配置工作流各个步骤的输入参数
+  - 键值对形式，键为变量名，值为对应的变量值
+- `priority` (number, optional): 执行优先级，默认为5（1-10，1为最高优先级）
+- `timeout` (number, optional): 超时时间（毫秒），默认为30000（30秒）
 
 **响应示例:**
 ```json
 {
   "success": true,
-  "message": "工作流执行成功",
+  "message": "工作流执行启动成功",
   "data": {
-    "executionId": "exec-123",
-    "workflowId": "workflow-123",
+    "executionId": "exec-123456",
+    "workflowId": "workflow-789",
     "status": "RUNNING",
-    "startedAt": "2026-04-15T20:45:00.000Z"
+    "priority": 1,
+    "timeout": 30000,
+    "inputVariables": {
+      "data_source": "database",
+      "query": "SELECT * FROM users",
+      "output_file": "/tmp/output.csv"
+    },
+    "startedAt": "2026-04-23T16:03:00.000Z",
+    "estimatedDuration": "2-5分钟"
   }
 }
 ```
+
+**状态码:**
+- `202 Accepted`: 工作流已接受并开始执行
+- `400 Bad Request`: 请求参数错误
+- `404 Not Found`: 工作流不存在
+- `409 Conflict`: 工作流状态不允许执行（如DRAFT状态）
+- `429 Too Many Requests`: 系统负载过高，暂不接收新任务
 
 ### 获取执行历史
 
