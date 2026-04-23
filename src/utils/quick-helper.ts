@@ -17,3 +17,6 @@ export function quickFormat(input: string): string {
 export function quickValidate(input: string): boolean {
   return input.length > 0 && input.length < 1000;
 }
+export function quickSum(numbers: number[]): number {
+  return numbers.reduce((acc, num) => acc + num, 0);
+}
