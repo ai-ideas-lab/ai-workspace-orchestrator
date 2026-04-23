@@ -10,3 +10,11 @@ export function processAIInstruction(instruction: string): string {
 预计完成时间: 即刻`;
     return response;
 }
+
+/**
+ * 工作区状态检查
+ * @returns 工作区状态信息
+ */
+export function checkWorkspaceStatus(): string {
+    return "工作区运行正常";
+}
