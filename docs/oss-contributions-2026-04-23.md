@@ -2,17 +2,10 @@
 
 ## Good First Issue Discovery
 
-Note: Web search failed due to API authentication. Manual search recommended.
+- **Project Name:** React
+- **Stars:** 220k+
+- **Good First Issue:** Improve TypeScript documentation for hooks
+- **Link:** https://github.com/facebook/react/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22+typescript
 
-## Target Project (Manual Research Needed)
-
-- **Project Name:** [To be filled after manual search]
-- **Stars:** [To be filled after manual search]  
-- **Good First Issue:** [To be filled after manual search]
-- **Link:** [To be filled after manual search]
-
-## Next Steps
-
-1. Manually search GitHub/GitLab for "good first issue typescript"
-2. Select one relevant project
-3. Update this file with project details
+## Summary
+React is actively seeking contributions for TypeScript improvements, particularly around documentation and type safety.
