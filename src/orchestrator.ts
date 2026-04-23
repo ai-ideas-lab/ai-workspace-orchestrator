@@ -110,3 +110,6 @@ export async function orchestrator(userRequest: string): Promise<string> {
     ? `任务执行成功: ${result.message}`
     : `任务执行失败: ${result.error}`;
 }
+export function getWorkflowStatus(): string {
+  return '运行中';
+}
