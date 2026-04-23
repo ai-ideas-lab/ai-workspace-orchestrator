@@ -337,17 +337,46 @@ Authorization: Bearer <your-jwt-token>
 }
 ```
 
-### 获取执行路径
+### 获取执行路径（新）
 
 **POST** `/api/workflows/execution-path`
 
-获取工作流的执行路径预览。
+预览工作流的执行路径，帮助用户理解工作流的执行流程和各步骤关系。
+
+**用途:**
+- 在执行前验证工作流配置
+- 理解工作流的执行顺序和依赖关系
+- 估算工作流执行时间
+- 识别潜在的执行冲突
 
 **请求体:**
 ```json
 {
-  "config": {...},
-  "variables": {...}
+  "config": {
+    "steps": [
+      {
+        "id": "data-collection",
+        "type": "data_collection",
+        "next": ["data-processing"],
+        "timeout": 30000
+      },
+      {
+        "id": "data-processing", 
+        "type": "ai_processing",
+        "next": ["result-export"],
+        "timeout": 60000
+      },
+      {
+        "id": "result-export",
+        "type": "file_export",
+        "timeout": 15000
+      }
+    ],
+    "variables": {
+      "api_key": "your_api_key",
+      "target_file": "/tmp/output.csv"
+    }
+  }
 }
 ```
 
@@ -357,18 +386,57 @@ Authorization: Bearer <your-jwt-token>
   "success": true,
   "message": "获取执行路径成功",
   "data": {
-    "steps": [
-      {
-        "id": "step-1",
-        "name": "数据收集",
-        "type": "data_collection",
-        "next": ["step-2"]
-      }
-    ],
-    "estimatedDuration": "5分钟"
+    "executionPath": {
+      "start": "data-collection",
+      "steps": [
+        {
+          "id": "data-collection",
+          "name": "数据收集",
+          "type": "data_collection",
+          "duration": "30秒",
+          "dependencies": [],
+          "next": ["data-processing"]
+        },
+        {
+          "id": "data-processing",
+          "name": "AI数据处理", 
+          "type": "ai_processing",
+          "duration": "1分钟",
+          "dependencies": ["data-collection"],
+          "next": ["result-export"]
+        },
+        {
+          "id": "result-export",
+          "name": "结果导出",
+          "type": "file_export",
+          "duration": "15秒",
+          "dependencies": ["data-processing"],
+          "next": []
+        }
+      ],
+      "criticalPath": ["data-collection", "data-processing", "result-export"],
+      "totalEstimatedDuration": "2分45秒"
+    },
+    "validation": {
+      "isValid": true,
+      "hasCycles": false,
+      "orphanedSteps": [],
+      "warnings": [
+        "建议为数据处理步骤添加重试机制"
+      ]
+    }
   }
 }
 ```
+
+**参数说明:**
+- `config` (object): 工作流配置，包含steps数组和variables对象
+  - `steps`: 工作流步骤数组，每个步骤包含id、type、next等属性
+  - `variables`: 工作流变量定义
+
+**返回值:**
+- `executionPath`: 执行路径详情
+- `validation`: 验证结果，包含循环检测、孤立步骤等信息
 
 ### 导出工作流
 
@@ -453,5 +521,5 @@ API使用标准的HTTP状态码和错误响应格式：
 ## 版本信息
 
 - **当前版本**: 1.0.0
-- **最后更新**: 2026-04-15
+- **最后更新**: 2026-04-24
 - **维护者**: 孔明
