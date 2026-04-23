@@ -1,1 +1,1 @@
-npm test results: 19 failed, 104 passed, 19 test suites failed, 3 passed - 2026-04-18
+Bug Check - 2026-04-23: 22/25 test suites failed (21/140 tests failed), 119 tests passed in 9.923s
