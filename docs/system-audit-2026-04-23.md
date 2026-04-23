@@ -1,15 +1,25 @@
-=== 系统巡检报告 - Thu Apr 23 06:00:57 CST 2026 ===
-1. 磁盘检查：
-/dev/disk1s5s1   233Gi    10Gi    21Gi    34%    427k  222M    0%   /
+# System Health Audit - 2026-04-23 12:06:22
+## 系统状态报告
 
-2. 网络检查：
-200
-3. CPU检查：
+### 1. 磁盘使用情况
+```
+/dev/disk1s5s1   233Gi    10Gi    20Gi    35%    427k  211M    0%   /
+```
+
+### 2. 网络连接状态
+GitHub HTTP状态码: 200
+✅ 网络连接正常
+
+### 3. CPU使用情况 (Top 3进程)
+```
+root             24312  90.4  0.2 33769316  17132   ??  R    12:06PM   0:01.00 /Library/Apple/System/Library/CoreServices/XProtect.app/Contents/MacOS/XProtectRemediatorRoachFlight BEFE4DE2-1227-4973-ABED-CDFFA6906984
 USER               PID  %CPU %MEM      VSZ    RSS   TT  STAT STARTED      TIME COMMAND
-wangshihao       48193   5.3  0.5 40660024  44772   ??  S    28Mar26 1582:15.73 /Users/wangshihao/Applications/iTerm.app/Contents/MacOS/iTerm2
-wangshihao       49739   4.6  0.1 34241504   6704   ??  Ss    4Apr26 7696:16.61 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+_trustd          83495   7.0  0.1 33786360   7616   ??  Ss   28Mar26  57:25.31 /usr/libexec/trustd
+```
 
-4. Git状态检查：
+### 4. Git仓库状态
+⚠️ 发现未提交的改动:
+```
  M docs/system-audit-2026-04-23.md
-
-状态：系统运行正常，无未提交改动
+```
+### 5. 自动提交改动
