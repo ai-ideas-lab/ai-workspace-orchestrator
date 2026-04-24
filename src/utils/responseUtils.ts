@@ -341,4 +341,4 @@ export function createResponseInterceptor() {
 
     next();
   };
-}
+}// perf optimization
