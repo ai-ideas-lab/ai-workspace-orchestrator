@@ -20,3 +20,6 @@ export function quickValidate(input: string): boolean {
 export function quickSum(numbers: number[]): number {
   return numbers.reduce((acc, num) => acc + num, 0);
 }
+export function isValidIdentifier(input: string): boolean {
+  return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(input.trim());
+}
