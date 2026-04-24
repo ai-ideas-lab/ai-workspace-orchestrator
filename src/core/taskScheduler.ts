@@ -75,6 +75,51 @@ export async function scheduleAITasks(tasks: Array<{
   return schedule;
 }
 
+/**
+ * 计算任务总执行时长 - 汇总所有任务的预计执行时间
+ * 
+ * 遍历任务数组，累加每个任务的预计执行时长，返回所有任务的总执行时间。
+ * 该函数可用于评估工作流的整体执行时间或批量处理的时间成本估算。
+ * 
+ * @param {Array<{ id: string; priority: number; aiEngine: string; estimatedDuration: number }>} tasks - 任务数组，
+ * 每个任务包含ID、优先级、AI引擎类型和预计执行时长（毫秒）
+ * @returns {number} 返回所有任务的总执行时长（毫秒），如果传入空数组则返回0
+ * 
+ * @example
+ * // 计算单任务时长
+ * const singleTask = [{ id: 'task-1', priority: 8, aiEngine: 'gpt-4', estimatedDuration: 3000 }];
+ * const total = calculateTotalDuration(singleTask);
+ * console.log(total); // 输出: 3000
+ * 
+ * @example
+ * // 计算多任务总时长
+ * const multipleTasks = [
+ *   { id: 'task-1', priority: 5, aiEngine: 'claude', estimatedDuration: 2000 },
+ *   { id: 'task-2', priority: 8, aiEngine: 'gpt-4', estimatedDuration: 5000 },
+ *   { id: 'task-3', priority: 3, aiEngine: 'gemini', estimatedDuration: 3000 }
+ * ];
+ * const totalDuration = calculateTotalDuration(multipleTasks);
+ * console.log(totalDuration); // 输出: 10000 (10秒总时长)
+ * 
+ * @example
+ * // 空数组处理
+ * const emptyResult = calculateTotalDuration([]);
+ * console.log(emptyResult); // 输出: 0
+ * 
+ * @example
+ * // 时长转换显示
+ * const tasks = [
+ *   { id: 'analyze', aiEngine: 'gpt-4', estimatedDuration: 60000 }, // 1分钟
+ *   { id: 'summarize', aiEngine: 'claude', estimatedDuration: 120000 }, // 2分钟
+ *   { id: 'translate', aiEngine: 'gemini', estimatedDuration: 45000 } // 45秒
+ * ];
+ * const totalMs = calculateTotalDuration(tasks);
+ * const totalSeconds = Math.round(totalMs / 1000);
+ * const totalMinutes = Math.floor(totalSeconds / 60);
+ * const remainingSeconds = totalSeconds % 60;
+ * console.log(`预计总时长: ${totalMinutes}分${remainingSeconds}秒`);
+ * // 输出示例: 预计总时长: 3分45秒
+ */
 export function calculateTotalDuration(tasks: Array<{
   id: string;
   priority: number;
