@@ -103,12 +103,17 @@ export function validateUserRequest(userRequest: string): boolean {
  * // 应该抛出 TypeError: userRequest must be a string
  */
 export async function orchestrator(userRequest: string): Promise<string> {
-  const parsed = await parseIntent(userRequest);
-  const workflow = await generateWorkflow(parsed);
-  const result = await executeWorkflow(workflow);
-  return result.status === 'success' 
-    ? `任务执行成功: ${result.message}`
-    : `任务执行失败: ${result.error}`;
+  try {
+    const parsed = await parseIntent(userRequest);
+    const workflow = await generateWorkflow(parsed);
+    const result = await executeWorkflow(workflow);
+    return result.status === 'success' 
+      ? `任务执行成功: ${result.message}`
+      : `任务执行失败: ${result.error}`;
+  } catch (error) {
+    console.error('工作流执行异常:', error);
+    return `任务执行失败: ${error instanceof Error ? error.message : '未知错误'}`;
+  }
 }
 export function getWorkflowStatus(): string {
   return '运行中';
