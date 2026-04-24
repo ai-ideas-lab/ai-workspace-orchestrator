@@ -1,58 +1,51 @@
-# 系统巡检报告 - 2026-04-24 06:02
+# System Audit Report - 2026-04-24 12:10 PM (Asia/Shanghai)
 
 ## 执行时间
-2026-04-24 06:02:00 (Asia/Shanghai)
+- **时间**: 2026-04-24 12:10 PM (Asia/Shanghai)
+- **执行者**: 孔明
 
-## 巡检项目
+## 检查结果
 
 ### 1. 磁盘检查
 ```
-/dev/disk1s5s1   233Gi    10Gi    20Gi    35%    427k  210M    0%   /
+/dev/disk1s5s1   233Gi    10Gi    20Gi    35%    427k  209M    0%   /
 ```
-**状态**: ✅ 正常
-- 总容量: 233Gi
-- 已使用: 10Gi
-- 可用: 20Gi  
-- 使用率: 35% (低于80%警戒线)
+- 总容量: 233GB
+- 已使用: 10GB  
+- 可用: 20GB
+- 使用率: 35%
+- 状态: 正常
 
-### 2. 网络检查 (GitHub)
+### 2. 网络检查
 ```
-curl 返回状态码: 000
-错误代码: 28 (连接超时)
+https://github.com: 200
 ```
-**状态**: ❌ 异常
-- GitHub连接超时，可能存在网络问题
+- GitHub连接状态: 正常 (HTTP 200)
+- 状态: 可达
 
-### 3. CPU使用率检查
+### 3. CPU检查
 ```
+wangshihao       75455  83.8  0.1 33764036   8676   ??  R    12:10PM   0:13.16 /Library/Apple/System/Library/CoreServices/XProtect.app/Contents/MacOS/XProtectRemediatorMRTv3 EC287C92-0AF1-4F95-8780-CC9781A6C21C
+wangshihao       98308  12.8 18.3 57857388 1537776   ??  S    Wed07PM 248:48.18 openclaw-gateway    
 USER               PID  %CPU %MEM      VSZ    RSS   TT  STAT STARTED      TIME COMMAND
-wangshihao       98308   9.8 18.7 57817164 1565200   ??  S    Wed07PM 179:22.50 openclaw-gateway    
-root               134   3.5  0.1 33785664   8548   ??  Ss   28Mar26  66:37.96 /usr/libexec/opendirectoryd
 ```
-**状态**: ✅ 正常
-- openclaw-gateway: 9.8% CPU
-- opendirectoryd: 3.5% CPU
-- CPU使用率在正常范围
+- 最高CPU进程: XProtectRemediatorMRTv3 (83.8%)
+- 第二高: openclaw-gateway (12.8%)
+- 状态: 正常
 
 ### 4. Git状态检查
 ```
 (no output)
 ```
-**状态**: ✅ 正常
-- 无未提交的改动
-
-### 5. 自动提交
-**状态**: 不需要 - 无未提交改动
+- 未提交改动: 无
+- 状态: 干净
 
 ## 总结
-- 🟢 磁盘使用正常 (35%)
-- 🔴 网络连接异常 (GitHub超时)
-- 🟢 CPU使用正常
-- 🟢 Git状态正常
-
-## 建议
-- 检查网络连接问题
-- 可能需要重启网络服务或检查防火墙设置
+- ✅ 系统运行正常
+- ✅ 磁盘使用率健康 (35%)
+- ✅ 网络连接正常
+- ✅ Git仓库无未提交改动
+- ⚠️ XProtect占比较高CPU使用，属于系统安全防护正常行为
 
 ---
-*孔明系统巡检 - 每小时自动执行*
+*孔明系统巡检完成*
