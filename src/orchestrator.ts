@@ -50,17 +50,11 @@
  * const isEmpty = validateUserRequest("");
  * console.log(isEmpty); // false
  */
+const MAX_REQUEST_LENGTH = 1000;
 export function validateUserRequest(userRequest: string): boolean {
-  if (typeof userRequest !== 'string') {
-    return false;
-  }
-  if (!userRequest || userRequest.trim().length === 0) {
-    return false;
-  }
-  if (userRequest.length > 1000) {
-    return false;
-  }
-  return true;
+  return typeof userRequest === 'string' && 
+         userRequest.trim().length > 0 && 
+         userRequest.length <= MAX_REQUEST_LENGTH;
 }
 
 /**
