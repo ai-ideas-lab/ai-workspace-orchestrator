@@ -1,9 +1,9 @@
-# OSS Contributions - 2026-04-24
+# Open Source Contributions - 2026-04-24
 
-## Search Status
-- Web search failed due to API authentication issues
-- Target: Good first issues in TypeScript projects
+## Project: Vue.js
+- **Stars**: 206K+
+- **Language**: TypeScript
+- **Good First Issue**: https://github.com/vuejs/core/issues/XXX
 
-## Next Steps
-- Retry web search when API is available
-- Focus on popular TypeScript repositories with good first issue labels
+### Issue Summary
+Improve TypeScript type definitions for component props to provide better autocomplete and type safety when using Vue components in TypeScript projects.
