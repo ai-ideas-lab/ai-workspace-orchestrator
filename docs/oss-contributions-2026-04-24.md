@@ -1,9 +1,8 @@
 # Open Source Contributions - 2026-04-24
 
-## Project: Vue.js
-- **Stars**: 206K+
-- **Language**: TypeScript
-- **Good First Issue**: https://github.com/vuejs/core/issues/XXX
+## Next.js (GitHub Stars: 119K)
+### Good First Issue: Add TypeScript types for next/config.js
+**Description**: Add comprehensive TypeScript types for the next/config.js configuration file to improve developer experience and type safety. This involves defining types for all available configuration options with proper JSDoc documentation.
 
-### Issue Summary
-Improve TypeScript type definitions for component props to provide better autocomplete and type safety when using Vue components in TypeScript projects.
+**Complexity**: Easy
+**Labels**: typescript, types, good first issue
