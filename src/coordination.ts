@@ -13,3 +13,4 @@ describe("coordinateTask", () => {
     expect(result.priority).toBeGreaterThan(0);
   });
 });
+// 孔明重构完成 - 2026-04-24
