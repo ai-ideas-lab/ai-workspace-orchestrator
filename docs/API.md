@@ -290,7 +290,22 @@ Authorization: Bearer <your-jwt-token>
 
 **GET** `/api/workflows/:id/executions`
 
-获取指定工作流的执行历史。
+获取指定工作流的执行历史，支持分页、状态过滤和时间范围查询。
+
+**用途:**
+- 监控工作流的执行状态和结果
+- 分析工作流的执行模式和性能
+- 调试工作流执行问题
+- 审计工作流执行记录
+
+**查询参数:**
+- `page` (number, optional): 页码，默认1
+- `limit` (number, optional): 每页数量，默认20，最大100
+- `status` (string, optional): 执行状态过滤 (PENDING, RUNNING, COMPLETED, FAILED)
+- `startTime` (string, optional): 开始时间 (ISO 8601格式)
+- `endTime` (string, optional): 结束时间 (ISO 8601格式)
+- `sortBy` (string, optional): 排序字段 (startedAt, completedAt)，默认startedAt
+- `sortOrder` (string, optional): 排序方向 (ASC, DESC)，默认DESC
 
 **响应示例:**
 ```json
@@ -302,12 +317,88 @@ Authorization: Bearer <your-jwt-token>
       "id": "exec-123",
       "workflowId": "workflow-123",
       "status": "COMPLETED",
+      "priority": 1,
+      "timeout": 30000,
       "startedAt": "2026-04-15T20:45:00.000Z",
       "completedAt": "2026-04-15T20:46:00.000Z",
-      "result": {...}
+      "duration": 60000,
+      "result": {
+        "totalSteps": 3,
+        "successfulSteps": 3,
+        "failedSteps": 0,
+        "successRatio": 1.0
+      },
+      "inputVariables": {
+        "data_source": "database",
+        "query": "SELECT * FROM users"
+      },
+      "metadata": {
+        "userId": "user-456",
+        "sessionId": "session-789"
+      }
+    },
+    {
+      "id": "exec-124",
+      "workflowId": "workflow-123",
+      "status": "FAILED",
+      "priority": 5,
+      "timeout": 60000,
+      "startedAt": "2026-04-15T19:30:00.000Z",
+      "completedAt": "2026-04-15T19:35:00.000Z",
+      "duration": 300000,
+      "error": {
+        "code": "WORKFLOW_EXECUTION_ERROR",
+        "message": "Database connection timeout",
+        "step": "data-collection",
+        "retryCount": 2
+      },
+      "result": {
+        "totalSteps": 3,
+        "successfulSteps": 1,
+        "failedSteps": 2,
+        "successRatio": 0.33
+      }
     }
-  ]
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 45,
+    "totalPages": 3
+  }
 }
+```
+
+**参数说明:**
+- `id` (string): 工作流ID
+- `status` (string): 过滤特定状态的执行记录
+- `startTime`/`endTime` (string): ISO 8601格式时间，用于时间范围过滤
+- `sortBy`/`sortOrder`: 排序选项，支持按开始时间或完成时间升序/降序排列
+
+**状态说明:**
+- `PENDING`: 等待执行
+- `RUNNING`: 执行中
+- `COMPLETED`: 执行成功
+- `FAILED`: 执行失败
+
+**响应数据:**
+- `id`: 执行记录ID
+- `workflowId`: 工作流ID
+- `status`: 执行状态
+- `priority`: 执行优先级
+- `timeout`: 超时设置（毫秒）
+- `startedAt`: 开始时间
+- `completedAt`: 完成时间
+- `duration`: 执行时长（毫秒）
+- `result`: 执行结果摘要
+- `inputVariables`: 输入变量快照
+- `error`: 错误信息（仅在失败时存在）
+- `metadata`: 元数据信息
+
+**分页信息:**
+- 返回分页元数据，包含当前页码、每页数量、总数和总页数
+- 支持通过limit参数控制每页返回的记录数量
+- 最大单页限制为100条记录，防止大数据量查询导致性能问题
 ```
 
 ### 验证工作流
