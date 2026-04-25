@@ -183,10 +183,13 @@ async function getWorkflow(workflowId: string): Promise<Workflow> {
  * // 8. 该函数是纯函数，多次调用相同输入会得到相同结果
  */
 function sortWorkflowSteps(steps: WorkflowStep[]): WorkflowStep[] {
-  return steps.sort((a, b) => a.order - b.order);
-}
-
-// ── 工作流执行 ──────────────────────────────────────────
+  try {
+    return steps.sort((a, b) => a.order - b.order);
+  } catch (error) {
+    console.error("Error sorting workflow steps:", error);
+    return steps; // Return original array if sorting fails
+  }
+}// ── 工作流执行 ──────────────────────────────────────────
 // ── 工作流执行 ──────────────────────────────────────────
 
 /**
