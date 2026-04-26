@@ -18,3 +18,14 @@ export function processAIInstruction(instruction: string): string {
 export function checkWorkspaceStatus(): string {
     return "工作区运行正常";
 }
+
+/**
+ * AI指令验证函数
+ * @param instruction AI指令
+ * @returns 验证结果
+ */
+export function validateAIInstruction(instruction: string): boolean {
+    if (!instruction || instruction.trim().length === 0) return false;
+    if (instruction.length > 1000) return false;
+    return true;
+}
