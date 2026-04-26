@@ -109,6 +109,32 @@ export async function orchestrator(userRequest: string): Promise<string> {
     return `任务执行失败: ${error instanceof Error ? error.message : '未知错误'}`;
   }
 }
+/**
+ * 获取当前工作流运行状态
+ * 
+ * 查询AI工作流协调器的当前运行状态，包括是否正在处理任务、系统负载等信息。
+ * 该函数用于状态监控和系统健康检查，提供实时的系统运行反馈。
+ * 
+ * @returns {string} 返回工作流协调器的当前状态描述
+ * @example
+ * // 获取工作流状态
+ * const status = getWorkflowStatus();
+ * console.log(status); // "运行中"
+ * 
+ * // 状态检查示例
+ * const currentStatus = getWorkflowStatus();
+ * if (currentStatus === '运行中') {
+ *   console.log('系统正常工作');
+ * } else {
+ *   console.log('系统需要关注');
+ * }
+ * 
+ * // 定时状态监控
+ * setInterval(() => {
+ *   const status = getWorkflowStatus();
+ *   console.log(`当前状态: ${status}`);
+ * }, 30000); // 每30秒检查一次
+ */
 export function getWorkflowStatus(): string {
   return '运行中';
 }

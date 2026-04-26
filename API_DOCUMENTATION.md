@@ -138,30 +138,64 @@
 
 ### 6. 克隆工作流
 - **POST** `/workflows/:id/clone`
-- **路径参数**: `id` - 源工作流ID
+- **路径参数**: `id` - 源工作流ID（必须为有效的工作流ID）
 - **Body**:
 ```json
 {
   "name": "克隆后的名称（可选，默认：原名 + ' (副本)'）"
 }
 ```
+- **验证规则**:
+  - `id`: 必须为有效的工作流ID格式
+  - `name`: 可选，字符串，≤200字符（如不提供则自动生成）
 - **成功响应**: `201 Created`
 ```json
 {
   "success": true,
+  "message": "工作流克隆成功",
   "data": {
-    "id": "新工作流ID",
-    "name": "克隆后的名称",
+    "id": "new_workflow_id",
+    "name": "月度销售报告 (副本)",
+    "description": "原工作流的完整描述将被复制",
     "status": "DRAFT",
-    "sourceWorkflowId": "源工作流ID",
-    "sourceWorkflowName": "源工作流名称",
-    "createdAt": "..."
+    "sourceWorkflowId": "original_workflow_id",
+    "sourceWorkflowName": "月度销售报告",
+    "config": { "steps": [...] },
+    "variables": {},
+    "createdAt": "2026-04-26T10:05:00.000Z",
+    "updatedAt": "2026-04-26T10:05:00.000Z"
   }
 }
 ```
 - **错误响应**:
+  - `400` - 工作流ID参数无效
   - `404` - 源工作流不存在
   - `403` - 无权限克隆（非创建者且非管理员）
+  - `409` - 工作流包含大量执行记录，克隆可能影响性能
+- **特性**:
+  - **智能命名**: 自动添加 "(副本)" 后缀，避免名称冲突
+  - **完整复制**: 克隆工作流的所有配置、变量和描述
+  - **状态重置**: 克隆后的工作流自动设为 `DRAFT` 状态
+  - **权限继承**: 保持原工作流的用户关联
+  - **性能优化**: 使用数据库级克隆操作，提高执行效率
+- **使用示例**:
+```bash
+# 基本克隆（自动命名）
+curl -X POST http://localhost:3000/api/workflows/123/clone \
+  -H "Content-Type: application/json"
+
+# 自定义名称克隆
+curl -X POST http://localhost:3000/api/workflows/123/clone \
+  -H "Content-Type: application/json" \
+  -d '{"name": "我的定制报告"}'
+
+# 批量克隆脚本
+for id in "123" "456" "789"; do
+  curl -X POST http://localhost:3000/api/workflows/$id/clone \
+    -H "Content-Type: application/json" \
+    -d '{"name": "备份_'$id'"}'
+done
+```
 
 ### 7. 执行工作流
 - **POST** `/workflows/:id/execute`
