@@ -50,7 +50,13 @@ async function getWorkflow(workflowId) {
     };
 }
 function sortWorkflowSteps(steps) {
-    return steps.sort((a, b) => a.order - b.order);
+    try {
+        return steps.sort((a, b) => a.order - b.order);
+    }
+    catch (error) {
+        console.error("Error sorting workflow steps:", error);
+        return steps;
+    }
 }
 async function executeWorkflowStep(step, userInput, previousResults) {
     const startTime = Date.now();

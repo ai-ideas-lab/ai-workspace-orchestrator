@@ -1,1 +1,1 @@
-{"version":3,"file":"quick-validator.d.ts","sourceRoot":"","sources":["../../src/utils/quick-validator.ts"],"names":[],"mappings":"AAAA,eAAO,MAAM,aAAa,GAAI,OAAO,MAAM,KAAG,OAE7C,CAAC;AAEF,eAAO,MAAM,OAAO,GAAI,KAAK,MAAM,KAAG,OAErC,CAAC"}
+{"version":3,"file":"quick-validator.d.ts","sourceRoot":"","sources":["../../src/utils/quick-validator.ts"],"names":[],"mappings":"AAAA,eAAO,MAAM,aAAa,GAAI,OAAO,MAAM,KAAG,OAE7C,CAAC;AAEF,eAAO,MAAM,OAAO,GAAI,KAAK,MAAM,KAAG,OAErC,CAAC;AAiBF,wBAAgB,oBAAoB,CAAC,WAAW,EAAE,MAAM,GAAG;IAAC,KAAK,EAAE,OAAO,CAAC;IAAC,OAAO,EAAE,MAAM,CAAA;CAAC,CAQ3F"}
