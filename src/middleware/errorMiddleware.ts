@@ -75,11 +75,13 @@ const circuitBreakers = new Map<string, CircuitBreaker>();
 /**
  * 获取或创建熔断器实例
  */
+import { TIME_CONFIG } from '../constants/config.js';
+
 function getCircuitBreaker(service: string): CircuitBreaker {
   if (!circuitBreakers.has(service)) {
     circuitBreakers.set(service, new CircuitBreaker({
       failureThreshold: 5,
-      resetTimeoutMs: 30000, // 30秒
+      resetTimeoutMs: TIME_CONFIG.EXTRA_LONG_DELAY, // 30秒
       halfOpenMaxAttempts: 1,
     }));
   }
