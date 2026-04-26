@@ -1,3 +1,5 @@
+import { RANDOM_CHARSET, VALIDATION_CONSTANTS } from './constants';
+
 /**
  * 字符串工具函数
  * 检查字符串是否为空或只包含空格
@@ -29,10 +31,21 @@ export function isEmptyOrWhitespace(text: string): boolean {
  * console.log(sessionId); // 输出类似 "aB3cD6eF9hI2jK5mN8pQ1sT4vW7xZ0"
  */
 export function generateRandomId(length: number = 8): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  try {
+    // Validate length
+    if (length < VALIDATION_CONSTANTS.MIN_ID_LENGTH || length > VALIDATION_CONSTANTS.MAX_ID_LENGTH) {
+      throw new RangeError(`ID length must be between ${VALIDATION_CONSTANTS.MIN_ID_LENGTH} and ${VALIDATION_CONSTANTS.MAX_ID_LENGTH}`);
+    }
+    
+    const chars = RANDOM_CHARSET.ALPHANUMERIC;
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  } catch (error) {
+    console.error('Error in generateRandomId:', error);
+    // Return a fallback ID if generation fails
+    return Math.random().toString(36).substring(2, 10);
   }
-  return result;
-}// Dummy line for git test
+}
