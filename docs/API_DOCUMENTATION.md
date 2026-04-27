@@ -49,6 +49,40 @@ http://localhost:3000/api
 - **Description**: Get all workflows
 - **Response**: Array of workflow objects
 
+### Clone Workflow
+- **Method**: `POST`
+- **Path**: `/workflows/:id/clone`
+- **Description**: Clone an existing workflow to create a new workflow with the same configuration
+- **Parameters**:
+  - `id` (path): The ID of the workflow to clone
+  - `name` (body, optional): Custom name for the cloned workflow (defaults to original name + " (副本)")
+- **Body**: 
+  ```json
+  {
+    "name": "工作流副本名称"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "message": "工作流克隆成功",
+    "data": {
+      "id": "cloned-workflow-id",
+      "name": "原始工作流 (副本)",
+      "description": "原始工作流描述",
+      "status": "DRAFT",
+      "sourceWorkflowId": "original-workflow-id",
+      "sourceWorkflowName": "原始工作流名称",
+      "createdAt": "2026-04-28T06:03:00.000Z"
+    }
+  }
+  ```
+- **Error Responses**:
+  - 404: Workflow not found
+  - 500: Server error during cloning
+- **Rate Limit**: 5 requests per minute per user
+
 ### Create Workflow
 - **Method**: `POST`
 - **Path**: `/workflows`

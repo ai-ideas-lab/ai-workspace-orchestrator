@@ -107,10 +107,50 @@ export interface WorkflowExecutionResult {
 // ── 工作流获取 ───────────────────────────────────────────
 
 /**
- * 从数据库获取工作流
- * @param workflowId 工作流ID
- * @returns 工作流对象
- * @throws Error 当工作流不存在时
+ * 从数据库检索指定ID的工作流配置
+ * 
+ * 该函数负责从Prisma数据库中查询并返回指定ID的工作流对象。
+ * 作为工作流执行流程的第一个关键步骤，它确保工作流存在且可执行。
+ * 如果工作流不存在，函数会抛出异常，避免执行无效的工作流。
+ * 
+ * @param {string} workflowId - 要检索的工作流的唯一标识符，必须是有效的UUID格式
+ * @returns {Promise<Workflow>} 返回包含工作流完整信息的Promise，包括步骤配置、名称和元数据
+ * @throws {Error} 当工作流在数据库中不存在时抛出异常，错误信息包含工作流ID
+ * 
+ * @example
+ * // 基本用法：获取指定ID的工作流
+ * try {
+ *   const workflow = await getWorkflow('550e8400-e29b-41d4-a716-446655440000');
+ *   console.log('工作流名称:', workflow.name);
+ *   console.log('步骤数量:', workflow.steps.length);
+ *   console.log('创建时间:', workflow.createdAt);
+ * } catch (error) {
+ *   console.error('工作流不存在:', error.message);
+ *   // 输出: 工作流不存在: Workflow not found: 550e8400-e29b-41d4-a716-446655440000
+ * }
+ * 
+ * // 在工作流执行器中的使用
+ * export async function executeWorkflow(workflowId: string, userInput: string): Promise<WorkflowExecutionResult> {
+ *   // 首先获取工作流配置
+ *   const workflow = await getWorkflow(workflowId);
+ *   
+ *   // 验证工作流结构
+ *   if (!workflow.steps || workflow.steps.length === 0) {
+ *     throw new Error(`Workflow ${workflowId} has no steps`);
+ *   }
+ *   
+ *   // 继续执行逻辑...
+ * }
+ * 
+ * // 注意事项：
+ * // 1. 该函数需要有效的数据库连接和Prisma客户端配置
+ * // 2. workflowId必须是数据库中存在的工作流ID，否则会抛出异常
+ * // 3. 返回的工作流对象包含完整的步骤配置，可以直接用于工作流执行
+ * // 4. 函数是异步的，需要使用await调用
+ * // 5. 该函数在try-catch块中调用，以处理可能的数据库异常
+ * // 6. 适用于工作流管理、执行和验证等多个场景
+ * // 7. 返回的工作流对象包含createdAt和updatedAt时间戳，可用于审计和调试
+ * // 8. 如果工作流被软删除，该函数不会返回该工作流
  */
 async function getWorkflow(workflowId: string): Promise<Workflow> {
   const workflow = await prisma.workflow.findUnique({ 
