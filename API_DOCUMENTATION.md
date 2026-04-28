@@ -269,16 +269,64 @@ done
 
 ### 10. 获取执行路径
 - **POST** `/workflows/execution-path`
+- **功能**: 预览工作流的执行路径和依赖关系，分析任务执行顺序和并行处理策略
+- **用途**: 在工作流执行前验证逻辑正确性，识别潜在的循环依赖或资源冲突
 - **Body**:
 ```json
 {
-  "config": { "steps": [...] },
-  "input": {}
+  "config": {
+    "steps": [
+      {
+        "id": "step-1",
+        "type": "ai-analysis",
+        "dependencies": [],
+        "estimatedDuration": 5000
+      },
+      {
+        "id": "step-2", 
+        "type": "data-processing",
+        "dependencies": ["step-1"],
+        "estimatedDuration": 3000
+      }
+    ]
+  },
+  "input": {
+    "sourceData": "用户提供的输入数据",
+    "parameters": { "timeout": 30000 }
+  }
 }
 ```
 - **验证规则**:
   - `config`: 必填，必须是对象
   - `input`: 可选，必须是对象
+- **成功响应**:
+```json
+{
+  "success": true,
+  "message": "执行路径分析完成",
+  "data": {
+    "executionOrder": ["step-1", "step-2"],
+    "parallelGroups": [
+      ["step-1"],
+      ["step-2"]
+    ],
+    "criticalPath": ["step-1", "step-2"],
+    "estimatedTotalDuration": 8000,
+    "resourceRequirements": {
+      "aiProcessing": 1,
+      "dataProcessing": 1
+    },
+    "dependencyGraph": {
+      "step-1": [],
+      "step-2": ["step-1"]
+    },
+    "warnings": []
+  }
+}
+```
+- **错误响应**:
+  - `400` - 配置格式错误或循环依赖
+  - `422` - 验证失败，依赖关系不完整
 
 ---
 
