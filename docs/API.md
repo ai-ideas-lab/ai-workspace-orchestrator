@@ -541,24 +541,76 @@ Authorization: Bearer <your-jwt-token>
 
 **POST** `/api/workflows/import`
 
-从JSON文件导入工作流。
+从JSON文件导入工作流，支持灵活的导入选项和配置转换。
+
+**用途:**
+- 将导出的工作流重新导入到其他环境
+- 批量部署工作流配置
+- 复制和修改现有工作流
+- 跨环境工作流迁移
 
 **请求体:**
 ```json
 {
   "workflow": {
-    "name": "导入的工作流",
+    "name": "原始工作流名称",
     "description": "工作流描述",
-    "config": {...},
-    "variables": {...}
+    "config": {
+      "steps": [
+        {
+          "id": "data-collection",
+          "type": "data_collection",
+          "params": {
+            "source": "database",
+            "query": "SELECT * FROM users"
+          },
+          "timeout": 30000,
+          "retry": {
+            "maxAttempts": 3,
+            "delayMs": 1000
+          }
+        }
+      ],
+      "variables": {
+        "api_key": "original_api_key",
+        "output_format": "json"
+      }
+    },
+    "variables": {
+      "env_var_1": "value1"
+    }
   },
   "options": {
-    "name": "自定义工作流名称",
+    "name": "自定义新工作流名称",
     "draft": true,
-    "overwrite": false
+    "overwrite": false,
+    "variableTransformations": {
+      "api_key": "new_api_key_from_env",
+      "output_format": "csv"
+    },
+    "status": "ACTIVE"
   }
 }
 ```
+
+**参数说明:**
+- `workflow` (object, required): 工作流数据对象
+  - `name` (string): 工作流名称
+  - `description` (string): 工作流描述
+  - `config` (object): 工作流配置对象
+  - `variables` (object): 工作流变量定义
+- `options` (object, optional): 导入选项
+  - `name` (string): 自定义工作流名称，如果不提供则使用原始名称
+  - `draft` (boolean): 是否以草稿状态导入，默认false
+  - `overwrite` (boolean): 是否覆盖同名称工作流，默认false
+  - `variableTransformations` (object): 变量转换规则，用于修改导入的变量值
+  - `status` (string): 设置导入后的工作流状态 (DRAFT, ACTIVE, PAUSED)
+
+**转换规则说明:**
+- `name`: 如果指定，将作为工作流的新名称
+- `draft`: true时，导入的工作流将处于草稿状态，需要手动激活
+- `overwrite`: true时，如果存在同名工作流将被替换
+- `variableTransformations`: 键值对映射，用于修改变量值
 
 **响应示例:**
 ```json
@@ -567,11 +619,44 @@ Authorization: Bearer <your-jwt-token>
   "message": "工作流导入成功",
   "data": {
     "id": "workflow-999",
-    "name": "自定义工作流名称",
+    "name": "自定义新工作流名称",
+    "description": "工作流描述",
     "status": "DRAFT",
-    "createdAt": "2026-04-15T20:45:00.000Z"
+    "config": {
+      "steps": [
+        {
+          "id": "data-collection",
+          "type": "data_collection",
+          "params": {
+            "source": "database",
+            "query": "SELECT * FROM users"
+          },
+          "timeout": 30000,
+          "retry": {
+            "maxAttempts": 3,
+            "delayMs": 1000
+          }
+        }
+      ],
+      "variables": {
+        "api_key": "new_api_key_from_env",
+        "output_format": "csv",
+        "env_var_1": "value1"
+      }
+    },
+    "sourceWorkflowId": null,
+    "importedAt": "2026-04-15T20:45:00.000Z",
+    "originalWorkflowName": "原始工作流名称"
   }
 }
+```
+
+**注意事项:**
+- 导入时会自动生成新的工作流ID
+- 原始工作流的ID和元数据会被保留在元数据中
+- 变量转换不会影响原始配置中的结构，只修改变量值
+- 导入后工作流可能需要重新验证和测试
+- 建议在导入前备份现有工作流配置
 ```
 
 ## 错误处理

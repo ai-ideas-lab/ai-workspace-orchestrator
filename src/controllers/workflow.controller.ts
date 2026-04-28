@@ -213,7 +213,53 @@ export class WorkflowController {
   }
 
   /**
-   * 执行工作流
+   * 执行工作流 - 启动工作流异步执行
+   * 
+   * 这是工作流的核心执行端点，接受工作流ID和执行参数，启动异步执行任务。
+   * 使用超时保护和错误重试机制确保执行的可靠性。
+   * 
+   * @param {Request} req - Express请求对象
+   * @param {Response} res - Express响应对象
+   * @returns {Promise<void>}
+   * 
+   * @throws {ValidationError} 当工作流ID为空时
+   * @throws {NotFoundError} 当工作流不存在时
+   * @throws {WorkflowExecutionError} 当工作流执行失败时
+   * @throws {TimeoutError} 当执行超时时
+   * 
+   * @example
+   * // 基本工作流执行
+   * POST /api/workflows/123/execute
+   * {
+   *   "inputVariables": {
+   *     "api_key": "your_api_key",
+   *     "target_file": "/tmp/output.csv"
+   *   }
+   * }
+   * 
+   * // 高优先级执行
+   * POST /api/workflows/123/execute
+   * {
+   *   "inputVariables": {...},
+   *   "priority": 1
+   * }
+   * 
+   * @api {post} /api/workflows/:id/execute 执行工作流
+   * @apiName ExecuteWorkflow
+   * @apiGroup Workflow
+   * @apiDescription 启动指定工作流的异步执行，支持变量注入和优先级设置
+   * 
+   * @apiParam {string} id 工作流ID
+   * @apiParam {Object} [inputVariables={}] 执行变量对象，包含工作流所需的输入参数
+   * @apiParam {number} [priority=5] 执行优先级 (1-10，1为最高优先级)
+   * @apiParam {number} [timeout=30000] 超时时间（毫秒）
+   * 
+   * @apiSuccess {200} successResponse 工作流执行成功响应
+   * @apiSuccess {202} successResponse 工作流已接受并开始执行
+   * @apiError {400} validationErrorResponse 输入参数验证失败
+   * @apiError {404} errorResponse 工作流不存在
+   * @apiError {409} errorResponse 工作流状态不允许执行
+   * @apiError {429} errorResponse 系统负载过高
    */
   async executeWorkflow(req: Request, res: Response): Promise<void> {
     const asyncContext: AsyncOperationContext = {
