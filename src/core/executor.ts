@@ -221,6 +221,11 @@ async function getWorkflow(workflowId: string): Promise<Workflow> {
  * // 6. 如果传入空数组，将返回空数组
  * // 7. 排序基于数字比较，不适用于字符串或其他类型的order值
  * // 8. 该函数是纯函数，多次调用相同输入会得到相同结果
+ * @since 1.0.0
+ * @category Workflow Executor
+ * @alias sortWorkflowSteps
+ * @see executeWorkflow
+ * @see executeWorkflowStep
  */
 function sortWorkflowSteps(steps: WorkflowStep[]): WorkflowStep[] {
   try {
