@@ -13,7 +13,7 @@ import {
   errorResponse,
   validationErrorResponse,
 } from '../utils/responseUtils.js';
-import { AsyncErrorHandler, AsyncOperationContext } from '../utils/async-error-handler.ts';
+import { AsyncErrorHandler, AsyncOperationContext } from '../utils/async-error-handler';
 
 /**
  * WorkflowController - 工作流管理控制器

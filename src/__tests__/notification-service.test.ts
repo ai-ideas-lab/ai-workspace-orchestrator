@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { EventBus } from '../services/event-bus'.ts';
-import { NotificationService } from '../services/notification-service'.ts';
+import { EventBus } from '../services/event-bus'';
+import { NotificationService } from '../services/notification-service'';
 
 describe('NotificationService', () => {
   let bus: EventBus;

@@ -1,8 +1,8 @@
 /**
  * WorkflowContext 单元测试
  */
-import { WorkflowContext } from '../services/workflow-context'.ts';
-import { EventBus } from '../services/event-bus'.ts';
+import { WorkflowContext } from '../services/workflow-context'';
+import { EventBus } from '../services/event-bus'';
 
 describe('WorkflowContext', () => {
 

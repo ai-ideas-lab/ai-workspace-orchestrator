@@ -12,8 +12,8 @@ import { createServer } from 'http';
 
 // 导入路由
 import workflowRoutes from './routes/workflows.js';
-import { globalErrorHandler, notFoundHandler, setupGlobalErrorMonitoring } from './middleware/errorMiddleware.ts';
-import { requestIdMiddleware } from './middleware/errorMiddleware.ts';
+import { globalErrorHandler, notFoundHandler, setupGlobalErrorMonitoring } from './middleware/errorMiddleware';
+import { requestIdMiddleware } from './middleware/errorMiddleware';
 import { createErrorAggregatorMiddleware } from './utils/error-aggregator.js';
 import { logger } from './utils/logger.js';
 

@@ -5,9 +5,9 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { WorkflowScheduler } from '../services/workflow-scheduler'.ts';
-import { WorkflowExecutor, WorkflowDefinition } from '../services/workflow-executor'.ts';
-import { EventBus } from '../services/event-bus'.ts';
+import { WorkflowScheduler } from '../services/workflow-scheduler'';
+import { WorkflowExecutor, WorkflowDefinition } from '../services/workflow-executor'';
+import { EventBus } from '../services/event-bus'';
 
 // ── 测试用工作流定义 ────────────────────────────────────
 
