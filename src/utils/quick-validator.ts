@@ -29,4 +29,4 @@ export function quickValidateRequest(userRequest: string): {valid: boolean, mess
     return {valid: false, message: "请求内容过长，请简化后重试"};
   }
   return {valid: true, message: "请求格式验证通过"};
-}
+}// Test comment
