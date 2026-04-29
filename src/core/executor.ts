@@ -241,9 +241,138 @@ function sortWorkflowSteps(steps: WorkflowStep[]): WorkflowStep[] {
  * 执行单个工作流步骤
  * @param step 工作流步骤
  * @param userInput 用户输入
- * @param previousResults 前续步骤的执行结果
- * @returns 执行结果
+/**
+
+ * 执行单个工作流步骤
+
+ * 
+
+ * 该函数是工作流执行的核心原子操作，负责处理单个步骤的完整执行生命周期。
+
+ * 它包括引擎获取、步骤执行、错误处理、重试机制和结果生成等全过程。
+
+ * 支持自动重试机制，对可恢复错误进行指数退避重试，确保系统健壮性。
+
+ * 
+
+ * @param {WorkflowStep} step - 要执行的工作流步骤对象，包含步骤配置、引擎类型、执行顺序等信息
+
+ * @param {string} userInput - 原始用户输入文本，作为该步骤执行的基础上下文信息
+
+ * @param {ExecutionResult[]} previousResults - 前续步骤的执行结果数组，每个步骤的结果可作为当前步骤的输入参考
+
+ * @returns {Promise<ExecutionResult>} 返回包含执行结果的Promise对象，包含步骤ID、执行状态、输出内容和元数据等信息
+
+ * 
+
+ * @example
+
+ * // 基本用法：执行单个步骤
+
+ * const step = {
+
+ *   id: 'data-extraction',
+
+ *   engineType: 'ai',
+
+ *   order: 1,
+
+ *   config: { model: 'gpt-4', temperature: 0.7 }
+
+ * };
+
+ * 
+
+ * const result = await executeWorkflowStep(step, '提取PDF中的表格数据', []);
+
+ * console.log(result);
+
+ * // 输出可能为:
+
+ * // {
+
+ * //   stepId: 'data-extraction',
+
+ * //   output: { extractedData: [...] },
+
+ * //   status: 'completed',
+
+ * //   duration: 1234,
+
+ * //   metadata: { engineType: 'ai', order: 1, success: true }
+
+ * // }
+
+ * 
+
+ * // 错误处理示例
+
+ * try {
+
+ *   const result = await executeWorkflowStep(step, '用户输入', previousResults);
+
+ *   if (result.status === 'failed') {
+
+ *     console.error(`步骤执行失败:`, result.error);
+
+ *   }
+
+ * } catch (error) {
+
+ *   console.error('步骤执行异常:', error);
+
+ * }
+
+ * 
+
+ * // 注意事项：
+
+ * // 1. 该函数会自动处理重试逻辑，对于数据库连接等临时错误会尝试重试
+
+ * // 2. 重试次数由RETRY_CONFIG.DEFAULT_MAX_RETRIES控制，默认为2次
+
+ * // 3. 重试采用指数退避策略，最大延迟时间为MAX_DELAY_MS
+
+ * // 4. 如果步骤执行失败，会返回详细错误信息，包括错误类型和失败原因
+
+ * // 5. 函数会记录详细的执行时间，用于性能监控和优化
+
+ * // 6. 返回结果包含metadata字段，可用于调试和监控
+
+ * // 7. 对于非可恢复错误（如参数错误），不会触发重试
+
+ * // 8. 该函数是异步的，需要使用await调用
+
+ * // 9. 在工作流执行器中调用时，通常会配合try-catch处理整体异常
+
+ * // 10. 适用于单步骤执行、工作流集成、单元测试等多个场景
+
+ * 
+
+ * @since 1.0.0
+
+ * @category Workflow Executor
+
+ * @alias executeSingleStep
+
+ * @see executeWorkflow
+
+ * @see sortWorkflowSteps
+
+ * @see getEngine
+
+ * @see AsyncErrorHandler
+
  */
+
+async function executeWorkflowStep(
+
+  step: WorkflowStep, 
+
+  userInput: string, 
+
+  previousResults: ExecutionResult[]
+
 async function executeWorkflowStep(
   step: WorkflowStep, 
   userInput: string, 
