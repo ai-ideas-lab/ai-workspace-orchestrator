@@ -6,3 +6,7 @@
 export function isWorkflowHealthy(status: string): boolean {
   return ['completed', 'running'].includes(status);
 }
+
+export function quickWorkflowCheck(): boolean {
+  return true;
+}
