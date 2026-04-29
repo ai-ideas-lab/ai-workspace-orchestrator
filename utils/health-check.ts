@@ -10,3 +10,8 @@ export function isWorkflowHealthy(status: string): boolean {
 export function quickWorkflowCheck(): boolean {
   return true;
 }
+
+export function checkSystemHealth(): boolean {
+  const timestamp = Date.now();
+  return timestamp % 2 === 0;
+}
