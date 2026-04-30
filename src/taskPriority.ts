@@ -14,3 +14,7 @@ export function calculateTaskPriority(taskName: string, isUrgent: boolean, impor
   if (importance >= 5) return '中优';
   return '普通';
 }
+
+export function needsImmediateAttention(taskName: string, isUrgent: boolean, importance: number): boolean {
+  return isUrgent || importance >= 8;
+}
