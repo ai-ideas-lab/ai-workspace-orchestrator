@@ -89,7 +89,7 @@ export class AIScheduler {
    * console.log(aiPriority > dataPriority); // 输出: true
    */
   private calculatePriority(step: WorkflowStep): number {
-    return step.weight * (step.required ? 1.2 : 1.0);
+    return step.weight * (step.required ? TIMING.REQUIRED_PRIORITY_MULTIPLIER : 1.0);
   }
   
   /**
@@ -123,7 +123,7 @@ export class AIScheduler {
    * console.log(this.estimateDuration({ type: 'ai' }) > this.estimateDuration({ type: 'api' })); // 输出: true
    */
   private estimateDuration(step: WorkflowStep): number {
-    return step.type === 'ai' ? 5000 : 1000;
+    return step.type === STEP_TYPE.AI ? TIMING.AI_DURATION_MS : TIMING.API_DURATION_MS;
   }
   
   /**
@@ -191,7 +191,7 @@ export class AIScheduler {
 
 interface WorkflowStep {
   id: string;
-  type: 'ai' | 'api' | 'data';
+  type: typeof STEP_TYPE.AI | typeof STEP_TYPE.API | typeof STEP_TYPE.DATA;
   weight: number;
   required: boolean;
 }

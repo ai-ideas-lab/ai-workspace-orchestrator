@@ -33,39 +33,14 @@
  * }
  */
 
-// ── 常量定义 ───────────────────────────────────────────
-
-export const EXECUTION_CONSTANTS = {
-  STATUS: {
-    COMPLETED: 'completed' as const,
-    FAILED: 'failed' as const,
-    PENDING: 'pending' as const,
-    SYSTEM_ERROR: 'system-error' as const
-  },
-  RETRY_CONFIG: {
-    DEFAULT_MAX_RETRIES: 2,
-    WORKFLOW_FETCH_MAX_RETRIES: 3,
-    BASE_DELAY_MS: 1000,
-    MAX_DELAY_MS: 5000
-  },
-  ERROR_TYPES: {
-    WORKFLOW_EXECUTION_ERROR: 'workflow-execution-error' as const,
-    DATABASE_CONNECTION_ERROR: 'database' as const,
-    AI_ENGINE_ERROR: 'ai' as const
-  },
-  METADATA_KEYS: {
-    ENGINE_TYPE: 'engineType' as const,
-    ORDER: 'order' as const,
-    SUCCESS: 'success' as const,
-    RETRIES: 'retries' as const,
-    FINAL_ERROR: 'finalError' as const,
-    UNEXPECTED_ERROR: 'unexpectedError' as const,
-    STEP_ID: 'stepId' as const,
-    USER_ID: 'userId' as const,
-    SESSION_ID: 'sessionId' as const,
-    CORRELATION_ID: 'correlationId' as const
-  }
-} as const;
+import { 
+  WORKFLOW_STATUS, 
+  STEP_TYPE, 
+  TIMING, 
+  METADATA_KEYS, 
+  ERROR_TYPES, 
+  ID_PATTERNS 
+} from '../constants';
 
 // ── 类型定义 ────────────────────────────────────────────
 
@@ -90,7 +65,7 @@ export interface Workflow {
 export interface ExecutionResult {
   stepId: string;
   output: any;
-  status: typeof EXECUTION_CONSTANTS.STATUS.COMPLETED | typeof EXECUTION_CONSTANTS.STATUS.FAILED | typeof EXECUTION_CONSTANTS.STATUS.PENDING;
+  status: typeof WORKFLOW_STATUS.COMPLETED | typeof WORKFLOW_STATUS.FAILED | typeof WORKFLOW_STATUS.PENDING;
   error?: string;
   duration?: number;
   metadata?: Record<string, any>;
@@ -366,14 +341,6 @@ function sortWorkflowSteps(steps: WorkflowStep[]): WorkflowStep[] {
  */
 
 async function executeWorkflowStep(
-
-  step: WorkflowStep, 
-
-  userInput: string, 
-
-  previousResults: ExecutionResult[]
-
-async function executeWorkflowStep(
   step: WorkflowStep, 
   userInput: string, 
   previousResults: ExecutionResult[]
@@ -387,12 +354,12 @@ async function executeWorkflowStep(
     return {
       stepId: step.id,
       output,
-      status: 'completed',
+      status: WORKFLOW_STATUS.COMPLETED,
       duration: Date.now() - startTime,
       metadata: {
-        [EXECUTION_CONSTANTS.METADATA_KEYS.ENGINE_TYPE]: step.engineType,
-        [EXECUTION_CONSTANTS.METADATA_KEYS.ORDER]: step.order,
-        [EXECUTION_CONSTANTS.METADATA_KEYS.SUCCESS]: true
+        [METADATA_KEYS.ENGINE_TYPE]: step.engineType,
+        [METADATA_KEYS.ORDER]: step.order,
+        [METADATA_KEYS.SUCCESS]: true
       }
     };
   } catch (error) {
@@ -401,8 +368,8 @@ async function executeWorkflowStep(
     const context: AsyncOperationContext = {
       operation: `workflow_step_${step.id}`,
       userId: (previousResults[0]?.metadata as any)?.userId || 'unknown',
-      sessionId: `session_${Date.now()}`,
-      correlationId: `correlation_${Date.now()}`,
+      sessionId: `${ID_PATTERNS.SESSION_PREFIX}${Date.now()}`,
+      correlationId: `${ID_PATTERNS.CORRELATION_PREFIX}${Date.now()}`,
       metadata: {
         stepId: step.id,
         engineType: step.engineType,
@@ -421,9 +388,9 @@ async function executeWorkflowStep(
         },
         context,
         {
-          maxRetries: EXECUTION_CONSTANTS.RETRY_CONFIG.DEFAULT_MAX_RETRIES,
-          baseDelayMs: EXECUTION_CONSTANTS.RETRY_CONFIG.BASE_DELAY_MS,
-          maxDelayMs: EXECUTION_CONSTANTS.RETRY_CONFIG.MAX_DELAY_MS,
+          maxRetries: TIMING.DEFAULT_MAX_RETRIES,
+          baseDelayMs: TIMING.BASE_DELAY_MS,
+          maxDelayMs: TIMING.MAX_DELAY_MS,
           retryCondition: (error) => {
             return !(error instanceof AppError && error.isOperational);
           },
@@ -441,13 +408,13 @@ async function executeWorkflowStep(
       return {
         stepId: step.id,
         output,
-        status: EXECUTION_CONSTANTS.STATUS.COMPLETED,
+        status: WORKFLOW_STATUS.COMPLETED,
         duration: Date.now() - startTime,
         metadata: {
-          [EXECUTION_CONSTANTS.METADATA_KEYS.ENGINE_TYPE]: step.engineType,
-          [EXECUTION_CONSTANTS.METADATA_KEYS.ORDER]: step.order,
-          [EXECUTION_CONSTANTS.METADATA_KEYS.SUCCESS]: true,
-          retries: EXECUTION_CONSTANTS.RETRY_CONFIG.DEFAULT_MAX_RETRIES // 标记为重试后成功
+          [METADATA_KEYS.ENGINE_TYPE]: step.engineType,
+          [METADATA_KEYS.ORDER]: step.order,
+          [METADATA_KEYS.SUCCESS]: true,
+          retries: TIMING.DEFAULT_MAX_RETRIES // 标记为重试后成功
         }
       };
     } catch (finalError) {
@@ -462,15 +429,15 @@ async function executeWorkflowStep(
       return {
         stepId: step.id,
         output: null,
-        status: 'failed',
+        status: WORKFLOW_STATUS.FAILED,
         error: finalError instanceof Error ? finalError.message : String(finalError),
         duration: Date.now() - startTime,
         metadata: {
-          [EXECUTION_CONSTANTS.METADATA_KEYS.ENGINE_TYPE]: step.engineType,
-          [EXECUTION_CONSTANTS.METADATA_KEYS.ORDER]: step.order,
-          [EXECUTION_CONSTANTS.METADATA_KEYS.SUCCESS]: false,
-          retries: EXECUTION_CONSTANTS.RETRY_CONFIG.DEFAULT_MAX_RETRIES,
-          [EXECUTION_CONSTANTS.METADATA_KEYS.FINAL_ERROR]: finalError instanceof Error ? finalError.constructor.name : String(finalError)
+          [METADATA_KEYS.ENGINE_TYPE]: step.engineType,
+          [METADATA_KEYS.ORDER]: step.order,
+          [METADATA_KEYS.SUCCESS]: false,
+          retries: TIMING.DEFAULT_MAX_RETRIES,
+          [METADATA_KEYS.FINAL_ERROR]: finalError instanceof Error ? finalError.constructor.name : String(finalError)
         }
       };
     }
@@ -503,14 +470,14 @@ export async function executeWorkflow(workflowId: string, userInput: string): Pr
       {
         operation: `get_workflow_${workflowId}`,
         userId: 'unknown',
-        sessionId: `session_${Date.now()}`,
-        correlationId: `correlation_${Date.now()}`,
+        sessionId: `${ID_PATTERNS.SESSION_PREFIX}${Date.now()}`,
+        correlationId: `${ID_PATTERNS.CORRELATION_PREFIX}${Date.now()}`,
         metadata: { workflowId, userInput }
       },
       {
-        maxRetries: 3,
-        baseDelayMs: 1000,
-        maxDelayMs: 5000,
+        maxRetries: TIMING.WORKFLOW_FETCH_MAX_RETRIES,
+        baseDelayMs: TIMING.BASE_DELAY_MS,
+        maxDelayMs: TIMING.MAX_DELAY_MS,
         retryCondition: (error) => {
           return error.message.includes('database') || error.message.includes('connection');
         }
@@ -528,11 +495,11 @@ export async function executeWorkflow(workflowId: string, userInput: string): Pr
         results.push(result);
         
         // 如果某个步骤失败，根据步骤类型决定是否继续
-        if (result.status === 'failed') {
+        if (result.status === WORKFLOW_STATUS.FAILED) {
           console.warn(`Step ${step.id} failed, but continuing with workflow execution`);
           
           // 对于关键步骤，可以添加更严格的处理逻辑
-          if (step.engineType === 'database' || step.engineType === 'ai') {
+          if (step.engineType === STEP_TYPE.DATABASE || step.engineType === STEP_TYPE.AI) {
             console.error(`Critical step ${step.id} failed, workflow may be incomplete`);
           }
         }
@@ -542,14 +509,14 @@ export async function executeWorkflow(workflowId: string, userInput: string): Pr
         results.push({
           stepId: step.id,
           output: null,
-          status: 'failed',
+          status: WORKFLOW_STATUS.FAILED,
           error: stepError instanceof Error ? stepError.message : String(stepError),
           duration: 0,
           metadata: {
-            engineType: step.engineType,
-            order: step.order,
-            success: false,
-            unexpectedError: true
+            [METADATA_KEYS.ENGINE_TYPE]: step.engineType,
+            [METADATA_KEYS.ORDER]: step.order,
+            [METADATA_KEYS.SUCCESS]: false,
+            [METADATA_KEYS.UNEXPECTED_ERROR]: true
           }
         });
       }
@@ -558,12 +525,12 @@ export async function executeWorkflow(workflowId: string, userInput: string): Pr
     const totalDuration = Date.now() - startTime;
     
     // 计算工作流成功状态
-    const successfulSteps = results.filter(r => r.status === 'completed').length;
+    const successfulSteps = results.filter(r => r.status === WORKFLOW_STATUS.COMPLETED).length;
     const totalSteps = results.length;
     const successRatio = totalSteps > 0 ? successfulSteps / totalSteps : 0;
     
-    // 如果成功比例低于50%，标记为整体失败
-    const overallSuccess = successRatio >= 0.5;
+    // 如果成功比例低于阈值，标记为整体失败
+    const overallSuccess = successRatio >= TIMING.SUCCESS_THRESHOLD_RATIO;
     
     if (!overallSuccess) {
       console.warn(`Workflow ${workflowId} execution incomplete: ${successfulSteps}/${totalSteps} steps completed`);
@@ -591,8 +558,8 @@ export async function executeWorkflow(workflowId: string, userInput: string): Pr
     const context: AsyncOperationContext = {
       operation: `execute_workflow_${workflowId}`,
       userId: 'unknown',
-      sessionId: `session_${Date.now()}`,
-      correlationId: `correlation_${Date.now()}`,
+      sessionId: `${ID_PATTERNS.SESSION_PREFIX}${Date.now()}`,
+      correlationId: `${ID_PATTERNS.CORRELATION_PREFIX}${Date.now()}`,
       metadata: { workflowId, userInput }
     };
 
@@ -602,24 +569,24 @@ export async function executeWorkflow(workflowId: string, userInput: string): Pr
     return {
       workflowId,
       results: [{
-        stepId: 'system-error',
+        stepId: ID_PATTERNS.SYSTEM_ERROR_ID,
         output: null,
-        status: 'failed',
+        status: WORKFLOW_STATUS.FAILED,
         error: error instanceof Error ? error.message : String(error),
         duration: totalDuration,
         metadata: {
-          error: 'workflow-execution-error',
+          [METADATA_KEYS.ERROR]: ERROR_TYPES.WORKFLOW_EXECUTION_ERROR,
           workflowId,
           userInputLength: userInput.length,
-          timestamp: new Date().toISOString()
+          [METADATA_KEYS.TIMESTAMP]: new Date().toISOString()
         }
       }],
       completedAt: new Date(),
       totalDuration,
       success: false,
       metadata: {
-        systemError: true,
-        errorType: error instanceof Error ? error.constructor.name : 'UnknownError'
+        [METADATA_KEYS.SYSTEM_ERROR]: true,
+        [METADATA_KEYS.ERROR]: error instanceof Error ? error.constructor.name : 'UnknownError'
       }
     };
   }
