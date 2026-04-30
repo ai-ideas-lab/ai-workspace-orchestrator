@@ -158,24 +158,30 @@ export async function executeWorkflow(workflow: Array<{step: string, action: str
  * 实际项目中这里会连接到具体的AI引擎或服务。
  * 
  * @param {Object} step - 工作流步骤对象
- * @param {string} step.step - 步骤编号
- * @param {string} step.action - 动作类型
- * @param {Record<string, any>} step.params - 动作参数
- * @returns {Promise<string>} 返回步骤执行结果描述
+ * @param {string} step.step - 步骤编号，如 "1", "2", "3" 等
+ * @param {string} step.action - 动作类型，如 "collect_data", "generate_report" 等
+ * @param {Record<string, any>} step.params - 动作参数，包含特定动作所需的配置
+ * @returns {Promise<string>} 返回步骤执行结果描述，包含状态和详细信息
  * @throws {Error} 当步骤执行失败时抛出异常
- */
-/**
- * 单步执行函数 - 执行单个工作流步骤
+ * @example
+ * // 执行数据收集步骤
+ * const step = { 
+ *   step: "1", 
+ *   action: "collect_data", 
+ *   params: { category: "sales", period: "monthly" } 
+ * };
+ * const result = await executeStep(step);
+ * console.log(result); // "✅ [步骤1] 已收集销售数据(月度)"
  * 
- * 执行工作流中的单个步骤，支持多种动作类型。
- * 实际项目中这里会连接到具体的AI引擎或服务。
+ * // 执行未知动作类型
+ * const unknownStep = { step: "2", action: "unknown_action", params: {} };
+ * const unknownResult = await executeStep(unknownStep);
+ * console.log(unknownResult); // "⚠️ [步骤2] 未知动作: unknown_action，使用默认处理"
  * 
- * @param {Object} step - 工作流步骤对象
- * @param {string} step.step - 步骤编号
- * @param {string} step.action - 动作类型
- * @param {Record<string, any>} step.params - 动作参数
- * @returns {Promise<string>} 返回步骤执行结果描述
- * @throws {Error} 当步骤执行失败时抛出异常
+ * // 执行失败场景
+ * const errorStep = { step: "3", action: "collect_data", params: { category: null } };
+ * const errorResult = await executeStep(errorStep);
+ * console.log(errorResult); // "❌ [步骤3] 执行失败: ..."
  */
 async function executeStep(step: {step: string, action: string, params: Record<string, any>}): Promise<string> {
   const { step: stepNumber, action, params } = step;

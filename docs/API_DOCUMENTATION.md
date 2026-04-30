@@ -149,17 +149,73 @@ http://localhost:3000/api
 ### Import Workflow
 - **Method**: `POST`
 - **Path**: `/workflows/import`
-- **Description**: Import a workflow from JSON
+- **Description**: Import a workflow from JSON data, creating a new workflow instance
 - **Body**: 
   ```json
   {
-    "workflow": { ...workflow data... },
+    "workflow": {
+      "name": "工作流名称",
+      "description": "工作流描述",
+      "config": { /* 工作流配置对象 */ },
+      "variables": { /* 变量定义 */ }
+    },
     "options": {
-      "name": "optional new name",
+      "name": "可选的新工作流名称（覆盖workflow.name）",
       "draft": true,
       "overwrite": false
     }
   }
+  ```
+- **Parameters**:
+  - `workflow` (object, required): Complete workflow configuration object
+  - `options` (object, optional): Import options for customization
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "message": "工作流导入成功",
+    "data": {
+      "id": "imported-workflow-id",
+      "name": "导入的工作流名称",
+      "description": "工作流描述",
+      "status": "DRAFT",
+      "createdAt": "2026-04-28T06:03:00.000Z",
+      "importedFrom": "external"
+    }
+  }
+  ```
+- **Error Responses**:
+  - 400: Missing workflow data in request body
+  - 409: Conflict if workflow already exists and overwrite=false
+  - 422: Validation error for invalid workflow configuration
+  - 500: Server error during import
+- **Rate Limit**: 10 requests per minute per user
+- **Example**:
+  ```javascript
+  // Import a workflow with custom settings
+  const response = await fetch('/api/workflows/import', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      workflow: {
+        name: "月度销售报告",
+        description: "自动生成月度销售统计报告",
+        config: {
+          steps: [
+            { action: "collect_data", params: { category: "sales", period: "monthly" } },
+            { action: "generate_report", params: { include_charts: true } }
+          ]
+        }
+      },
+      options: {
+        name: "销售报告模板",
+        draft: true
+      }
+    })
+  });
+  const result = await response.json();
   ```
 
 ## Response Format
