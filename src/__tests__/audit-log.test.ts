@@ -4,8 +4,8 @@
  * 验证审计日志的记录、查询、统计、EventBus 集成和导出功能。
  */
 
-import { AuditLogService, AuditEntry, CreateAuditEntry } from '../services/audit-log'';
-import { EventBus } from '../services/event-bus'';
+import { AuditLogService, AuditEntry, CreateAuditEntry } from '../services/audit-log';
+import { EventBus } from '../services/event-bus';
 
 // ── 测试辅助 ──────────────────────────────────────────────
 

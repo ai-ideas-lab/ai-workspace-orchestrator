@@ -2,9 +2,9 @@
  * DashboardService 单元测试
  */
 
-import { EventBus } from '../services/event-bus'';
-import { MetricsCollector } from '../services/metrics-collector'';
-import { DashboardService, Alert, DashboardSummary, EngineStatusCard } from '../services/dashboard-service'';
+import { EventBus } from '../services/event-bus';
+import { MetricsCollector } from '../services/metrics-collector';
+import { DashboardService, Alert, DashboardSummary, EngineStatusCard } from '../services/dashboard-service';
 
 let eventBus: EventBus;
 let collector: MetricsCollector;

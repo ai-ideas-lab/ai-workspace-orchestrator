@@ -1,8 +1,8 @@
 /**
  * WorkflowContext 单元测试
  */
-import { WorkflowContext } from '../services/workflow-context'';
-import { EventBus } from '../services/event-bus'';
+import { WorkflowContext } from '../services/workflow-context';
+import { EventBus } from '../services/event-bus';
 
 describe('WorkflowContext', () => {
 
@@ -283,8 +283,6 @@ test('变更记录包含时间戳和 workflowId', () => {
 it('workflowId 存储正确', () => {
   const ctx = new WorkflowContext('my-workflow');
   expect(ctx.workflowId).toBe('my-workflow');
-});
-
-}); // end describe
+}); // end it
 
 

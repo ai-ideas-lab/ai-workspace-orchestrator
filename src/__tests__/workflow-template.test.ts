@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import { WorkflowTemplateService } from '../services/workflow-template';
-import type { WorkflowStep } from '../services/workflow-executor'';
+import type { WorkflowStep } from '../services/workflow-executor';
 
 // ── 测试用步骤模板 ──────────────────────────────────────
 
