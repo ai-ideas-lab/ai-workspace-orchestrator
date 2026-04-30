@@ -124,7 +124,6 @@ const STEP_STATUSES = {
  * @see WorkflowManager
  */
 export function trackStepProgress(stepId: string, progress: number): string {
-  console.log(`[DEBUG] Progress tracking - Step ${stepId}: ${progress}%`);
   
   const status = progress >= 100 ? STEP_STATUSES.COMPLETED : 
                   progress >= 50 ? STEP_STATUSES.IN_PROGRESS : 

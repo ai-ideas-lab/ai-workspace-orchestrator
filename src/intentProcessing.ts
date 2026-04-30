@@ -16,7 +16,6 @@ export async function parseIntent(userInput: string): Promise<{intent: string, p
   const input = userInput.trim().toLowerCase();
   
   // 基础意图识别规则
-  console.log('🔍 [DEBUG] 解析用户输入:', input);
 
   const intentPatterns = {
     'report': ['报告', '报表', '生成报告', '统计', '分析数据'],
