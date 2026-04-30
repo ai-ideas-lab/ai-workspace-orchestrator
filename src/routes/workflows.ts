@@ -25,6 +25,97 @@ import { AsyncErrorHandler, AsyncOperationContext } from '../utils/async-error-h
 
 const asyncErrorHandler = AsyncErrorHandler.getInstance();
 
+/**
+ * 克隆指定的工作流
+ * 
+ * 创建指定工作流的完整副本，生成新的工作流ID但保留原始配置。
+ * 克隆后的工作流状态默认为DRAFT（草稿），允许用户进行修改后再激活。
+ * 支持自定义克隆后的工作流名称，如果不提供则自动添加"(副本)"后缀。
+ * 
+ * @param {Request} req - Express请求对象，包含工作流ID和自定义名称
+ * @param {string} req.params.id - 要克隆的工作流的唯一标识符
+ * @param {Object} req.body - 请求体参数
+ * @param {string} [req.body.name] - 克隆后工作流的自定义名称，可选参数
+ * @param {Response} res - Express响应对象，用于返回克隆结果
+ * @returns {Promise<void>} 无返回值，直接通过res发送响应
+ * 
+ * @throws {Error} 当原始工作流不存在时返回404错误
+ * @throws {Error} 当数据库操作失败时返回500错误
+ * 
+ * @example
+ * // 基本克隆操作
+ * // POST /api/workflows/550e8400-e29b-41d4-a716-446655440000/clone
+ * const response = await fetch('/api/workflows/550e8400-e29b-41d4-a716-446655440000/clone', {
+ *   method: 'POST',
+ *   headers: { 'Content-Type': 'application/json' },
+ *   body: JSON.stringify({})
+ * });
+ * // 克隆后的工作流名称默认为"原始工作流名称 (副本)"
+ * 
+ * @example
+ * // 自定义名称克隆
+ * // POST /api/workflows/550e8400-e29b-41d4-a716-446655440000/clone
+ * const response = await fetch('/api/workflows/550e8400-e29b-41d4-a716-446655440000/clone', {
+ *   method: 'POST',
+ *   headers: { 'Content-Type': 'application/json' },
+ *   body: JSON.stringify({ name: "数据分析副本" })
+ * });
+ * // 克隆后的工作流名称为"数据分析副本"
+ * 
+ * @example
+ * // 错误情况：工作流不存在
+ * // POST /api/workflows/invalid-id/clone
+ * const response = await fetch('/api/workflows/invalid-id/clone', {
+ *   method: 'POST'
+ * });
+ * // 返回状态码: 404
+ * // 返回体: { success: false, error: '工作流不存在' }
+ * 
+ * @example
+ * // 在前端使用示例
+ * async function cloneWorkflow(workflowId, customName = null) {
+ *   try {
+ *     const response = await fetch(`/api/workflows/${workflowId}/clone`, {
+ *       method: 'POST',
+ *       headers: {
+ *         'Content-Type': 'application/json',
+ *         'Authorization': `Bearer ${authToken}`
+ *       },
+ *       body: JSON.stringify({ name: customName })
+ *     });
+ *     
+ *     if (!response.ok) {
+ *       throw new Error('克隆工作流失败');
+ *     }
+ *     
+ *     const result = await response.json();
+ *     console.log('工作流克隆成功:', result.data);
+ *     return result.data;
+ *   } catch (error) {
+ *     console.error('工作流克隆失败:', error);
+ *     throw error;
+ *   }
+ * }
+ * 
+ * // 使用示例
+ * const clonedWorkflow = await cloneWorkflow('550e8400-e29b-41d4-a716-446655440000', '我的副本');
+ * console.log(`已克隆工作流: ${clonedWorkflow.id} - ${clonedWorkflow.name}`);
+ * 
+ * @apiNote
+ * - 克隆后的工作流状态为DRAFT，需要手动激活后才能执行
+ * - 克隆过程会复制所有配置、变量和设置，但不会复制执行历史
+ * - 原始工作流保持不变，克隆是安全的操作
+ * - 需要用户认证，只能在登录状态下调用此接口
+ * - 支持的事务类型：数据库写入操作
+ * - 权限要求：用户必须对原始工作流有读取权限
+ * 
+ * @since 1.0.0
+ * @category Workflow Management
+ * @alias cloneWorkflow
+ * @see getWorkflow
+ * @see createWorkflow
+ * @see updateWorkflow
+ */
 router.post('/:id/clone', asyncErrorHandler.wrapAsync(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const { name } = req.body || {};

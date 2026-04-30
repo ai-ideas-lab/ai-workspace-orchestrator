@@ -206,7 +206,69 @@ Authorization: Bearer <your-jwt-token>
 
 **POST** `/api/workflows/:id/clone`
 
-克隆指定ID的工作流。
+克隆指定ID的工作流，创建完全相同的副本但生成新的工作流ID。
+
+**描述:**
+该端点创建指定工作流的完整副本，包括所有配置、变量和设置。克隆后的工作流状态默认为"DRAFT"（草稿），允许用户进行修改后再激活。支持自定义克隆后的工作流名称，如果不提供则自动添加"(副本)"后缀。
+
+**参数:**
+- `id` (path, required): 要克隆的工作流的唯一标识符
+
+**请求体:**
+```json
+{
+  "name": "自定义工作流名称"
+}
+```
+
+**请求体参数:**
+- `name` (string, optional): 克隆后工作流的自定义名称，如果不提供则默认为"原始名称 (副本)"
+
+**响应示例:**
+```json
+{
+  "success": true,
+  "message": "工作流克隆成功",
+  "data": {
+    "id": "workflow-789",
+    "name": "数据分析副本",
+    "description": "用于数据分析的自动化工作流",
+    "status": "DRAFT",
+    "sourceWorkflowId": "workflow-123",
+    "sourceWorkflowName": "数据分析工作流",
+    "createdAt": "2026-04-15T20:45:00.000Z"
+  }
+}
+```
+
+**错误响应:**
+- `404`: 工作流不存在
+```json
+{
+  "success": false,
+  "error": "工作流不存在"
+}
+```
+
+**使用示例:**
+```bash
+# 基本克隆
+curl -X POST "http://localhost:3000/api/workflows/550e8400-e29b-41d4-a716-446655440000/clone" \
+  -H "Authorization: Bearer <your-jwt-token>"
+
+# 自定义名称克隆
+curl -X POST "http://localhost:3000/api/workflows/550e8400-e29b-41d4-a716-446655440000/clone" \
+  -H "Authorization: Bearer <your-jwt-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "我的工作流副本"}'
+```
+
+**注意事项:**
+- 克隆后的工作流状态为"DRAFT"，需要手动激活后才能执行
+- 克隆过程会复制所有配置、变量和设置，但不会复制执行历史
+- 原始工作流保持不变，克隆是安全的操作
+- 需要用户认证，只能在登录状态下调用此接口
+- 用户必须对原始工作流有读取权限
 
 **请求体:**
 ```json
