@@ -154,3 +154,16 @@ export interface ConfigReport {
   warnings: string[];
   suggestions: string[];
 }
+
+/**
+ * 快速检查配置是否可用于生产环境
+ *
+ * @param cfg - 工作流配置对象
+ * @returns 如果配置适合生产环境则返回true
+ */
+export function isProductionReady(cfg: WorkflowConfig): boolean {
+  const report = validateConfigWithReport(cfg);
+  return report.valid && 
+         report.warnings.length === 0 && 
+         (cfg.environment === 'production' || !cfg.environment);
+}
