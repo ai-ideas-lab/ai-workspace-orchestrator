@@ -8,7 +8,6 @@ async function parseIntent(userInput) {
         throw new Error('用户输入不能为空且必须是字符串类型');
     }
     const input = userInput.trim().toLowerCase();
-    console.log('🔍 [DEBUG] 解析用户输入:', input);
     const intentPatterns = {
         'report': ['报告', '报表', '生成报告', '统计', '分析数据'],
         'create': ['创建', '生成', '新建', '制作', '建立'],

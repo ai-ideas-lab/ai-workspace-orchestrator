@@ -1,14 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const request_queue_1 = require("../services/request-queue");
-ts;
-';;
 const circuit_breaker_1 = require("../services/circuit-breaker");
-ts;
-';;
 const load_balancer_1 = require("../services/load-balancer");
-ts;
-';;
 let queue;
 function beforeEach() {
     queue = new request_queue_1.RequestQueue();

@@ -1,11 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const audit_log_1 = require("../services/audit-log");
-ts;
-';;
 const event_bus_1 = require("../services/event-bus");
-ts;
-';;
 function assert(condition, msg) {
     if (!condition)
         throw new Error(`ASSERT FAIL: ${msg}`);

@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.validateConfig = validateConfig;
 exports.validateStep = validateStep;
 exports.validateConfigWithReport = validateConfigWithReport;
+exports.isProductionReady = isProductionReady;
 function validateConfig(cfg) {
     const errors = [];
     if (!cfg.name || typeof cfg.name !== 'string' || cfg.name.trim().length === 0) {
@@ -76,5 +77,11 @@ function validateConfigWithReport(cfg) {
         warnings,
         suggestions,
     };
+}
+function isProductionReady(cfg) {
+    const report = validateConfigWithReport(cfg);
+    return report.valid &&
+        report.warnings.length === 0 &&
+        (cfg.environment === 'production' || !cfg.environment);
 }
 //# sourceMappingURL=config-validator.js.map

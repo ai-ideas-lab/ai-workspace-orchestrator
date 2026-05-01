@@ -1,13 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const event_bus_1 = require("../services/event-bus");
-ts;
-';;
 const metrics_collector_1 = require("../services/metrics-collector");
-ts;
-';;
-ts;
-';;
 function createBus() {
     event_bus_1.EventBus.resetInstance();
     return event_bus_1.EventBus.getInstance();

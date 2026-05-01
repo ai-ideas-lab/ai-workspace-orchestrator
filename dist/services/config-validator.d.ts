@@ -21,4 +21,5 @@ export interface ConfigReport {
     warnings: string[];
     suggestions: string[];
 }
+export declare function isProductionReady(cfg: WorkflowConfig): boolean;
 //# sourceMappingURL=config-validator.d.ts.map

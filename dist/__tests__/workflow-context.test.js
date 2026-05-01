@@ -1,10 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const workflow_context_1 = require("../services/workflow-context");
-ts;
-';;
-ts;
-';;
 describe('WorkflowContext', () => {
     describe('步骤输出测试', () => {
         it('setStepOutput / getStepOutput — 存取步骤输出', () => {

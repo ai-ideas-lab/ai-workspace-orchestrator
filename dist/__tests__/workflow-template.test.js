@@ -1,9 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const globals_1 = require("@jest/globals");
-const workflow_template_ts_1 = require("../services/workflow-template.ts");
-ts;
-';;
+const workflow_template_1 = require("../services/workflow-template");
 const makeSteps = () => [
     {
         id: 'step1',
@@ -30,7 +28,7 @@ const makeSteps = () => [
 (0, globals_1.describe)('WorkflowTemplateService', () => {
     let service;
     (0, globals_1.beforeEach)(() => {
-        service = new workflow_template_ts_1.WorkflowTemplateService();
+        service = new workflow_template_1.WorkflowTemplateService();
     });
     (0, globals_1.describe)('createTemplate', () => {
         (0, globals_1.it)('should create a template with auto-detected variables', () => {

@@ -2,11 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const globals_1 = require("@jest/globals");
 const event_bus_1 = require("../services/event-bus");
-ts;
-';;
 const notification_service_1 = require("../services/notification-service");
-ts;
-';;
 (0, globals_1.describe)('NotificationService', () => {
     let bus;
     let service;

@@ -1,38 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.EXECUTION_CONSTANTS = void 0;
 exports.executeWorkflow = executeWorkflow;
-exports.EXECUTION_CONSTANTS = {
-    STATUS: {
-        COMPLETED: 'completed',
-        FAILED: 'failed',
-        PENDING: 'pending',
-        SYSTEM_ERROR: 'system-error'
-    },
-    RETRY_CONFIG: {
-        DEFAULT_MAX_RETRIES: 2,
-        WORKFLOW_FETCH_MAX_RETRIES: 3,
-        BASE_DELAY_MS: 1000,
-        MAX_DELAY_MS: 5000
-    },
-    ERROR_TYPES: {
-        WORKFLOW_EXECUTION_ERROR: 'workflow-execution-error',
-        DATABASE_CONNECTION_ERROR: 'database',
-        AI_ENGINE_ERROR: 'ai'
-    },
-    METADATA_KEYS: {
-        ENGINE_TYPE: 'engineType',
-        ORDER: 'order',
-        SUCCESS: 'success',
-        RETRIES: 'retries',
-        FINAL_ERROR: 'finalError',
-        UNEXPECTED_ERROR: 'unexpectedError',
-        STEP_ID: 'stepId',
-        USER_ID: 'userId',
-        SESSION_ID: 'sessionId',
-        CORRELATION_ID: 'correlationId'
-    }
-};
+const constants_1 = require("../constants");
 async function getWorkflow(workflowId) {
     const workflow = await prisma.workflow.findUnique({
         where: { id: workflowId }
@@ -66,12 +35,12 @@ async function executeWorkflowStep(step, userInput, previousResults) {
         return {
             stepId: step.id,
             output,
-            status: 'completed',
+            status: constants_1.WORKFLOW_STATUS.COMPLETED,
             duration: Date.now() - startTime,
             metadata: {
-                [exports.EXECUTION_CONSTANTS.METADATA_KEYS.ENGINE_TYPE]: step.engineType,
-                [exports.EXECUTION_CONSTANTS.METADATA_KEYS.ORDER]: step.order,
-                [exports.EXECUTION_CONSTANTS.METADATA_KEYS.SUCCESS]: true
+                [constants_1.METADATA_KEYS.ENGINE_TYPE]: step.engineType,
+                [constants_1.METADATA_KEYS.ORDER]: step.order,
+                [constants_1.METADATA_KEYS.SUCCESS]: true
             }
         };
     }
@@ -80,8 +49,8 @@ async function executeWorkflowStep(step, userInput, previousResults) {
         const context = {
             operation: `workflow_step_${step.id}`,
             userId: previousResults[0]?.metadata?.userId || 'unknown',
-            sessionId: `session_${Date.now()}`,
-            correlationId: `correlation_${Date.now()}`,
+            sessionId: `${constants_1.ID_PATTERNS.SESSION_PREFIX}${Date.now()}`,
+            correlationId: `${constants_1.ID_PATTERNS.CORRELATION_PREFIX}${Date.now()}`,
             metadata: {
                 stepId: step.id,
                 engineType: step.engineType,
@@ -95,9 +64,9 @@ async function executeWorkflowStep(step, userInput, previousResults) {
                 const engine = getEngine(step.engineType);
                 return await engine.execute(step, userInput, previousResults);
             }, context, {
-                maxRetries: exports.EXECUTION_CONSTANTS.RETRY_CONFIG.DEFAULT_MAX_RETRIES,
-                baseDelayMs: exports.EXECUTION_CONSTANTS.RETRY_CONFIG.BASE_DELAY_MS,
-                maxDelayMs: exports.EXECUTION_CONSTANTS.RETRY_CONFIG.MAX_DELAY_MS,
+                maxRetries: constants_1.TIMING.DEFAULT_MAX_RETRIES,
+                baseDelayMs: constants_1.TIMING.BASE_DELAY_MS,
+                maxDelayMs: constants_1.TIMING.MAX_DELAY_MS,
                 retryCondition: (error) => {
                     return !(error instanceof AppError && error.isOperational);
                 },
@@ -113,13 +82,13 @@ async function executeWorkflowStep(step, userInput, previousResults) {
             return {
                 stepId: step.id,
                 output,
-                status: exports.EXECUTION_CONSTANTS.STATUS.COMPLETED,
+                status: constants_1.WORKFLOW_STATUS.COMPLETED,
                 duration: Date.now() - startTime,
                 metadata: {
-                    [exports.EXECUTION_CONSTANTS.METADATA_KEYS.ENGINE_TYPE]: step.engineType,
-                    [exports.EXECUTION_CONSTANTS.METADATA_KEYS.ORDER]: step.order,
-                    [exports.EXECUTION_CONSTANTS.METADATA_KEYS.SUCCESS]: true,
-                    retries: exports.EXECUTION_CONSTANTS.RETRY_CONFIG.DEFAULT_MAX_RETRIES
+                    [constants_1.METADATA_KEYS.ENGINE_TYPE]: step.engineType,
+                    [constants_1.METADATA_KEYS.ORDER]: step.order,
+                    [constants_1.METADATA_KEYS.SUCCESS]: true,
+                    retries: constants_1.TIMING.DEFAULT_MAX_RETRIES
                 }
             };
         }
@@ -133,15 +102,15 @@ async function executeWorkflowStep(step, userInput, previousResults) {
             return {
                 stepId: step.id,
                 output: null,
-                status: 'failed',
+                status: constants_1.WORKFLOW_STATUS.FAILED,
                 error: finalError instanceof Error ? finalError.message : String(finalError),
                 duration: Date.now() - startTime,
                 metadata: {
-                    [exports.EXECUTION_CONSTANTS.METADATA_KEYS.ENGINE_TYPE]: step.engineType,
-                    [exports.EXECUTION_CONSTANTS.METADATA_KEYS.ORDER]: step.order,
-                    [exports.EXECUTION_CONSTANTS.METADATA_KEYS.SUCCESS]: false,
-                    retries: exports.EXECUTION_CONSTANTS.RETRY_CONFIG.DEFAULT_MAX_RETRIES,
-                    [exports.EXECUTION_CONSTANTS.METADATA_KEYS.FINAL_ERROR]: finalError instanceof Error ? finalError.constructor.name : String(finalError)
+                    [constants_1.METADATA_KEYS.ENGINE_TYPE]: step.engineType,
+                    [constants_1.METADATA_KEYS.ORDER]: step.order,
+                    [constants_1.METADATA_KEYS.SUCCESS]: false,
+                    retries: constants_1.TIMING.DEFAULT_MAX_RETRIES,
+                    [constants_1.METADATA_KEYS.FINAL_ERROR]: finalError instanceof Error ? finalError.constructor.name : String(finalError)
                 }
             };
         }
@@ -160,13 +129,13 @@ async function executeWorkflow(workflowId, userInput) {
         }, {
             operation: `get_workflow_${workflowId}`,
             userId: 'unknown',
-            sessionId: `session_${Date.now()}`,
-            correlationId: `correlation_${Date.now()}`,
+            sessionId: `${constants_1.ID_PATTERNS.SESSION_PREFIX}${Date.now()}`,
+            correlationId: `${constants_1.ID_PATTERNS.CORRELATION_PREFIX}${Date.now()}`,
             metadata: { workflowId, userInput }
         }, {
-            maxRetries: 3,
-            baseDelayMs: 1000,
-            maxDelayMs: 5000,
+            maxRetries: constants_1.TIMING.WORKFLOW_FETCH_MAX_RETRIES,
+            baseDelayMs: constants_1.TIMING.BASE_DELAY_MS,
+            maxDelayMs: constants_1.TIMING.MAX_DELAY_MS,
             retryCondition: (error) => {
                 return error.message.includes('database') || error.message.includes('connection');
             }
@@ -177,9 +146,9 @@ async function executeWorkflow(workflowId, userInput) {
             try {
                 const result = await executeWorkflowStep(step, userInput, results);
                 results.push(result);
-                if (result.status === 'failed') {
+                if (result.status === constants_1.WORKFLOW_STATUS.FAILED) {
                     console.warn(`Step ${step.id} failed, but continuing with workflow execution`);
-                    if (step.engineType === 'database' || step.engineType === 'ai') {
+                    if (step.engineType === constants_1.STEP_TYPE.DATABASE || step.engineType === constants_1.STEP_TYPE.AI) {
                         console.error(`Critical step ${step.id} failed, workflow may be incomplete`);
                     }
                 }
@@ -189,23 +158,23 @@ async function executeWorkflow(workflowId, userInput) {
                 results.push({
                     stepId: step.id,
                     output: null,
-                    status: 'failed',
+                    status: constants_1.WORKFLOW_STATUS.FAILED,
                     error: stepError instanceof Error ? stepError.message : String(stepError),
                     duration: 0,
                     metadata: {
-                        engineType: step.engineType,
-                        order: step.order,
-                        success: false,
-                        unexpectedError: true
+                        [constants_1.METADATA_KEYS.ENGINE_TYPE]: step.engineType,
+                        [constants_1.METADATA_KEYS.ORDER]: step.order,
+                        [constants_1.METADATA_KEYS.SUCCESS]: false,
+                        [constants_1.METADATA_KEYS.UNEXPECTED_ERROR]: true
                     }
                 });
             }
         }
         const totalDuration = Date.now() - startTime;
-        const successfulSteps = results.filter(r => r.status === 'completed').length;
+        const successfulSteps = results.filter(r => r.status === constants_1.WORKFLOW_STATUS.COMPLETED).length;
         const totalSteps = results.length;
         const successRatio = totalSteps > 0 ? successfulSteps / totalSteps : 0;
-        const overallSuccess = successRatio >= 0.5;
+        const overallSuccess = successRatio >= constants_1.TIMING.SUCCESS_THRESHOLD_RATIO;
         if (!overallSuccess) {
             console.warn(`Workflow ${workflowId} execution incomplete: ${successfulSteps}/${totalSteps} steps completed`);
         }
@@ -229,32 +198,32 @@ async function executeWorkflow(workflowId, userInput) {
         const context = {
             operation: `execute_workflow_${workflowId}`,
             userId: 'unknown',
-            sessionId: `session_${Date.now()}`,
-            correlationId: `correlation_${Date.now()}`,
+            sessionId: `${constants_1.ID_PATTERNS.SESSION_PREFIX}${Date.now()}`,
+            correlationId: `${constants_1.ID_PATTERNS.CORRELATION_PREFIX}${Date.now()}`,
             metadata: { workflowId, userInput }
         };
         await asyncErrorHandler.logOperationFailure(context, error, 1);
         return {
             workflowId,
             results: [{
-                    stepId: 'system-error',
+                    stepId: constants_1.ID_PATTERNS.SYSTEM_ERROR_ID,
                     output: null,
-                    status: 'failed',
+                    status: constants_1.WORKFLOW_STATUS.FAILED,
                     error: error instanceof Error ? error.message : String(error),
                     duration: totalDuration,
                     metadata: {
-                        error: 'workflow-execution-error',
+                        [constants_1.METADATA_KEYS.ERROR]: constants_1.ERROR_TYPES.WORKFLOW_EXECUTION_ERROR,
                         workflowId,
                         userInputLength: userInput.length,
-                        timestamp: new Date().toISOString()
+                        [constants_1.METADATA_KEYS.TIMESTAMP]: new Date().toISOString()
                     }
                 }],
             completedAt: new Date(),
             totalDuration,
             success: false,
             metadata: {
-                systemError: true,
-                errorType: error instanceof Error ? error.constructor.name : 'UnknownError'
+                [constants_1.METADATA_KEYS.SYSTEM_ERROR]: true,
+                [constants_1.METADATA_KEYS.ERROR]: error instanceof Error ? error.constructor.name : 'UnknownError'
             }
         };
     }

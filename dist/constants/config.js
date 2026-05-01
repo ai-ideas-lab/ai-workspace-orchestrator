@@ -1,0 +1,69 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.LOG_CONFIG = exports.UPLOAD_CONFIG = exports.CACHE_CONFIG = exports.PAGINATION_CONFIG = exports.DATABASE_CONFIG = exports.HTTP_STATUS = exports.RETRY_CONFIG = exports.TIME_CONFIG = void 0;
+exports.TIME_CONFIG = {
+    SHORT_DELAY: 1000,
+    MEDIUM_DELAY: 2000,
+    LONG_DELAY: 5000,
+    EXTRA_LONG_DELAY: 30000,
+    VERY_SHORT_DELAY: 100,
+    RETRY_BASE_DELAY: 1000,
+    CACHE_TTL_SHORT: 60 * 1000,
+    CACHE_TTL_MEDIUM: 5 * 60 * 1000,
+    CACHE_TTL_LONG: 30 * 60 * 1000,
+    REQUEST_TIMEOUT: 10000,
+    HEALTH_CHECK_INTERVAL: 30000,
+    SESSION_TIMEOUT: 24 * 60 * 60 * 1000,
+};
+exports.RETRY_CONFIG = {
+    MAX_RETRIES_DEFAULT: 3,
+    MAX_RETRIES_CRITICAL: 5,
+    MAX_RETRIES_NON_CRITICAL: 2,
+    BASE_DELAY_MS: 1000,
+    MAX_DELAY_MS: 5000,
+    RETRY_MULTIPLIER: 2,
+    RETRY_JITTER_FACTOR: 0.1,
+};
+exports.HTTP_STATUS = {
+    OK: 200,
+    CREATED: 201,
+    BAD_REQUEST: 400,
+    UNAUTHORIZED: 401,
+    FORBIDDEN: 403,
+    NOT_FOUND: 404,
+    INTERNAL_SERVER_ERROR: 500,
+    BAD_GATEWAY: 502,
+    SERVICE_UNAVAILABLE: 503,
+    GATEWAY_TIMEOUT: 504,
+};
+exports.DATABASE_CONFIG = {
+    MAX_CONNECTIONS: 10,
+    CONNECTION_TIMEOUT: 5000,
+    IDLE_TIMEOUT: 30000,
+    MAX_LIFETIME: 1800000,
+    QUERY_TIMEOUT: 10000,
+    RETRY_COUNT: 3,
+};
+exports.PAGINATION_CONFIG = {
+    DEFAULT_PAGE_SIZE: 20,
+    MAX_PAGE_SIZE: 100,
+    PAGE_SIZE_OPTIONS: [10, 20, 50, 100],
+};
+exports.CACHE_CONFIG = {
+    DEFAULT_TTL: 300,
+    MAX_TTL: 3600,
+    CLEANUP_INTERVAL: 600,
+    MAX_SIZE: 1000,
+};
+exports.UPLOAD_CONFIG = {
+    MAX_FILE_SIZE: 10 * 1024 * 1024,
+    ALLOWED_TYPES: ['image/jpeg', 'image/png', 'application/pdf', 'text/plain'],
+    MAX_FILES: 5,
+};
+exports.LOG_CONFIG = {
+    LEVELS: ['error', 'warn', 'info', 'debug'],
+    MAX_LOG_SIZE: 10 * 1024 * 1024,
+    MAX_LOG_FILES: 5,
+    LOG_FORMAT: 'json',
+};
+//# sourceMappingURL=config.js.map

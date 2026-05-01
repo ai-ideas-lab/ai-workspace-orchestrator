@@ -7,7 +7,6 @@ const STEP_STATUSES = {
     PENDING: "pending"
 };
 function trackStepProgress(stepId, progress) {
-    console.log(`[DEBUG] Progress tracking - Step ${stepId}: ${progress}%`);
     const status = progress >= 100 ? STEP_STATUSES.COMPLETED :
         progress >= 50 ? STEP_STATUSES.IN_PROGRESS :
             STEP_STATUSES.PENDING;

@@ -20,11 +20,12 @@ function createRequestIdMiddleware() {
 const error_aggregator_js_1 = require("../utils/error-aggregator.js");
 const circuit_breaker_js_1 = require("../services/circuit-breaker.js");
 const circuitBreakers = new Map();
+const config_js_1 = require("../constants/config.js");
 function getCircuitBreaker(service) {
     if (!circuitBreakers.has(service)) {
         circuitBreakers.set(service, new circuit_breaker_js_1.CircuitBreaker({
             failureThreshold: 5,
-            resetTimeoutMs: 30000,
+            resetTimeoutMs: config_js_1.TIME_CONFIG.EXTRA_LONG_DELAY,
             halfOpenMaxAttempts: 1,
         }));
     }

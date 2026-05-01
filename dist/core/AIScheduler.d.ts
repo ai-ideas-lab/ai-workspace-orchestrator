@@ -7,7 +7,7 @@ export declare class AIScheduler {
 }
 interface WorkflowStep {
     id: string;
-    type: 'ai' | 'api' | 'data';
+    type: typeof STEP_TYPE.AI | typeof STEP_TYPE.API | typeof STEP_TYPE.DATA;
     weight: number;
     required: boolean;
 }

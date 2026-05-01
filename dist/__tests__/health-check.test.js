@@ -1,8 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const health_check_1 = require("../services/health-check");
-ts;
-';;
 function makeService(opts) {
     return new health_check_1.HealthCheckService({
         checkTimeoutMs: 200,

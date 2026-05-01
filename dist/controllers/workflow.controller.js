@@ -5,7 +5,7 @@ const workflow_scheduler_js_1 = require("../services/workflow-scheduler.js");
 const logger_js_1 = require("../utils/logger.js");
 const errors_js_1 = require("../utils/errors.js");
 const responseUtils_js_1 = require("../utils/responseUtils.js");
-const async_error_handler_ts_1 = require("../utils/async-error-handler.ts");
+const async_error_handler_1 = require("../utils/async-error-handler");
 class WorkflowController {
     constructor() {
         this.workflowService = workflow_scheduler_js_1.WorkflowService.getInstance();
@@ -23,7 +23,7 @@ class WorkflowController {
                 search: req.query.search,
             }
         };
-        const asyncHandler = async_error_handler_ts_1.AsyncErrorHandler.getInstance();
+        const asyncHandler = async_error_handler_1.AsyncErrorHandler.getInstance();
         try {
             const { page = 1, limit = 10, status, userId, search } = req.query;
             const result = await asyncHandler.executeWithRetry(() => this.workflowService.getWorkflows({
@@ -162,7 +162,7 @@ class WorkflowController {
                 priority: req.body.priority,
             }
         };
-        const asyncHandler = async_error_handler_ts_1.AsyncErrorHandler.getInstance();
+        const asyncHandler = async_error_handler_1.AsyncErrorHandler.getInstance();
         try {
             const { id } = req.params;
             const { inputVariables, priority } = req.body;

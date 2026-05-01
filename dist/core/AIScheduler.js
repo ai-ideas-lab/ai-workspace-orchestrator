@@ -13,10 +13,10 @@ class AIScheduler {
         return { scheduleId: crypto.randomUUID(), scheduledTasks: schedule };
     }
     calculatePriority(step) {
-        return step.weight * (step.required ? 1.2 : 1.0);
+        return step.weight * (step.required ? TIMING.REQUIRED_PRIORITY_MULTIPLIER : 1.0);
     }
     estimateDuration(step) {
-        return step.type === 'ai' ? 5000 : 1000;
+        return step.type === STEP_TYPE.AI ? TIMING.AI_DURATION_MS : TIMING.API_DURATION_MS;
     }
     logScheduleOptimization(tasks, optimized) {
         console.log(`优化前任务数: ${tasks.length}, 优化后任务数: ${optimized.length}`);

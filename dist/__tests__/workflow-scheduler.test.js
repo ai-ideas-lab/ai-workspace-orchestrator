@@ -2,13 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const globals_1 = require("@jest/globals");
 const workflow_scheduler_1 = require("../services/workflow-scheduler");
-ts;
-';;
-ts;
-';;
 const event_bus_1 = require("../services/event-bus");
-ts;
-';;
 function createTestWorkflow(id = 'wf-test') {
     return {
         id,
