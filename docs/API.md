@@ -467,25 +467,83 @@ curl -X POST "http://localhost:3000/api/workflows/550e8400-e29b-41d4-a716-446655
 
 **POST** `/api/workflows/validate`
 
-验证工作流配置的有效性。
+验证工作流配置的有效性。在创建或更新工作流前调用此接口，确保配置符合系统要求和最佳实践。
+
+**用途:**
+- 创建前验证工作流配置的完整性
+- 更新现有工作流时的兼容性检查  
+- 发现配置中的潜在问题和优化建议
+- 确保工作流在生产环境中的稳定性
 
 **请求体:**
 ```json
 {
-  "config": {...},
-  "variables": {...}
+  "config": {
+    "name": "string (必需)",
+    "steps": "Array<WorkflowStep> (必需)",
+    "timeout": "number (可选, 默认30000)",
+    "retryLimit": "number (可选, 范围0-10)",
+    "environment": "string (可选, 枚举: development|staging|production)"
+  },
+  "variables": {
+    "param1": "value1",
+    "param2": "value2"
+  }
 }
 ```
+
+**验证范围:**
+- **基础验证**: 必填字段存在性、数据类型正确性
+- **步骤验证**: 步骤ID唯一性、依赖关系完整性、任务类型有效性
+- **配置验证**: 超时时间合理性、重试次数范围、环境参数合法性
+- **性能验证**: 工作流复杂度评估、步骤数量检查、潜在性能瓶颈识别
 
 **响应示例:**
 ```json
 {
   "success": true,
-  "message": "工作流验证成功",
+  "message": "工作流验证完成",
   "data": {
     "isValid": true,
+    "score": 95,
+    "errors": [],
+    "warnings": [
+      "建议添加错误处理步骤以提高可靠性",
+      "工作流包含10个步骤，建议分解为子工作流"
+    ],
+    "suggestions": [
+      "为变量添加类型验证",
+      "考虑添加日志步骤用于调试",
+      "建议设置合理的超时时间"
+    ],
+    "performance": {
+      "estimatedDuration": "2-5分钟",
+      "complexityLevel": "中等",
+      "memoryUsage": "预估50-100MB"
+    },
+    "security": {
+      "hasSensitiveData": false,
+      "requiresApproval": false,
+      "complianceLevel": "standard"
+    }
+  }
+}
+```
+
+**错误响应示例:**
+```json
+{
+  "success": false,
+  "message": "工作流配置验证失败",
+  "data": {
+    "isValid": false,
+    "errors": [
+      "步骤1: 缺少必需的name字段",
+      "步骤3: 依赖的步骤2不存在",
+      "配置: timeout值必须为正数"
+    ],
     "warnings": [],
-    "errors": []
+    "suggestions": []
   }
 }
 ```
@@ -494,24 +552,29 @@ curl -X POST "http://localhost:3000/api/workflows/550e8400-e29b-41d4-a716-446655
 
 **POST** `/api/workflows/execution-path`
 
-预览工作流的执行路径，帮助用户理解工作流的执行流程和各步骤关系。
+预览工作流的执行路径，分析工作流的执行流程、依赖关系和执行顺序。此接口不实际执行工作流，而是提供完整的执行计划和相关信息。
 
 **用途:**
-- 在执行前验证工作流配置
-- 理解工作流的执行顺序和依赖关系
-- 估算工作流执行时间
-- 识别潜在的执行冲突
+- 在执行前验证工作流配置的合理性
+- 可视化理解复杂工作流的执行流程和步骤关系
+- 准确估算工作流执行时间和资源消耗
+- 识别潜在的执行冲突、循环依赖或性能瓶颈
+- 为工作流优化和调试提供参考依据
 
 **请求体:**
 ```json
 {
   "config": {
+    "name": "数据报告生成工作流",
     "steps": [
       {
         "id": "data-collection",
+        "name": "数据收集",
         "type": "data_collection",
-        "next": ["data-processing"],
-        "timeout": 30000
+        "next": ["data-cleaning"],
+        "timeout": 30000,
+        "retry": 2,
+        "dependsOn": []
       },
       {
         "id": "data-processing", 

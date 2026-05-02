@@ -1,6 +1,6 @@
 /**
  * Main Server - 服务器入口文件
- * 
+ *
  * 设置Express应用、中间件、路由和全局错误处理
  */
 
@@ -24,12 +24,16 @@ import { EventBus } from './services/event-bus.js';
 /**
  * 格式化运行时间为可读字符串
  * 
- * 将秒数转换为易读的时间格式，支持小时、分钟、秒的自动组合显示
+ * 将秒数转换为易读的时间格式，支持小时、分钟、秒的自动组合显示。
+ * 此函数主要用于系统运行时间、任务执行时间等场景的可视化展示，
+ * 提供友好的时间格式，便于用户理解系统运行状态。
+ * 
  * @param {number} seconds - 要格式化的秒数（必须为非负数）
  * @returns {string} 格式化后的时间字符串，格式为：
  *   - HHh MMm Ss（当小时数 > 0时）
  *   - MMm Ss（当分钟数 > 0但小时数为0时）
  *   - Ss（当秒数 > 0但分钟数和小时数都为0时）
+ * @throws {TypeError} 当传入负数时会抛出类型错误异常
  * @example
  * // 完整时间格式
  * formatUptime(3661); // 返回 "1h 1m 1s"
@@ -43,12 +47,25 @@ import { EventBus } from './services/event-bus.js';
  * // 边界情况
  * formatUptime(0); // 返回 "0s"
  * formatUptime(3600); // 返回 "1h 0m 0s"
+ * 
+ * // 系统监控应用示例
+ * const systemUptime = formatUptime(process.uptime());
+ * console.log(`系统已运行: ${systemUptime}`);
+ * 
+ * // 任务执行时间记录
+ * const taskDuration = formatUptime(45.6);
+ * console.log(`任务执行耗时: ${taskDuration}`);
  */
 function formatUptime(seconds: number): string {
+  // 参数验证：确保时间不为负数
+  if (seconds < 0) {
+    throw new TypeError('Time must be a non-negative number');
+  }
+  
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
-  
+
   if (hours > 0) {
     return `${hours}h ${minutes}m ${secs}s`;
   } else if (minutes > 0) {
@@ -125,7 +142,7 @@ app.get('/system', (req, res) => {
   const memoryUsage = process.memoryUsage();
   const uptime = process.uptime();
   const cpuUsage = process.cpuUsage();
-  
+
   res.status(200).json({
     success: true,
     message: '系统信息',
@@ -185,17 +202,17 @@ server.listen(PORT, () => {
 
 const gracefulShutdown = (signal: string) => {
   logger.info(`🔄 收到 ${signal} 信号，开始优雅关闭...`);
-  
+
   server.close(() => {
     logger.info('✅ HTTP服务器已关闭');
-    
+
     // 关闭数据库连接、事件总线等
     EventBus.getInstance().shutdown();
     logger.info('✅ 事件总线已关闭');
-    
+
     process.exit(0);
   });
-  
+
   // 强制关闭超时
   setTimeout(() => {
     logger.error('⚠️ 强制关闭超时，退出进程');
