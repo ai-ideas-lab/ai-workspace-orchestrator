@@ -70,7 +70,19 @@ export const ERROR_TYPES = {
 export const ID_PATTERNS = {
   SESSION_PREFIX: 'session_',
   CORRELATION_PREFIX: 'correlation_',
-  SYSTEM_ERROR_ID: 'system-error'
+  SYSTEM_ERROR_ID: 'system-error',
+  REQUEST_PREFIX: 'req_',
+  TIMESTAMP_ID_SUFFIX: Math.random().toString(36).substr(2, 9)
+} as const;
+
+// ── 错误处理模式 ───────────────────────────────────────
+export const ERROR_PATTERNS = {
+  DEFAULT_ERROR_PREFIX: 'Error: ',
+  DB_CONNECTION_FAILED: '数据库连接失败',
+  DB_DISCONNECTION_FAILED: '数据库断开连接失败',
+  DB_STATS_FAILED: '获取数据库统计信息失败',
+  UNKNOWN_ERROR: 'UnknownError',
+  NULL_OR_UNDEFINED: null
 } as const;
 
 // ── 工作流配置常量 ────────────────────────────────────
