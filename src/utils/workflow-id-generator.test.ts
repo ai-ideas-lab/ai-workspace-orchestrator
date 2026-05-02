@@ -1,4 +1,4 @@
-import { generateWorkflowId } from '../workflow-id-generator';
+import { generateWorkflowId } from './workflow-id-generator';
 
 describe('workflow-id-generator', () => {
   describe('generateWorkflowId', () => {
