@@ -756,8 +756,133 @@ API使用标准的HTTP状态码和错误响应格式：
 }
 ```
 
+## 任务优先级 API
+
+### 计算任务优先级
+
+**POST** `/api/tasks/priority`
+
+计算任务的优先级，基于紧急程度和重要性进行智能分类。
+
+**用途:**
+- 任务管理系统中的优先级自动分类
+- 工作负载分配和资源调度
+- 任务提醒和通知系统优化
+- 项目管理中的任务排序
+
+**请求体:**
+```json
+{
+  "taskName": "修复生产bug",
+  "isUrgent": true,
+  "importance": 8
+}
+```
+
+**参数说明:**
+- `taskName` (string): 任务名称，用于日志记录和界面显示
+- `isUrgent` (boolean): 是否为紧急任务，通常表示有时间限制或高优先级
+- `importance` (number, 1-10): 任务重要程度评分，数值越高越重要
+
+**响应示例:**
+```json
+{
+  "success": true,
+  "message": "任务优先级计算成功",
+  "data": {
+    "taskName": "修复生产bug",
+    "isUrgent": true,
+    "importance": 8,
+    "priority": "紧急高优",
+    "needsImmediateAttention": true,
+    "recommendation": "建议立即处理，避免影响用户",
+    "estimatedImpact": "高",
+    "category": "系统维护"
+  }
+}
+```
+
+**优先级分类规则:**
+- **紧急高优**: 紧急任务且重要性≥7
+- **紧急**: 紧急任务但重要性<7
+- **高优**: 非紧急但重要性≥8
+- **中优**: 非紧急但重要性5-7
+- **普通**: 非紧急且重要性<5
+
+**状态码:**
+- `200`: 计算成功
+- `400`: 参数验证失败
+- `422`: 业务逻辑错误（如重要性评分超出范围）
+
+### 判断任务紧急程度
+
+**POST** `/api/tasks/urgent-check`
+
+快速判断任务是否需要立即处理，适用于实时提醒系统。
+
+**请求体:**
+```json
+{
+  "taskName": "季度财务报告",
+  "isUrgent": false,
+  "importance": 9
+}
+```
+
+**响应示例:**
+```json
+{
+  "success": true,
+  "message": "紧急程度检查完成",
+  "data": {
+    "taskName": "季度财务报告",
+    "isUrgent": false,
+    "importance": 9,
+    "needsImmediateAttention": true,
+    "reason": "高重要性任务需要立即关注",
+    "priorityLevel": "高优",
+    "responseTime": "建议2小时内处理"
+  }
+}
+```
+
+**响应参数说明:**
+- `needsImmediateAttention` (boolean): 是否需要立即处理
+- `reason` (string): 判断原因说明
+- `priorityLevel` (string): 优先级别描述
+- `responseTime` (string): 建议响应时间
+
+**使用示例:**
+```bash
+# 基本优先级计算
+curl -X POST "http://localhost:3000/api/tasks/priority" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your-jwt-token>" \
+  -d '{
+    "taskName": "数据备份",
+    "isUrgent": false,
+    "importance": 6
+  }'
+
+# 紧急程度检查
+curl -X POST "http://localhost:3000/api/tasks/urgent-check" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your-jwt-token>" \
+  -d '{
+    "taskName": "安全漏洞修复",
+    "isUrgent": true,
+    "importance": 8
+  }'
+```
+
+**业务逻辑:**
+- 紧急任务总是标记为需要立即处理
+- 非紧急但重要性≥8的任务也需立即处理
+- 输入验证确保重要性评分在1-10范围内
+- 提供详细的判断原因和建议响应时间
+
 ## 版本信息
 
 - **当前版本**: 1.0.0
-- **最后更新**: 2026-04-24
+- **最后更新**: 2026-05-02
 - **维护者**: 孔明
