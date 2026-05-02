@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.COMMON = exports.LOG_LEVELS = exports.WORKFLOW_CONFIG = exports.ID_PATTERNS = exports.ERROR_TYPES = exports.METADATA_KEYS = exports.TIMING = exports.STEP_TYPE = exports.WORKFLOW_STATUS = void 0;
+exports.COMMON = exports.PROBABILITY_CONFIG = exports.LOG_LEVELS = exports.WORKFLOW_CONFIG = exports.ID_PATTERNS = exports.ERROR_TYPES = exports.METADATA_KEYS = exports.TIMING = exports.STEP_TYPE = exports.WORKFLOW_STATUS = void 0;
 exports.WORKFLOW_STATUS = {
     COMPLETED: 'completed',
     FAILED: 'failed',
@@ -68,6 +68,21 @@ exports.LOG_LEVELS = {
     WARN: 'warn',
     INFO: 'info',
     DEBUG: 'debug'
+};
+exports.PROBABILITY_CONFIG = {
+    TASK_WEIGHT_MIN: 1,
+    TASK_WEIGHT_MAX: 20,
+    AGENT_CAPACITY_MIN: 1,
+    AGENT_CAPACITY_MAX: 100,
+    COMPLEXITY_MIN: 0.5,
+    COMPLEXITY_MAX: 2.0,
+    PROBABILITY_EXTREMELY_HIGH: 0.9,
+    PROBABILITY_HIGH: 0.7,
+    PROBABILITY_MEDIUM: 0.5,
+    PROBABILITY_LOW_MEDIUM: 0.3,
+    STATUS_HEALTH_THRESHOLD: 0.3,
+    MIN_PROBABILITY: 0,
+    MAX_PROBABILITY: 1
 };
 exports.COMMON = {
     NULL: null,

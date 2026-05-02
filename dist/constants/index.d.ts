@@ -66,6 +66,21 @@ export declare const LOG_LEVELS: {
     readonly INFO: "info";
     readonly DEBUG: "debug";
 };
+export declare const PROBABILITY_CONFIG: {
+    readonly TASK_WEIGHT_MIN: 1;
+    readonly TASK_WEIGHT_MAX: 20;
+    readonly AGENT_CAPACITY_MIN: 1;
+    readonly AGENT_CAPACITY_MAX: 100;
+    readonly COMPLEXITY_MIN: 0.5;
+    readonly COMPLEXITY_MAX: 2;
+    readonly PROBABILITY_EXTREMELY_HIGH: 0.9;
+    readonly PROBABILITY_HIGH: 0.7;
+    readonly PROBABILITY_MEDIUM: 0.5;
+    readonly PROBABILITY_LOW_MEDIUM: 0.3;
+    readonly STATUS_HEALTH_THRESHOLD: 0.3;
+    readonly MIN_PROBABILITY: 0;
+    readonly MAX_PROBABILITY: 1;
+};
 export declare const COMMON: {
     readonly NULL: null;
     readonly TRUE: true;

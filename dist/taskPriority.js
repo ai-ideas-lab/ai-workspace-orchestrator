@@ -14,6 +14,9 @@ function calculateTaskPriority(taskName, isUrgent, importance) {
     return '普通';
 }
 function needsImmediateAttention(taskName, isUrgent, importance) {
+    if (importance < 1 || importance > 10) {
+        throw new TypeError('importance must be between 1 and 10');
+    }
     return isUrgent || importance >= 8;
 }
 //# sourceMappingURL=taskPriority.js.map

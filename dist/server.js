@@ -16,6 +16,9 @@ const error_aggregator_js_1 = require("./utils/error-aggregator.js");
 const logger_js_1 = require("./utils/logger.js");
 const event_bus_js_1 = require("./services/event-bus.js");
 function formatUptime(seconds) {
+    if (seconds < 0) {
+        throw new TypeError('Time must be a non-negative number');
+    }
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
