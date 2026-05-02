@@ -1,3 +1,5 @@
+import { PROBABILITY_CONFIG } from './constants';
+
 /**
  * 检查工作流执行状态
  * 
@@ -35,6 +37,11 @@
  * }
  */
 export function checkWorkflowStatus(): string {
-  const status = Math.random() > 0.3 ? '健康' : '需要优化';
-  return `工作流状态: ${status}`;
+  try {
+    const status = Math.random() > PROBABILITY_CONFIG.STATUS_HEALTH_THRESHOLD ? '健康' : '需要优化';
+    return `工作流状态: ${status}`;
+  } catch (error) {
+    console.error('Error checking workflow status:', error);
+    return '工作流状态: 未知';
+  }
 }

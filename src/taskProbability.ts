@@ -1,3 +1,5 @@
+import { PROBABILITY_CONFIG } from './constants';
+
 /**
  * 计算任务完成概率 - 基于任务权重和代理容量的概率计算
  * 
@@ -23,27 +25,32 @@
  * console.log(easyTask); // 输出: 0.96 (96%完成概率)
  */
 export function calculateCompletionProbability(taskWeight: number, agentCapacity: number, complexity: number = 1.0): number {
-  // 参数验证
-  if (taskWeight < 1 || taskWeight > 20) {
-    throw new Error('Task weight must be between 1 and 20');
+  try {
+    // 参数验证
+    if (taskWeight < PROBABILITY_CONFIG.TASK_WEIGHT_MIN || taskWeight > PROBABILITY_CONFIG.TASK_WEIGHT_MAX) {
+      throw new Error(`Task weight must be between ${PROBABILITY_CONFIG.TASK_WEIGHT_MIN} and ${PROBABILITY_CONFIG.TASK_WEIGHT_MAX}`);
+    }
+    
+    if (agentCapacity < PROBABILITY_CONFIG.AGENT_CAPACITY_MIN || agentCapacity > PROBABILITY_CONFIG.AGENT_CAPACITY_MAX) {
+      throw new Error(`Agent capacity must be between ${PROBABILITY_CONFIG.AGENT_CAPACITY_MIN} and ${PROBABILITY_CONFIG.AGENT_CAPACITY_MAX}`);
+    }
+    
+    if (complexity < PROBABILITY_CONFIG.COMPLEXITY_MIN || complexity > PROBABILITY_CONFIG.COMPLEXITY_MAX) {
+      throw new Error(`Complexity factor must be between ${PROBABILITY_CONFIG.COMPLEXITY_MIN} and ${PROBABILITY_CONFIG.COMPLEXITY_MAX}`);
+    }
+    
+    // 基础概率计算：容量/权重，受复杂度影响
+    const baseProbability = Math.min(agentCapacity / taskWeight, 1.0);
+    
+    // 应用复杂度系数
+    const adjustedProbability = baseProbability / complexity;
+    
+    // 确保概率在0-1范围内
+    return Math.max(PROBABILITY_CONFIG.MIN_PROBABILITY, Math.min(PROBABILITY_CONFIG.MAX_PROBABILITY, adjustedProbability));
+  } catch (error) {
+    console.error('Error calculating completion probability:', error);
+    throw error;
   }
-  
-  if (agentCapacity < 1 || agentCapacity > 100) {
-    throw new Error('Agent capacity must be between 1 and 100');
-  }
-  
-  if (complexity < 0.5 || complexity > 2.0) {
-    throw new Error('Complexity factor must be between 0.5 and 2.0');
-  }
-  
-  // 基础概率计算：容量/权重，受复杂度影响
-  const baseProbability = Math.min(agentCapacity / taskWeight, 1.0);
-  
-  // 应用复杂度系数
-  const adjustedProbability = baseProbability / complexity;
-  
-  // 确保概率在0-1范围内
-  return Math.max(0, Math.min(1, adjustedProbability));
 }
 
 /**
@@ -64,9 +71,9 @@ export function calculateCompletionProbability(taskWeight: number, agentCapacity
  * console.log(levels); // 输出: ["低", "中", "高", "极高"]
  */
 export function getProbabilityLevel(probability: number): string {
-  if (probability >= 0.9) return '极高';
-  if (probability >= 0.7) return '高';
-  if (probability >= 0.5) return '中';
-  if (probability >= 0.3) return '中低';
+  if (probability >= PROBABILITY_CONFIG.PROBABILITY_EXTREMELY_HIGH) return '极高';
+  if (probability >= PROBABILITY_CONFIG.PROBABILITY_HIGH) return '高';
+  if (probability >= PROBABILITY_CONFIG.PROBABILITY_MEDIUM) return '中';
+  if (probability >= PROBABILITY_CONFIG.PROBABILITY_LOW_MEDIUM) return '中低';
   return '低';
 }

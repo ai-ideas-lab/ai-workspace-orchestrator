@@ -90,6 +90,30 @@ export const LOG_LEVELS = {
   DEBUG: 'debug' as const
 } as const;
 
+// ── 任务概率计算常量 ──────────────────────────────────
+export const PROBABILITY_CONFIG = {
+  // 参数范围
+  TASK_WEIGHT_MIN: 1,
+  TASK_WEIGHT_MAX: 20,
+  AGENT_CAPACITY_MIN: 1,
+  AGENT_CAPACITY_MAX: 100,
+  COMPLEXITY_MIN: 0.5,
+  COMPLEXITY_MAX: 2.0,
+  
+  // 概率等级阈值
+  PROBABILITY_EXTREMELY_HIGH: 0.9,
+  PROBABILITY_HIGH: 0.7,
+  PROBABILITY_MEDIUM: 0.5,
+  PROBABILITY_LOW_MEDIUM: 0.3,
+  
+  // 状态检查阈值
+  STATUS_HEALTH_THRESHOLD: 0.3,
+  
+  // 概率范围
+  MIN_PROBABILITY: 0,
+  MAX_PROBABILITY: 1
+} as const;
+
 // ── 通用的实用工具常量 ────────────────────────────────
 export const COMMON = {
   NULL: null,
