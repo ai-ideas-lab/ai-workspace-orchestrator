@@ -52,6 +52,16 @@ export declare const ID_PATTERNS: {
     readonly SESSION_PREFIX: "session_";
     readonly CORRELATION_PREFIX: "correlation_";
     readonly SYSTEM_ERROR_ID: "system-error";
+    readonly REQUEST_PREFIX: "req_";
+    readonly TIMESTAMP_ID_SUFFIX: string;
+};
+export declare const ERROR_PATTERNS: {
+    readonly DEFAULT_ERROR_PREFIX: "Error: ";
+    readonly DB_CONNECTION_FAILED: "数据库连接失败";
+    readonly DB_DISCONNECTION_FAILED: "数据库断开连接失败";
+    readonly DB_STATS_FAILED: "获取数据库统计信息失败";
+    readonly UNKNOWN_ERROR: "UnknownError";
+    readonly NULL_OR_UNDEFINED: null;
 };
 export declare const WORKFLOW_CONFIG: {
     readonly MIN_SUCCESS_RATIO: 0.5;

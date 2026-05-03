@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.COMMON = exports.PROBABILITY_CONFIG = exports.LOG_LEVELS = exports.WORKFLOW_CONFIG = exports.ID_PATTERNS = exports.ERROR_TYPES = exports.METADATA_KEYS = exports.TIMING = exports.STEP_TYPE = exports.WORKFLOW_STATUS = void 0;
+exports.COMMON = exports.PROBABILITY_CONFIG = exports.LOG_LEVELS = exports.WORKFLOW_CONFIG = exports.ERROR_PATTERNS = exports.ID_PATTERNS = exports.ERROR_TYPES = exports.METADATA_KEYS = exports.TIMING = exports.STEP_TYPE = exports.WORKFLOW_STATUS = void 0;
 exports.WORKFLOW_STATUS = {
     COMPLETED: 'completed',
     FAILED: 'failed',
@@ -54,7 +54,17 @@ exports.ERROR_TYPES = {
 exports.ID_PATTERNS = {
     SESSION_PREFIX: 'session_',
     CORRELATION_PREFIX: 'correlation_',
-    SYSTEM_ERROR_ID: 'system-error'
+    SYSTEM_ERROR_ID: 'system-error',
+    REQUEST_PREFIX: 'req_',
+    TIMESTAMP_ID_SUFFIX: Math.random().toString(36).substr(2, 9)
+};
+exports.ERROR_PATTERNS = {
+    DEFAULT_ERROR_PREFIX: 'Error: ',
+    DB_CONNECTION_FAILED: '数据库连接失败',
+    DB_DISCONNECTION_FAILED: '数据库断开连接失败',
+    DB_STATS_FAILED: '获取数据库统计信息失败',
+    UNKNOWN_ERROR: 'UnknownError',
+    NULL_OR_UNDEFINED: null
 };
 exports.WORKFLOW_CONFIG = {
     MIN_SUCCESS_RATIO: 0.5,

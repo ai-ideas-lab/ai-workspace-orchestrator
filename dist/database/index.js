@@ -8,6 +8,8 @@ exports.checkDatabaseHealth = checkDatabaseHealth;
 exports.getDatabaseStats = getDatabaseStats;
 const client_1 = require("@prisma/client");
 const enhanced_error_logger_js_1 = require("../utils/enhanced-error-logger.js");
+const error_helper_js_1 = require("../utils/error-helper.js");
+const timestamp_helper_js_1 = require("../utils/timestamp-helper.js");
 const prismaClient = new client_1.PrismaClient({
     log: [
         {
@@ -47,26 +49,34 @@ prismaClient.$on('warn', (e) => {
     enhanced_error_logger_js_1.logger.warn('数据库警告:', e);
 });
 async function connectToDatabase() {
-    try {
-        await prismaClient.$connect();
-        isConnected = true;
-        enhanced_error_logger_js_1.logger.info('✅ 数据库连接成功');
-    }
-    catch (error) {
-        enhanced_error_logger_js_1.logger.error('❌ 数据库连接失败:', error);
-        throw new Error(`数据库连接失败: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    const { duration } = await (0, timestamp_helper_js_1.measureExecutionTime)(async () => {
+        try {
+            await prismaClient.$connect();
+            isConnected = true;
+            enhanced_error_logger_js_1.logger.info('✅ 数据库连接成功');
+        }
+        catch (error) {
+            enhanced_error_logger_js_1.logger.error('❌ 数据库连接失败:', error);
+            const errorMessage = (0, error_helper_js_1.formatErrorMessage)(error, '数据库连接失败: ');
+            throw new Error(errorMessage);
+        }
+    });
+    enhanced_error_logger_js_1.logger.debug('数据库连接耗时:', { duration, timestamp: (0, timestamp_helper_js_1.getFormattedTimestamp)() });
 }
 async function disconnectFromDatabase() {
-    try {
-        await prismaClient.$disconnect();
-        isConnected = false;
-        enhanced_error_logger_js_1.logger.info('✅ 数据库连接已断开');
-    }
-    catch (error) {
-        enhanced_error_logger_js_1.logger.error('❌ 数据库断开连接失败:', error);
-        throw new Error(`数据库断开连接失败: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    const { duration } = await (0, timestamp_helper_js_1.measureExecutionTime)(async () => {
+        try {
+            await prismaClient.$disconnect();
+            isConnected = false;
+            enhanced_error_logger_js_1.logger.info('✅ 数据库连接已断开');
+        }
+        catch (error) {
+            enhanced_error_logger_js_1.logger.error('❌ 数据库断开连接失败:', error);
+            const errorMessage = (0, error_helper_js_1.formatErrorMessage)(error, '数据库断开连接失败: ');
+            throw new Error(errorMessage);
+        }
+    });
+    enhanced_error_logger_js_1.logger.debug('数据库断开连接耗时:', { duration, timestamp: (0, timestamp_helper_js_1.getFormattedTimestamp)() });
 }
 function isDatabaseConnected() {
     return isConnected;
@@ -86,28 +96,33 @@ async function checkDatabaseHealth() {
         return {
             status: 'unhealthy',
             responseTime,
-            error: error instanceof Error ? error.message : String(error),
+            error: (0, error_helper_js_1.formatErrorMessage)(error, '数据库健康检查失败: '),
         };
     }
 }
 async function getDatabaseStats() {
-    try {
-        const [workflows, users, executions] = await Promise.all([
-            prismaClient.workflow.count(),
-            prismaClient.user.count(),
-            prismaClient.workflowExecution.count(),
-        ]);
-        return {
-            totalWorkflows: workflows,
-            totalUsers: users,
-            totalExecutions: executions,
-            databaseVersion: 'PostgreSQL',
-        };
-    }
-    catch (error) {
-        enhanced_error_logger_js_1.logger.error('获取数据库统计信息失败:', error);
-        throw new Error(`获取数据库统计信息失败: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    const { result, duration } = await (0, timestamp_helper_js_1.measureExecutionTime)(async () => {
+        try {
+            const [workflows, users, executions] = await Promise.all([
+                prismaClient.workflow.count(),
+                prismaClient.user.count(),
+                prismaClient.workflowExecution.count(),
+            ]);
+            return {
+                totalWorkflows: workflows,
+                totalUsers: users,
+                totalExecutions: executions,
+                databaseVersion: 'PostgreSQL',
+            };
+        }
+        catch (error) {
+            enhanced_error_logger_js_1.logger.error('获取数据库统计信息失败:', error);
+            const errorMessage = (0, error_helper_js_1.formatErrorMessage)(error, '获取数据库统计信息失败: ');
+            throw new Error(errorMessage);
+        }
+    });
+    enhanced_error_logger_js_1.logger.debug('数据库统计信息查询耗时:', { duration, timestamp: (0, timestamp_helper_js_1.getFormattedTimestamp)() });
+    return result;
 }
 exports.default = prisma;
 //# sourceMappingURL=index.js.map
