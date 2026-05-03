@@ -131,7 +131,7 @@ export class WorkspaceOrchestrator {
    *   // 输出: 工作流执行失败: Engine unknown-engine not found
    * }
    */
-  async executeWorkflow(workflow: any) {
+  async executeWorkflow(workflow: any) {\n    try {
     const results = [];
     for (const step of workflow.steps) {
       const engine = this.aiEngines.get(step.engine);
