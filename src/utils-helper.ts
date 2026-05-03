@@ -137,33 +137,38 @@ export function generateSimpleId(length: number = 8): string {
  * console.log(clonedArray[2] === originalArray[2]); // false
  */
 export function deepClone<T>(obj: T): T {
-  // 处理基本类型
-  if (obj === null || typeof obj !== 'object') {
-    return obj;
-  }
-  
-  // 处理日期对象
-  if (obj instanceof Date) {
-    return new Date(obj.getTime()) as T;
-  }
-  
-  // 处理正则表达式
-  if (obj instanceof RegExp) {
-    return new RegExp(obj.source, obj.flags) as T;
-  }
-  
-  // 处理数组
-  if (Array.isArray(obj)) {
-    return obj.map(item => deepClone(item)) as T;
-  }
-  
-  // 处理普通对象
-  const clonedObj = {} as T;
-  for (const key in obj) {
-    if (obj.hasOwnProperty(key)) {
-      clonedObj[key] = deepClone(obj[key]);
+  try {
+    // 处理基本类型
+    if (obj === null || typeof obj !== 'object') {
+      return obj;
     }
+    
+    // 处理日期对象
+    if (obj instanceof Date) {
+      return new Date(obj.getTime()) as T;
+    }
+    
+    // 处理正则表达式
+    if (obj instanceof RegExp) {
+      return new RegExp(obj.source, obj.flags) as T;
+    }
+    
+    // 处理数组
+    if (Array.isArray(obj)) {
+      return obj.map(item => deepClone(item)) as T;
+    }
+    
+    // 处理普通对象
+    const clonedObj = {} as T;
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        clonedObj[key] = deepClone(obj[key]);
+      }
+    }
+    
+    return clonedObj;
+  } catch (error) {
+    console.error('深度克隆失败:', error);
+    throw new Error(`深度克隆失败: ${error instanceof Error ? error.message : '未知错误'}`);
   }
-  
-  return clonedObj;
 }
