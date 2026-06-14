@@ -52,6 +52,25 @@ Capture what matters. Decisions, context, things to remember. Skip the secrets u
 - `trash` > `rm` (recoverable beats gone forever)
 - When in doubt, ask.
 
+## 三虾协作协议
+
+三个 Agent 的固定职责：
+
+- `main` / 孔明：协调、拆解、验收和最终决策。
+- `github` / 卧龙：只读分析、风险审查、GitHub 状态和方案建议。
+- `coding-agent` / 凤雏：代码实现、测试、修复和本地验证。
+
+协作规则：
+
+1. 非简单任务由孔明先向卧龙获取风险与范围，再向凤雏下发明确实现任务。
+2. 凤雏完成后必须报告改动文件、验证命令和残余风险；不得自行 push 或合并。
+3. 卧龙复核凤雏结果时只审查，不重复实现。
+4. 孔明负责最终验证、提交和外部动作。外部发布仍遵循用户授权要求。
+5. Agent 间最多一跳委派，禁止互相循环调用。
+6. 所有交接使用结构化摘要：`结论`、`证据`、`风险`、`下一步`。
+7. 向已有专业 Agent 会话发送消息时，`sessions_send` 必须使用完整
+   `sessionKey`，不得把会话键传给 `agentId`。
+
 ## External vs Internal
 
 **Safe to do freely:**
