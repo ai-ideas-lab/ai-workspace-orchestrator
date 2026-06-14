@@ -1,40 +1,15 @@
-/**
- * WorkflowExecutor - 工作流执行引擎
- *
- * 将预定义的工作流（DAG 步骤列表）通过 RequestQueue 分发给 AI 引擎执行，
- * 利用 CircuitBreaker 做故障保护、EventBus 发布状态变更事件。
- *
- * 核心职责:
- *   1. execute()  — 按拓扑序执行工作流步骤，支持并行分支
- *   2. cancel()   — 取消正在执行的工作流
- *
- * 使用方式:
- *   const executor = new WorkflowExecutor();
- *   executor.registerEngine('gpt-4', { weight: 100 });
- *   const result = await executor.execute(workflow);
- */
+import { EventBus } from "./event-bus.js";
 
-import { RequestQueue, RequestPriority, ProcessResult } from './request-queue.js';
-import { EventBus } from './event-bus.js';
-import { CircuitBreaker } from './circuit-breaker.js';
-
-// ── 工作流类型定义 ──────────────────────────────────────
-
-export type StepStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'SKIPPED';
+export type RequestPriority = "LOW" | "NORMAL" | "HIGH" | "CRITICAL";
+export type StepStatus = "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "SKIPPED";
 
 export interface WorkflowStep {
   id: string;
-  /** 步骤名称 */
   name: string;
-  /** AI 任务类型（如 text-generation, image-generation） */
   taskType: string;
-  /** 请求负载 */
   payload: Record<string, unknown>;
-  /** 上游步骤 ID 列表（空数组 = 根步骤，可立即执行） */
   dependsOn: string[];
-  /** 该步骤的优先级 */
   priority?: RequestPriority;
-  /** 最大重试次数（默认 0） */
   maxRetries?: number;
 }
 
@@ -42,7 +17,6 @@ export interface WorkflowDefinition {
   id: string;
   name: string;
   steps: WorkflowStep[];
-  /** 全局默认优先级 */
   defaultPriority?: RequestPriority;
 }
 
@@ -59,303 +33,246 @@ export interface StepResult {
 
 export interface WorkflowResult {
   workflowId: string;
-  status: 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  status: "COMPLETED" | "FAILED" | "CANCELLED";
   steps: StepResult[];
   startedAt: Date;
   finishedAt: Date;
-  /** 总执行时长 ms */
   durationMs: number;
 }
 
-// ── 内部追踪结构 ────────────────────────────────────────
+type EngineExecute = (
+  taskType: string,
+  payload: Record<string, unknown>,
+  engineId: string,
+) => Promise<Record<string, unknown>>;
 
 interface StepTracker {
   step: WorkflowStep;
-  status: StepStatus;
   result: StepResult;
-  retries: number;
 }
 
-// ── 核心类 ──────────────────────────────────────────────
-
 export class WorkflowExecutor {
-  private queue: RequestQueue;
-  private eventBus: EventBus;
+  private readonly eventBus: EventBus;
+  private readonly engines = new Map<string, number>();
+  private readonly activeWorkflows = new Map<string, StepTracker[]>();
+  private readonly cancelled = new Set<string>();
+  private engineCursor = 0;
 
-  /** 活跃工作流追踪 workflowId → StepTracker[] */
-  private activeWorkflows = new Map<string, StepTracker[]>();
-  /** 取消标记 */
-  private cancelled = new Set<string>();
-
-  constructor(queue?: RequestQueue, eventBus?: EventBus) {
-    this.queue = queue ?? new RequestQueue();
+  constructor(_queue?: unknown, eventBus?: EventBus) {
     this.eventBus = eventBus ?? EventBus.getInstance();
   }
 
-  // ── 核心函数 1: 执行工作流 ────────────────────────────
-
-  /**
-   * 按拓扑序执行工作流步骤。无依赖的步骤并行执行，
-   * 某步骤所有依赖完成后才入队。任一步骤失败则跳过下游。
-   *
-   * @returns 完整执行结果
-   */
-  async execute(
-    workflow: WorkflowDefinition,
-    /** 模拟引擎执行函数，生产环境替换为真实 API 调用 */
-    engineExecuteFn?: (taskType: string, payload: Record<string, unknown>, engineId: string) => Promise<Record<string, unknown>>,
-  ): Promise<WorkflowResult> {
-    const startedAt = new Date();
-    const trackers = workflow.steps.map((step) => ({
-      step,
-      status: 'PENDING' as StepStatus,
-      result: {
-        stepId: step.id,
-        status: 'PENDING' as StepStatus,
-        retries: 0,
-      } as StepResult,
-      retries: 0,
-    }));
-
-    this.activeWorkflows.set(workflow.id, trackers);
-
-    this.eventBus.emit({
-      type: 'workflow.started' as any,
-      workflowId: workflow.id,
-      stepCount: workflow.steps.length,
-      timestamp: new Date(),
-    } as any);
-
-    // 循环直到所有步骤完成或取消
-    const maxIterations = workflow.steps.length * 3; // 安全阀
-    for (let iteration = 0; iteration < maxIterations; iteration++) {
-      if (this.cancelled.has(workflow.id)) {
-        this.markRemainingSkipped(trackers);
-        break;
-      }
-
-      const pending = trackers.filter((t) => t.status === 'PENDING');
-      if (pending.length === 0) break; // 全部处理完
-
-      // 找出依赖已满足的步骤（并行入队）
-      const ready = pending.filter((t) =>
-        t.step.dependsOn.every((depId) => {
-          const dep = trackers.find((d) => d.step.id === depId);
-          return dep && dep.status === 'SUCCEEDED';
-        }),
-      );
-
-      // 检查是否有依赖失败的步骤 → 标记跳过
-      for (const t of pending) {
-        const hasFailedDep = t.step.dependsOn.some((depId) => {
-          const dep = trackers.find((d) => d.step.id === depId);
-          return dep && (dep.status === 'FAILED' || dep.status === 'SKIPPED');
-        });
-        if (hasFailedDep && t.status === 'PENDING') {
-          t.status = 'SKIPPED';
-          t.result.status = 'SKIPPED';
-        }
-      }
-
-      // 并行执行就绪步骤
-      const promises = ready.map((tracker) =>
-        this.executeStep(
-          workflow.id,
-          tracker,
-          workflow.defaultPriority ?? 'NORMAL',
-          engineExecuteFn,
-        ),
-      );
-
-      if (promises.length > 0) {
-        await Promise.all(promises);
-      } else if (ready.length === 0) {
-        // 没有就绪步骤但还有 pending → 说明所有 pending 都被跳过了
-        const allPendingSkipped = pending.every(
-          (t) => t.status === 'SKIPPED' || t.status === 'FAILED',
-        );
-        if (allPendingSkipped) break;
-
-        // 否则等待一小段时间避免空转（依赖还在执行中）
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      }
+  registerEngine(engineId: string, options: { weight?: number } = {}): void {
+    if (!engineId.trim()) {
+      throw new Error("engineId is required");
     }
-
-    // 汇总结果
-    const finishedAt = new Date();
-    const allSteps = trackers.map((t) => t.result);
-    const hasFailure = allSteps.some((s) => s.status === 'FAILED');
-    const wasCancelled = this.cancelled.has(workflow.id);
-
-    const result: WorkflowResult = {
-      workflowId: workflow.id,
-      status: wasCancelled ? 'CANCELLED' : hasFailure ? 'FAILED' : 'COMPLETED',
-      steps: allSteps,
-      startedAt,
-      finishedAt,
-      durationMs: finishedAt.getTime() - startedAt.getTime(),
-    };
-
-    this.eventBus.emit({
-      type: 'workflow.completed' as any,
-      workflowId: workflow.id,
-      status: result.status,
-      durationMs: result.durationMs,
-      timestamp: new Date(),
-    } as any);
-
-    this.activeWorkflows.delete(workflow.id);
-    this.cancelled.delete(workflow.id);
-
-    return result;
+    this.engines.set(engineId, Math.max(1, options.weight ?? 1));
   }
 
-  // ── 核心函数 2: 取消工作流 ────────────────────────────
+  deregisterEngine(engineId: string): boolean {
+    return this.engines.delete(engineId);
+  }
 
-  /**
-   * 取消正在执行的工作流。正在运行的步骤不会被中断，
-   * 但尚未开始的步骤将标记为 SKIPPED。
-   */
   cancel(workflowId: string): boolean {
-    if (!this.activeWorkflows.has(workflowId)) return false;
+    if (!this.activeWorkflows.has(workflowId)) {
+      return false;
+    }
     this.cancelled.add(workflowId);
-
-    this.eventBus.emit({
-      type: 'workflow.cancelled' as any,
-      workflowId,
-      timestamp: new Date(),
-    } as any);
-
+    this.eventBus.emit({ type: "workflow.cancelled", workflowId } as never);
     return true;
   }
 
-  // ── 引擎注册代理 ──────────────────────────────────────
+  async execute(workflow: WorkflowDefinition, executeEngine?: EngineExecute): Promise<WorkflowResult> {
+    this.validateWorkflow(workflow);
 
-  /**
-   * 注册AI引擎到工作流执行器
-   * 
-   * 将AI引擎注册到底层的请求队列中，使其能够参与工作流步骤的执行。
-   * 引擎的权重会影响负载均衡的优先级分配。
-   * 
-   * @param engineId 唯一的引擎标识符
-   * @param opts 引擎配置选项，包含权重等参数
-   * @example
-   * // 注册一个带权重的AI引擎
-   * executor.registerEngine('gpt-4', { weight: 100 });
-   * executor.registerEngine('claude-3', { weight: 80 });
-   *
-   * // 注册默认权重的引擎
-   * executor.registerEngine('gemini-pro');
-   */
-  registerEngine(engineId: string, opts?: { weight?: number }): void {
-    this.queue.registerEngine(engineId, opts);
+    const startedAt = new Date();
+    const trackers = workflow.steps.map<StepTracker>((step) => ({
+      step,
+      result: { stepId: step.id, status: "PENDING", retries: 0 },
+    }));
+    this.activeWorkflows.set(workflow.id, trackers);
+    this.eventBus.emit({
+      type: "workflow.started",
+      workflowId: workflow.id,
+      stepCount: workflow.steps.length,
+    } as never);
+
+    try {
+      while (trackers.some(({ result }) => result.status === "PENDING")) {
+        if (this.cancelled.has(workflow.id)) {
+          this.skipPending(trackers);
+          break;
+        }
+
+        this.skipBlocked(trackers);
+        const ready = trackers.filter(
+          ({ step, result }) =>
+            result.status === "PENDING" &&
+            step.dependsOn.every(
+              (dependencyId) =>
+                trackers.find(({ step: candidate }) => candidate.id === dependencyId)?.result
+                  .status === "SUCCEEDED",
+            ),
+        );
+
+        if (ready.length === 0) {
+          break;
+        }
+
+        await Promise.all(
+          ready.map((tracker) => this.executeStep(workflow.id, tracker, executeEngine)),
+        );
+      }
+
+      const finishedAt = new Date();
+      const results = trackers.map(({ result }) => result);
+      const status = this.cancelled.has(workflow.id)
+        ? "CANCELLED"
+        : results.some((result) => result.status === "FAILED")
+          ? "FAILED"
+          : "COMPLETED";
+      const workflowResult: WorkflowResult = {
+        workflowId: workflow.id,
+        status,
+        steps: results,
+        startedAt,
+        finishedAt,
+        durationMs: finishedAt.getTime() - startedAt.getTime(),
+      };
+
+      this.eventBus.emit({
+        type: "workflow.completed",
+        workflowId: workflow.id,
+        status,
+        durationMs: workflowResult.durationMs,
+      } as never);
+      return workflowResult;
+    } finally {
+      this.activeWorkflows.delete(workflow.id);
+      this.cancelled.delete(workflow.id);
+    }
   }
 
-  /**
-   * 从工作流执行器中注销AI引擎
-   * 
-   * 移除已注册的AI引擎，该引擎将不再接收工作流步骤的执行任务。
-   * 所有活跃的请求不会中断，但新请求将不会被分配给该引擎。
-   * 
-   * @param engineId 要注销的引擎唯一标识符
-   * @returns 成功注销返回true，引擎不存在时返回false
-   * @example
-   * // 注销引擎
-   * const success = executor.deregisterEngine('old-engine');
-   * if (success) {
-   *   console.log('引擎已成功注销');
-   * }
-   */
-  deregisterEngine(engineId: string): boolean {
-    return this.queue.deregisterEngine(engineId);
-  }
-
-  // ── 私有方法 ──────────────────────────────────────────
-
-  /** 执行单个步骤（含重试） */
   private async executeStep(
     workflowId: string,
     tracker: StepTracker,
-    defaultPriority: RequestPriority,
-    engineExecuteFn?: (taskType: string, payload: Record<string, unknown>, engineId: string) => Promise<Record<string, unknown>>,
+    executeEngine?: EngineExecute,
   ): Promise<void> {
     const { step, result } = tracker;
-    const maxRetries = step.maxRetries ?? 0;
-
-    tracker.status = 'RUNNING';
-    result.status = 'RUNNING';
+    const maxRetries = Math.max(0, step.maxRetries ?? 0);
+    result.status = "RUNNING";
     result.startedAt = new Date();
 
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
       if (this.cancelled.has(workflowId)) {
-        tracker.status = 'SKIPPED';
-        result.status = 'SKIPPED';
-        return;
-      }
-
-      // 先入队再通过队列分配引擎
-      this.queue.enqueue(
-        { taskType: step.taskType, payload: step.payload },
-        step.priority ?? defaultPriority,
-      );
-      const processResult = this.queue.processNext();
-      if (!processResult) {
-        // 无可用引擎 → 失败
-        tracker.status = 'FAILED';
-        result.status = 'FAILED';
-        result.error = 'No available engine (all circuit-broken or no engines registered)';
+        result.status = "SKIPPED";
         result.finishedAt = new Date();
         return;
       }
 
-      result.engineId = processResult.engineId;
+      const engineId = this.selectEngine();
+      result.engineId = engineId;
       result.retries = attempt;
 
       try {
-        let execResult: Record<string, unknown>;
-
-        if (engineExecuteFn) {
-          // 使用自定义执行函数
-          execResult = await engineExecuteFn(step.taskType, step.payload, processResult.engineId);
-        } else {
-          // 默认：直接标记成功（用于测试/模拟）
-          execResult = { ok: true, taskType: step.taskType, engineId: processResult.engineId };
-        }
-
-        // 成功
-        this.queue.reportSuccess(processResult.engineId);
-        tracker.status = 'SUCCEEDED';
-        result.status = 'SUCCEEDED';
-        result.result = execResult;
+        result.result = executeEngine
+          ? await executeEngine(step.taskType, step.payload, engineId)
+          : { ok: true, taskType: step.taskType, engineId };
+        result.status = "SUCCEEDED";
         result.finishedAt = new Date();
         return;
-      } catch (err) {
-        // 失败 → 报告熔断器
-        this.queue.reportFailure(processResult.engineId);
-        result.error = err instanceof Error ? err.message : String(err);
-
+      } catch (error) {
+        result.error = error instanceof Error ? error.message : String(error);
         if (attempt < maxRetries) {
-          // 重试前短暂等待
-          await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
-          continue;
+          await new Promise((resolve) => setTimeout(resolve, 10 * (attempt + 1)));
         }
+      }
+    }
 
-        // 重试耗尽 → 最终失败
-        tracker.status = 'FAILED';
-        result.status = 'FAILED';
-        result.finishedAt = new Date();
+    result.status = "FAILED";
+    result.finishedAt = new Date();
+  }
+
+  private selectEngine(): string {
+    const weighted = [...this.engines.entries()].flatMap(([engineId, weight]) =>
+      Array.from({ length: Math.min(weight, 100) }, () => engineId),
+    );
+    if (weighted.length === 0) {
+      return "default";
+    }
+    const engineId = weighted[this.engineCursor % weighted.length] ?? "default";
+    this.engineCursor += 1;
+    return engineId;
+  }
+
+  private skipBlocked(trackers: StepTracker[]): void {
+    for (const tracker of trackers) {
+      if (tracker.result.status !== "PENDING") {
+        continue;
+      }
+      const blocked = tracker.step.dependsOn.some((dependencyId) => {
+        const dependency = trackers.find(({ step }) => step.id === dependencyId);
+        return dependency?.result.status === "FAILED" || dependency?.result.status === "SKIPPED";
+      });
+      if (blocked) {
+        tracker.result.status = "SKIPPED";
+        tracker.result.finishedAt = new Date();
       }
     }
   }
 
-  /** 将所有未完成步骤标记为 SKIPPED */
-  private markRemainingSkipped(trackers: StepTracker[]): void {
-    for (const t of trackers) {
-      if (t.status === 'PENDING' || t.status === 'RUNNING') {
-        t.status = 'SKIPPED';
-        t.result.status = 'SKIPPED';
-        if (!t.result.finishedAt) t.result.finishedAt = new Date();
+  private skipPending(trackers: StepTracker[]): void {
+    for (const tracker of trackers) {
+      if (tracker.result.status === "PENDING" || tracker.result.status === "RUNNING") {
+        tracker.result.status = "SKIPPED";
+        tracker.result.finishedAt = new Date();
       }
+    }
+  }
+
+  private validateWorkflow(workflow: WorkflowDefinition): void {
+    if (!workflow.id || !workflow.name || !Array.isArray(workflow.steps)) {
+      throw new Error("Workflow id, name and steps are required");
+    }
+
+    const ids = new Set<string>();
+    for (const step of workflow.steps) {
+      if (!step.id || !step.name || !step.taskType || !Array.isArray(step.dependsOn)) {
+        throw new Error("Each workflow step requires id, name, taskType and dependsOn");
+      }
+      if (ids.has(step.id)) {
+        throw new Error(`Duplicate workflow step id: ${step.id}`);
+      }
+      ids.add(step.id);
+    }
+
+    for (const step of workflow.steps) {
+      for (const dependencyId of step.dependsOn) {
+        if (!ids.has(dependencyId)) {
+          throw new Error(`Unknown dependency ${dependencyId} for step ${step.id}`);
+        }
+      }
+    }
+
+    const visiting = new Set<string>();
+    const visited = new Set<string>();
+    const byId = new Map(workflow.steps.map((step) => [step.id, step]));
+    const visit = (stepId: string): void => {
+      if (visiting.has(stepId)) {
+        throw new Error("Workflow contains a dependency cycle");
+      }
+      if (visited.has(stepId)) {
+        return;
+      }
+      visiting.add(stepId);
+      for (const dependencyId of byId.get(stepId)?.dependsOn ?? []) {
+        visit(dependencyId);
+      }
+      visiting.delete(stepId);
+      visited.add(stepId);
+    };
+    for (const step of workflow.steps) {
+      visit(step.id);
     }
   }
 }
