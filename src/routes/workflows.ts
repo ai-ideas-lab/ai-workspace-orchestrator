@@ -1,224 +1,223 @@
-import { Router, Request, Response } from 'express';
-import { WorkflowController } from '../controllers/workflow.controller.js';
-import { logger } from '../utils/logger.js';
-import { db as prisma } from '../database/index.js';
-import WorkflowImportExportService from '../services/workflow-import-export.service.js';
-import {
-  successResponse,
-  errorResponse,
-  validationErrorResponse,
-} from '../utils/responseUtils.js';
+import { Router } from "express";
+import { WorkflowDependencyAnalyzer } from "../services/workflow-dependency-analyzer.js";
+import { WorkflowExecutor, WorkflowStep } from "../services/workflow-executor.js";
+import { WorkflowScheduler } from "../services/workflow-scheduler.js";
+import { WorkflowInput, WorkflowStore } from "../services/workflow-store.js";
 
-const router = Router();
-const workflowController = new WorkflowController();
-const importExportService = WorkflowImportExportService.getInstance();
-
-// 工作流管理路由
-router.get('/', workflowController.getWorkflows.bind(workflowController));
-router.post('/', workflowController.createWorkflow.bind(workflowController));
-router.get('/:id', workflowController.getWorkflow.bind(workflowController));
-router.put('/:id', workflowController.updateWorkflow.bind(workflowController));
-router.delete('/:id', workflowController.deleteWorkflow.bind(workflowController));
-
-// 工作流克隆路由
-import { AsyncErrorHandler, AsyncOperationContext } from '../utils/async-error-handler.js';
-
-const asyncErrorHandler = AsyncErrorHandler.getInstance();
-
-/**
- * 克隆指定的工作流
- * 
- * 创建指定工作流的完整副本，生成新的工作流ID但保留原始配置。
- * 克隆后的工作流状态默认为DRAFT（草稿），允许用户进行修改后再激活。
- * 支持自定义克隆后的工作流名称，如果不提供则自动添加"(副本)"后缀。
- * 
- * @param {Request} req - Express请求对象，包含工作流ID和自定义名称
- * @param {string} req.params.id - 要克隆的工作流的唯一标识符
- * @param {Object} req.body - 请求体参数
- * @param {string} [req.body.name] - 克隆后工作流的自定义名称，可选参数
- * @param {Response} res - Express响应对象，用于返回克隆结果
- * @returns {Promise<void>} 无返回值，直接通过res发送响应
- * 
- * @throws {Error} 当原始工作流不存在时返回404错误
- * @throws {Error} 当数据库操作失败时返回500错误
- * 
- * @example
- * // 基本克隆操作
- * // POST /api/workflows/550e8400-e29b-41d4-a716-446655440000/clone
- * const response = await fetch('/api/workflows/550e8400-e29b-41d4-a716-446655440000/clone', {
- *   method: 'POST',
- *   headers: { 'Content-Type': 'application/json' },
- *   body: JSON.stringify({})
- * });
- * // 克隆后的工作流名称默认为"原始工作流名称 (副本)"
- * 
- * @example
- * // 自定义名称克隆
- * // POST /api/workflows/550e8400-e29b-41d4-a716-446655440000/clone
- * const response = await fetch('/api/workflows/550e8400-e29b-41d4-a716-446655440000/clone', {
- *   method: 'POST',
- *   headers: { 'Content-Type': 'application/json' },
- *   body: JSON.stringify({ name: "数据分析副本" })
- * });
- * // 克隆后的工作流名称为"数据分析副本"
- * 
- * @example
- * // 错误情况：工作流不存在
- * // POST /api/workflows/invalid-id/clone
- * const response = await fetch('/api/workflows/invalid-id/clone', {
- *   method: 'POST'
- * });
- * // 返回状态码: 404
- * // 返回体: { success: false, error: '工作流不存在' }
- * 
- * @example
- * // 在前端使用示例
- * async function cloneWorkflow(workflowId, customName = null) {
- *   try {
- *     const response = await fetch(`/api/workflows/${workflowId}/clone`, {
- *       method: 'POST',
- *       headers: {
- *         'Content-Type': 'application/json',
- *         'Authorization': `Bearer ${authToken}`
- *       },
- *       body: JSON.stringify({ name: customName })
- *     });
- *     
- *     if (!response.ok) {
- *       throw new Error('克隆工作流失败');
- *     }
- *     
- *     const result = await response.json();
- *     console.log('工作流克隆成功:', result.data);
- *     return result.data;
- *   } catch (error) {
- *     console.error('工作流克隆失败:', error);
- *     throw error;
- *   }
- * }
- * 
- * // 使用示例
- * const clonedWorkflow = await cloneWorkflow('550e8400-e29b-41d4-a716-446655440000', '我的副本');
- * console.log(`已克隆工作流: ${clonedWorkflow.id} - ${clonedWorkflow.name}`);
- * 
- * @apiNote
- * - 克隆后的工作流状态为DRAFT，需要手动激活后才能执行
- * - 克隆过程会复制所有配置、变量和设置，但不会复制执行历史
- * - 原始工作流保持不变，克隆是安全的操作
- * - 需要用户认证，只能在登录状态下调用此接口
- * - 支持的事务类型：数据库写入操作
- * - 权限要求：用户必须对原始工作流有读取权限
- * 
- * @since 1.0.0
- * @category Workflow Management
- * @alias cloneWorkflow
- * @see getWorkflow
- * @see createWorkflow
- * @see updateWorkflow
- */
-router.post('/:id/clone', asyncErrorHandler.wrapAsync(async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
-  const { name } = req.body || {};
-
-  // 查找原始工作流
-  const original = await prisma.workflow.findUnique({
-    where: { id },
-    include: { executions: { take: 0 } },
-  });
-
-  if (!original) {
-    errorResponse(res, '工作流不存在', undefined, 404);
-    return;
+function isWorkflowInput(value: unknown): value is WorkflowInput {
+  if (!value || typeof value !== "object") {
+    return false;
   }
-
-  // 克隆工作流（新 ID、草稿状态、可自定义名称）
-  const cloned = await prisma.workflow.create({
-    data: {
-      name: name || `${original.name} (副本)`,
-      description: original.description,
-      config: original.config,
-      status: 'DRAFT',
-      variables: original.variables,
-      userId: original.userId,
-    },
-  });
-
-  logger.info(`Workflow cloned: ${original.id} → ${cloned.id}`);
-
-  successResponse(res, {
-    id: cloned.id,
-    name: cloned.name,
-    description: cloned.description,
-    status: cloned.status,
-    sourceWorkflowId: original.id,
-    sourceWorkflowName: original.name,
-    createdAt: cloned.createdAt,
-  }, '工作流克隆成功', 201);
-}, {
-  operation: 'clone_workflow',
-  userId: req.user?.id,
-  sessionId: req.session?.id,
-  correlationId: req.requestId,
-  metadata: { workflowId: id, name }
-}));
-
-// 工作流执行路由
-router.post('/:id/execute', workflowController.executeWorkflow.bind(workflowController));
-router.get('/:id/executions', workflowController.getExecutionHistory.bind(workflowController));
-
-// 工作流验证和工具路由
-router.post('/validate', workflowController.validateWorkflow.bind(workflowController));
-router.post('/execution-path', workflowController.getExecutionPath.bind(workflowController));
-
-// ===== 工作流导入/导出路由 =====
-
-/**
- * 导出工作流为 JSON
- * GET /api/workflows/:id/export
- */
-router.get('/:id/export', asyncErrorHandler.wrapAsync(async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
-  const exportData = await importExportService.exportWorkflow(id);
-
-  res.setHeader('Content-Type', 'application/json');
-  res.setHeader(
-    'Content-Disposition',
-    `attachment; filename="workflow-${encodeURIComponent(exportData.workflow.name)}-${Date.now()}.json"`
+  const candidate = value as Partial<WorkflowInput>;
+  return (
+    typeof candidate.name === "string" &&
+    Array.isArray(candidate.steps) &&
+    candidate.steps.length > 0 &&
+    candidate.steps.every(isWorkflowStep)
   );
+}
 
-  successResponse(res, exportData, '工作流导出成功');
-}, {
-  operation: 'export_workflow',
-  userId: req.user?.id,
-  sessionId: req.session?.id,
-  correlationId: req.requestId,
-  metadata: { workflowId: id }
-}));
-
-/**
- * 从 JSON 导入工作流
- * POST /api/workflows/import
- * Body: { workflow: {...}, options?: { name?, draft?, overwrite? } }
- */
-router.post('/import', asyncErrorHandler.wrapAsync(async (req: Request, res: Response): Promise<void> => {
-  const { workflow: workflowData, options } = req.body;
-
-  if (!workflowData) {
-    validationErrorResponse(res, '请求体中缺少 workflow 数据');
-    return;
+function isWorkflowStep(value: unknown): value is WorkflowStep {
+  if (!value || typeof value !== "object") {
+    return false;
   }
+  const candidate = value as Partial<WorkflowStep>;
+  return (
+    typeof candidate.id === "string" &&
+    candidate.id.trim().length > 0 &&
+    typeof candidate.name === "string" &&
+    candidate.name.trim().length > 0 &&
+    typeof candidate.taskType === "string" &&
+    candidate.taskType.trim().length > 0 &&
+    !!candidate.payload &&
+    typeof candidate.payload === "object" &&
+    !Array.isArray(candidate.payload) &&
+    Array.isArray(candidate.dependsOn) &&
+    candidate.dependsOn.every((dependency) => typeof dependency === "string")
+  );
+}
 
-  const result = await importExportService.importWorkflow(workflowData, options || {});
+function isNonNegativeInteger(value: number): boolean {
+  return Number.isInteger(value) && value >= 0;
+}
 
-  logger.info(`Workflow imported via API: ${result.id} (${result.name})`);
+export function createWorkflowRouter(
+  store: WorkflowStore,
+  executor: WorkflowExecutor,
+  scheduler: WorkflowScheduler,
+): Router {
+  const router = Router();
+  const analyzer = new WorkflowDependencyAnalyzer();
 
-  successResponse(res, result, '工作流导入成功', 201);
-}, {
-  operation: 'import_workflow',
-  userId: req.user?.id,
-  sessionId: req.session?.id,
-  correlationId: req.requestId,
-  metadata: { options }
-}));
+  router.get("/", (_request, response) => {
+    response.json({ success: true, data: store.list() });
+  });
 
-export default router;
+  router.post("/validate", (request, response) => {
+    const steps = request.body?.steps;
+    if (!Array.isArray(steps) || steps.length === 0 || !steps.every(isWorkflowStep)) {
+      response.status(400).json({
+        success: false,
+        error: { code: "INVALID_WORKFLOW", message: "steps must contain valid workflow steps" },
+      });
+      return;
+    }
+    const report = analyzer.validate(steps);
+    response.status(report.valid ? 200 : 422).json({ success: report.valid, data: report });
+  });
+
+  router.post("/", (request, response) => {
+    if (!isWorkflowInput(request.body) || !request.body.name.trim()) {
+      response.status(400).json({
+        success: false,
+        error: { code: "INVALID_WORKFLOW", message: "name and steps are required" },
+      });
+      return;
+    }
+    const report = analyzer.validate(request.body.steps);
+    if (!report.valid) {
+      response.status(422).json({
+        success: false,
+        error: { code: "INVALID_WORKFLOW", message: "Workflow is not a valid DAG", details: report },
+      });
+      return;
+    }
+    response.status(201).json({ success: true, data: store.create(request.body) });
+  });
+
+  router.post("/:id/clone", (request, response) => {
+    const cloned = store.clone(request.params["id"] ?? "", request.body?.name);
+    if (!cloned) {
+      response.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+      return;
+    }
+    response.status(201).json({ success: true, data: cloned });
+  });
+
+  router.post("/:id/execute", async (request, response, next) => {
+    try {
+      const workflow = store.get(request.params["id"] ?? "");
+      if (!workflow) {
+        response.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+        return;
+      }
+      const result = await executor.execute(workflow);
+      response.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/:id/schedule", (request, response) => {
+    const workflow = store.get(request.params["id"] ?? "");
+    if (!workflow) {
+      response.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+      return;
+    }
+    const { type = "once", delayMs = 0, intervalMs, maxExecutions } = request.body ?? {};
+    if (type !== "once" && type !== "recurring") {
+      response.status(400).json({
+        success: false,
+        error: { code: "INVALID_SCHEDULE", message: "type must be once or recurring" },
+      });
+      return;
+    }
+
+    let scheduleId: string;
+    if (type === "recurring") {
+      const parsedInterval = Number(intervalMs);
+      const parsedMaximum = Number(maxExecutions ?? 0);
+      if (
+        !Number.isFinite(parsedInterval) ||
+        parsedInterval < 1000 ||
+        !isNonNegativeInteger(parsedMaximum)
+      ) {
+        response.status(400).json({
+          success: false,
+          error: {
+            code: "INVALID_SCHEDULE",
+            message: "intervalMs must be >= 1000 and maxExecutions must be a non-negative integer",
+          },
+        });
+        return;
+      }
+      scheduleId = scheduler.scheduleRecurring(workflow, {
+        intervalMs: parsedInterval,
+        maxExecutions: parsedMaximum,
+      });
+    } else {
+      const parsedDelay = Number(delayMs);
+      if (!Number.isFinite(parsedDelay) || parsedDelay < 0) {
+        response.status(400).json({
+          success: false,
+          error: { code: "INVALID_SCHEDULE", message: "delayMs must be a non-negative number" },
+        });
+        return;
+      }
+      scheduleId = scheduler.scheduleOnce(workflow, { delayMs: parsedDelay });
+    }
+    response.status(201).json({ success: true, data: { scheduleId } });
+  });
+
+  router.get("/:id/schedule", (request, response) => {
+    const schedule = scheduler.getSchedule(request.params["id"] ?? "");
+    response.status(schedule ? 200 : 404).json(
+      schedule
+        ? { success: true, data: schedule }
+        : { success: false, error: { code: "NOT_FOUND" } },
+    );
+  });
+
+  router.delete("/:id/schedule", (request, response) => {
+    const cancelled = scheduler.cancel(request.params["id"] ?? "");
+    response.status(cancelled ? 204 : 404).send();
+  });
+
+  router.get("/:id", (request, response) => {
+    const workflow = store.get(request.params["id"] ?? "");
+    response.status(workflow ? 200 : 404).json(
+      workflow
+        ? { success: true, data: workflow }
+        : { success: false, error: { code: "NOT_FOUND" } },
+    );
+  });
+
+  router.put("/:id", (request, response) => {
+    if (
+      (request.body?.name !== undefined &&
+        (typeof request.body.name !== "string" || !request.body.name.trim())) ||
+      (request.body?.steps !== undefined &&
+        (!Array.isArray(request.body.steps) ||
+          request.body.steps.length === 0 ||
+          !request.body.steps.every(isWorkflowStep)))
+    ) {
+      response.status(400).json({
+        success: false,
+        error: { code: "INVALID_WORKFLOW", message: "Invalid workflow update" },
+      });
+      return;
+    }
+    if (request.body?.steps !== undefined) {
+      const report = analyzer.validate(request.body.steps);
+      if (!report.valid) {
+        response.status(422).json({
+          success: false,
+          error: { code: "INVALID_WORKFLOW", message: "Workflow is not a valid DAG", details: report },
+        });
+        return;
+      }
+    }
+    const updated = store.update(request.params["id"] ?? "", request.body ?? {});
+    response.status(updated ? 200 : 404).json(
+      updated
+        ? { success: true, data: updated }
+        : { success: false, error: { code: "NOT_FOUND" } },
+    );
+  });
+
+  router.delete("/:id", (request, response) => {
+    response.status(store.delete(request.params["id"] ?? "") ? 204 : 404).send();
+  });
+
+  return router;
+}

@@ -63,7 +63,7 @@ jest.mock('../utils/logger.ts', () => ({
 }));
 
 // 全局测试工具
-export const TestUtils = {
+export const TestUtils: Record<string, (...args: any[]) => any> = {
   /**
    * 创建模拟的用户数据
    */

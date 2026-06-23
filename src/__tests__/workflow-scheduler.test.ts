@@ -24,15 +24,17 @@ function createTestWorkflow(id = 'wf-test'): WorkflowDefinition {
 // ── Mock WorkflowExecutor ──────────────────────────────
 
 function createMockExecutor(): WorkflowExecutor {
+  const execute = jest.fn<WorkflowExecutor["execute"]>();
+  execute.mockResolvedValue({
+    workflowId: 'wf-test',
+    status: 'COMPLETED',
+    steps: [],
+    startedAt: new Date(),
+    finishedAt: new Date(),
+    durationMs: 100,
+  });
   return {
-    execute: jest.fn().mockResolvedValue({
-      workflowId: 'wf-test',
-      status: 'COMPLETED',
-      steps: [],
-      startedAt: new Date(),
-      finishedAt: new Date(),
-      durationMs: 100,
-    }),
+    execute,
     registerEngine: jest.fn(),
     cancel: jest.fn(),
   } as unknown as WorkflowExecutor;

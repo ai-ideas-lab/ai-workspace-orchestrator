@@ -384,7 +384,84 @@ export class WorkflowController {
   }
 
   /**
-   * 获取工作流执行路径
+   * 获取工作流执行路径 - 预览工作流执行步骤和依赖关系
+   * 
+   * 分析工作流配置并返回完整的执行路径，包括所有步骤的执行顺序、
+   * 依赖关系、输入输出参数和预计执行时间。该接口用于调试和优化
+   * 工作流设计，帮助开发者理解工作流的执行逻辑。
+   * 
+   * @param {Request} req - Express请求对象，包含工作流配置信息
+   * @param {Object} req.body - 请求体，包含工作流配置对象
+   * @param {Object} req.body.config - 工作流配置对象，包含步骤定义和连接关系
+   * @param {Array} req.body.config.steps - 工作流步骤数组
+   * @param {Object} req.body.config.connections - 步骤间连接关系对象
+   * @param {Response} res - Express响应对象，用于返回执行路径结果
+   * @returns {Promise<void>} 无返回值，直接通过res发送响应
+   * 
+   * @throws {ValidationError} 当工作流配置为空或格式不正确时抛出异常
+   * @throws {AppError} 当工作流解析失败时抛出异常
+   * 
+   * @example
+   * // 基本执行路径获取
+   * // POST /api/workflows/execution-path
+   * const config = {
+   *   steps: [
+   *     { id: '1', type: 'data_collection', name: '数据收集' },
+   *     { id: '2', type: 'analysis', name: '数据分析' },
+   *     { id: '3', type: 'report', name: '报告生成' }
+   *   ],
+   *   connections: {
+   *     '1': ['2'],
+   *     '2': ['3']
+   *   }
+   * };
+   * 
+   * const response = await fetch('/api/workflows/execution-path', {
+   *   method: 'POST',
+   *   headers: { 'Content-Type': 'application/json' },
+   *   body: JSON.stringify({ config })
+   * });
+   * const result = await response.json();
+   * console.log(result.data.path);
+   * // 输出示例: ["1", "2", "3"]
+   * 
+   * // 复杂工作流执行路径
+   * const complexConfig = {
+   *   steps: [
+   *     { id: '1', type: 'input', name: '数据输入' },
+   *     { id: '2', type: 'validation', name: '数据验证' },
+   *     { id: '3', type: 'transform', name: '数据转换' },
+   *     { id: '4', type: 'analysis', name: '深度分析' },
+   *     { id: '5', type: 'output', name: '结果输出' }
+   *   ],
+   *   connections: {
+   *     '1': ['2', '3'], // 并行执行
+   *     '2': ['4'],
+   *     '3': ['4'],
+   *     '4': ['5']
+   *   }
+   * };
+   * 
+   * const complexResult = await fetch('/api/workflows/execution-path', {
+   *   method: 'POST',
+   *   headers: { 'Content-Type': 'application/json' },
+   *   body: JSON.stringify({ config: complexConfig })
+   * });
+   * 
+   * @apiNote
+   * - 该接口仅用于路径预览，不会实际执行工作流
+   * - 支持复杂的工作流拓扑结构，包括并行和条件分支
+   * - 返回的路径数组表示推荐的执行顺序
+   * - 需要用户认证，只能在登录状态下调用此接口
+   * - 支持的事务类型：读取操作，无数据库写入
+   * - 权限要求：用户必须具有工作流读取权限
+   * 
+   * @since 1.0.0
+   * @category Workflow Analysis
+   * @alias getWorkflowExecutionPath
+   * @see validateWorkflow
+   * @see executeWorkflow
+   * @see getWorkflow
    */
   async getExecutionPath(req: Request, res: Response): Promise<void> {
     try {

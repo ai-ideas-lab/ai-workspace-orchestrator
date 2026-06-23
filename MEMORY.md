@@ -2,23 +2,31 @@
 
 ## 经验教训
 - MEMORY.md严格控制在100行内，保持精炼，只保留对未来有价值的精华信息
-- 建立三级优先级系统（🔴紧急🟡中等🟢低）管理GitHub Issue
-- 安全漏洞立即响应机制，健康数据相关项目为最高优先级
-- 社区巡检需平衡响应及时性和工作负载，2小时间隔执行
-- 自动化PR merging显著提升开发运维效率
+- 四级优先级系统（🔴紧急🟡中等🟢低级）管理GitHub Issue，健康数据项目为最高优先级
+- 安全漏洞立即响应机制，涉及健康数据的漏洞需要2小时内响应
+- 社区巡检双小时间隔执行效果良好，平衡响应及时性和工作负载
+- 自动化PR merging每小时执行机制稳定运行，显著提升开发运维效率
+- 双轨记忆体系（MEMORY.md长期 + memory/YYYY-MM-DD.md短期）确保信息分离与完整
+- cron任务中避免使用`$(date ...)`变量内联到`edit`工具参数，应当先定义显式`TODAY/WEEK`变量再传递给工具
+- API调用失败先检查错误原因：配额限制（如429）不一定是代码bug，需等待重置或切换
+- GitHub提交身份必须统一为 `kevinten <596823919@qq.com>`；不要再用 `孔明 (Kongming) <kongming@ai-ideas-lab.com>`，否则提交不会归属到 kevinten10。
 
 ## 决策模式
-- 结构化分类管理：经验教训、决策模式、系统配置、用户偏好、时间线、待办事项
+- 结构化分类管理：经验教训、决策模式、系统配置、时间线
 - 每日23:30固定执行记忆整理，形成规律性工作流程
-- GitHub问题管理：快速回复简单问题，系统化跟踪复杂问题
-- 建立定期进度跟踪机制，确保关键问题不被遗漏
+- GitHub四级优先级管理：🔴立即处理🟡定期跟进🟢关注状态低级
+- 自动化工作流：PR合并+PR审查双机制，每小时执行
+- 安全漏洞响应机制：高风险立即响应，中风险定期跟进，低级持续监控
 
 ## 系统配置
-- MEMORY.md与memory/YYYY-MM-DD.md双轨记忆体系，确保长期与短期信息分离
+- MEMORY.md与memory/YYYY-MM-DD.md双轨记忆体系
 - git工作流程保障记忆同步和数据安全
-- 定时社区巡检机制，及时发现和处理安全漏洞
-- 自动化PR merging系统（每小时执行），提升开发效率
-- 安全漏洞监控机制，每日检测高危项目状态
+- GitHub四级Issue管理模式（🔴🟡🟢低级）
+- PR合并自动化脚本（merge_prs_awesome.sh）每小时执行
+- PR审查自动化脚本（quick_pr_review.sh）每小时执行
+- 社区巡检双小时执行机制
+- 安全漏洞监控与响应机制
+- GitHub CLI 登录账号为 `kevinten10`；所有自动提交任务执行前应确保仓库级 `git config user.name=kevinten`、`user.email=596823919@qq.com`
 
 ## 用户偏好
 - 高度认同孔明记忆整理方案，强调精炼性和实用性
@@ -31,21 +39,23 @@
 - 2026-04-23：建立MEMORY.md长期记忆体系，实施孔明每日记忆整理
 - 2026-04-24：首次社区巡检，发现4个严重安全漏洞，建立分级响应机制
 - 2026-04-25：识别Issue #14（AI Family Health Guardian）和Issue #15（AI Gardening Designer）两个最高优先级安全漏洞
-- 2026-04-26：建立awesome-ai仓库自动化PR合并流程，开发merge_prs_awesome.sh脚本，配置每小时执行的cron任务
-- 2026-04-27：建立GitHub PR审查自动化机制，开发quick_pr_review.sh脚本，完善GitHub开发运维工作流
-- 2026-04-29：完善双小时cron机制，PR合并每小时执行，PR审查每小时执行，提升开发运维效率
-- 2026-05-01：建立memory/YYYY-MM-DD.md每日记忆记录系统，完善GitHub Issue三级优先级管理机制
+- 2026-04-26：建立awesome-ai仓库自动化PR合并流程，配置每小时执行
+- 2026-04-27：建立GitHub PR审查自动化机制，完善GitHub开发运维工作流
+- 2026-04-29：完善双小时cron机制，PR合并和审查每小时执行
+- 2026-05-01：建立memory/YYYY-MM-DD.md每日记忆记录系统
+- 2026-05-02：验证MEMORY.md系统运行正常，确认四级GitHub Issue管理模式有效
+- 2026-05-03：完善双轨记忆体系，确认四级优先级管理模式稳定运行
+- 2026-05-04：MEMORY.md双轨记忆体系稳定运行第4天，孔明记忆整理方案形成规律性工作流程
+- 2026-06-22：完成全部7个cron任务修复验证，修复了date变量传递问题；遇到volcengine周配额超限，确认配额重置机制
+- 2026-06-23：确认 awesome-ai-ideas 曾用 Kongming 邮箱提交导致 GitHub `author_login:null`；已改为 kevinten/596823919@qq.com，后续定时任务必须沿用。
 
-## 技术进展
-- 完善GitHub自动化工作流：PR合并（merge_prs_awesome.sh）+ PR审查（quick_pr_review.sh）
-- 建立双小时cron机制：PR合并每小时执行，PR审查每小时执行，显著提升开发运维效率
-- 自动化脚本集成错误处理、日志记录和冲突检测机制，确保工作流程稳定性
-- 技术文档自动化生成，提升团队协作效率和代码质量
-- 完善awesome-ai-ideas仓库管理，建立自动化PR合并和审查机制
-
-## 待办事项
-- 🔴 立即处理Issue #14（AI Family Health Guardian）7个高风险漏洞
-- 🔴 立即处理Issue #15（AI Gardening Designer）7个高风险漏洞+文档缺失
-- 🔴 解决仓库同步问题（Issue #11）
-- 🟡 跟进Issue #9的文档缺失问题
+## 高优先级待办
+- 🔴 Issue #14（AI Family Health Guardian）：7个高风险漏洞+健康数据安全风险
+- 🔴 Issue #15（AI Gardening Designer）：7个高风险漏洞+3个中等漏洞+README.md缺失
+- 🔴 Issue #12（AI Appointment Manager）：7个高风险漏洞
+- 🔴 Issue #13（AI Error Diagnostician）：6个高风险漏洞+8个中等漏洞+11个未提交文件
+- 🔴 解决PR #10冲突（阻碍Issue #9解决）
+- 🔴 三虾内部通信测试未跑通（collaboration-smoke agent not found）
+- 🔴 记忆检索（memory_search）索引仍暂停
+- 🟡 Issue #9文档缺失问题跟进
 - 🟡 建立每周社区健康检查机制

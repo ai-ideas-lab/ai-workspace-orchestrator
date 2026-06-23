@@ -38,24 +38,30 @@ function generateSimpleId(length = 8) {
     return result;
 }
 function deepClone(obj) {
-    if (obj === null || typeof obj !== 'object') {
-        return obj;
-    }
-    if (obj instanceof Date) {
-        return new Date(obj.getTime());
-    }
-    if (obj instanceof RegExp) {
-        return new RegExp(obj.source, obj.flags);
-    }
-    if (Array.isArray(obj)) {
-        return obj.map(item => deepClone(item));
-    }
-    const clonedObj = {};
-    for (const key in obj) {
-        if (obj.hasOwnProperty(key)) {
-            clonedObj[key] = deepClone(obj[key]);
+    try {
+        if (obj === null || typeof obj !== 'object') {
+            return obj;
         }
+        if (obj instanceof Date) {
+            return new Date(obj.getTime());
+        }
+        if (obj instanceof RegExp) {
+            return new RegExp(obj.source, obj.flags);
+        }
+        if (Array.isArray(obj)) {
+            return obj.map(item => deepClone(item));
+        }
+        const clonedObj = {};
+        for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                clonedObj[key] = deepClone(obj[key]);
+            }
+        }
+        return clonedObj;
     }
-    return clonedObj;
+    catch (error) {
+        console.error('深度克隆失败:', error);
+        throw new Error(`深度克隆失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    }
 }
 //# sourceMappingURL=utils-helper.js.map

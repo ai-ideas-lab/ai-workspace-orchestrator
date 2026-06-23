@@ -1,6 +1,8 @@
 # Standard ignores
 .openclaw/
 node_modules/
+build/
+coverage/
 frontend/node_modules/
 logs/
 *.log

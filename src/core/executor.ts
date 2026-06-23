@@ -126,6 +126,13 @@ export interface WorkflowExecutionResult {
  * // 6. 适用于工作流管理、执行和验证等多个场景
  * // 7. 返回的工作流对象包含createdAt和updatedAt时间戳，可用于审计和调试
  * // 8. 如果工作流被软删除，该函数不会返回该工作流
+ * 
+ * @since 1.0.0
+ * @category Workflow Executor
+ * @alias getWorkflowConfiguration
+ * @see executeWorkflow
+ * @see executeWorkflowStep
+ * @see sortWorkflowSteps
  */
 async function getWorkflow(workflowId: string): Promise<Workflow> {
   const workflow = await prisma.workflow.findUnique({ 

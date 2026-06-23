@@ -42,6 +42,12 @@ export class WorkflowDependencyAnalyzer {
   validate(steps: WorkflowStep[]): DependencyReport {
     const errors: string[] = [];
     const stepIds = new Set(steps.map((s) => s.id));
+    const duplicateIds = steps
+      .map((step) => step.id)
+      .filter((id, index, ids) => ids.indexOf(id) !== index);
+    if (duplicateIds.length > 0) {
+      errors.push(`存在重复步骤 ID: ${[...new Set(duplicateIds)].join(", ")}`);
+    }
 
     // 1. 检测未知依赖引用
     const unknownDependencies = this.findUnknownDependencies(steps, stepIds);

@@ -6,6 +6,8 @@
 
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/enhanced-error-logger.js';
+import { formatErrorMessage } from '../utils/error-helper.js';
+import { measureExecutionTime, getFormattedTimestamp } from '../utils/timestamp-helper.js';
 
 // 创建Prisma客户端实例
 const prismaClient = new PrismaClient({
@@ -57,28 +59,38 @@ prismaClient.$on('warn', (e) => {
  * 连接到数据库
  */
 export async function connectToDatabase(): Promise<void> {
-  try {
-    await prismaClient.$connect();
-    isConnected = true;
-    logger.info('✅ 数据库连接成功');
-  } catch (error) {
-    logger.error('❌ 数据库连接失败:', error);
-    throw new Error(`数据库连接失败: ${error instanceof Error ? error.message : String(error)}`);
-  }
+  const { duration } = await measureExecutionTime(async () => {
+    try {
+      await prismaClient.$connect();
+      isConnected = true;
+      logger.info('✅ 数据库连接成功');
+    } catch (error) {
+      logger.error('❌ 数据库连接失败:', error);
+      const errorMessage = formatErrorMessage(error, '数据库连接失败: ');
+      throw new Error(errorMessage);
+    }
+  });
+  
+  logger.debug('数据库连接耗时:', { duration, timestamp: getFormattedTimestamp() });
 }
 
 /**
  * 断开数据库连接
  */
 export async function disconnectFromDatabase(): Promise<void> {
-  try {
-    await prismaClient.$disconnect();
-    isConnected = false;
-    logger.info('✅ 数据库连接已断开');
-  } catch (error) {
-    logger.error('❌ 数据库断开连接失败:', error);
-    throw new Error(`数据库断开连接失败: ${error instanceof Error ? error.message : String(error)}`);
-  }
+  const { duration } = await measureExecutionTime(async () => {
+    try {
+      await prismaClient.$disconnect();
+      isConnected = false;
+      logger.info('✅ 数据库连接已断开');
+    } catch (error) {
+      logger.error('❌ 数据库断开连接失败:', error);
+      const errorMessage = formatErrorMessage(error, '数据库断开连接失败: ');
+      throw new Error(errorMessage);
+    }
+  });
+  
+  logger.debug('数据库断开连接耗时:', { duration, timestamp: getFormattedTimestamp() });
 }
 
 /**
@@ -113,7 +125,7 @@ export async function checkDatabaseHealth(): Promise<{
     return {
       status: 'unhealthy',
       responseTime,
-      error: error instanceof Error ? error.message : String(error),
+      error: formatErrorMessage(error, '数据库健康检查失败: '),
     };
   }
 }
@@ -127,23 +139,30 @@ export async function getDatabaseStats(): Promise<{
   totalExecutions: number;
   databaseVersion: string;
 }> {
-  try {
-    const [workflows, users, executions] = await Promise.all([
-      prismaClient.workflow.count(),
-      prismaClient.user.count(),
-      prismaClient.workflowExecution.count(),
-    ]);
+  const { result, duration } = await measureExecutionTime(async () => {
+    try {
+      const [workflows, users, executions] = await Promise.all([
+        prismaClient.workflow.count(),
+        prismaClient.user.count(),
+        prismaClient.workflowExecution.count(),
+      ]);
 
-    return {
-      totalWorkflows: workflows,
-      totalUsers: users,
-      totalExecutions: executions,
-      databaseVersion: 'PostgreSQL', // 可以从实际数据库获取
-    };
-  } catch (error) {
-    logger.error('获取数据库统计信息失败:', error);
-    throw new Error(`获取数据库统计信息失败: ${error instanceof Error ? error.message : String(error)}`);
-  }
+      return {
+        totalWorkflows: workflows,
+        totalUsers: users,
+        totalExecutions: executions,
+        databaseVersion: 'PostgreSQL', // 可以从实际数据库获取
+      };
+    } catch (error) {
+      logger.error('获取数据库统计信息失败:', error);
+      const errorMessage = formatErrorMessage(error, '获取数据库统计信息失败: ');
+      throw new Error(errorMessage);
+    }
+  });
+  
+  logger.debug('数据库统计信息查询耗时:', { duration, timestamp: getFormattedTimestamp() });
+  
+  return result;
 }
 
 // 导出Prisma客户端实例

@@ -52,6 +52,16 @@ export declare const ID_PATTERNS: {
     readonly SESSION_PREFIX: "session_";
     readonly CORRELATION_PREFIX: "correlation_";
     readonly SYSTEM_ERROR_ID: "system-error";
+    readonly REQUEST_PREFIX: "req_";
+    readonly TIMESTAMP_ID_SUFFIX: string;
+};
+export declare const ERROR_PATTERNS: {
+    readonly DEFAULT_ERROR_PREFIX: "Error: ";
+    readonly DB_CONNECTION_FAILED: "数据库连接失败";
+    readonly DB_DISCONNECTION_FAILED: "数据库断开连接失败";
+    readonly DB_STATS_FAILED: "获取数据库统计信息失败";
+    readonly UNKNOWN_ERROR: "UnknownError";
+    readonly NULL_OR_UNDEFINED: null;
 };
 export declare const WORKFLOW_CONFIG: {
     readonly MIN_SUCCESS_RATIO: 0.5;
@@ -65,6 +75,21 @@ export declare const LOG_LEVELS: {
     readonly WARN: "warn";
     readonly INFO: "info";
     readonly DEBUG: "debug";
+};
+export declare const PROBABILITY_CONFIG: {
+    readonly TASK_WEIGHT_MIN: 1;
+    readonly TASK_WEIGHT_MAX: 20;
+    readonly AGENT_CAPACITY_MIN: 1;
+    readonly AGENT_CAPACITY_MAX: 100;
+    readonly COMPLEXITY_MIN: 0.5;
+    readonly COMPLEXITY_MAX: 2;
+    readonly PROBABILITY_EXTREMELY_HIGH: 0.9;
+    readonly PROBABILITY_HIGH: 0.7;
+    readonly PROBABILITY_MEDIUM: 0.5;
+    readonly PROBABILITY_LOW_MEDIUM: 0.3;
+    readonly STATUS_HEALTH_THRESHOLD: 0.3;
+    readonly MIN_PROBABILITY: 0;
+    readonly MAX_PROBABILITY: 1;
 };
 export declare const COMMON: {
     readonly NULL: null;
