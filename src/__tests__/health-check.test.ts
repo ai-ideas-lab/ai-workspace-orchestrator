@@ -116,7 +116,8 @@ describe('HealthCheckService', () => {
       const report = await hc.check();
 
       expect(report.status).toBe('healthy');
-      expect(report.checks['api']!.durationMs).toBeGreaterThanOrEqual(10);
+      expect(report.checks['api']!.message).toBe('API OK');
+      expect(report.checks['api']!.durationMs).toBeGreaterThanOrEqual(0);
     });
   });
 

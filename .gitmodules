@@ -1,3 +1,6 @@
 [submodule "awesome-ai-ideas"]
 	path = awesome-ai-ideas
 	url = https://github.com/ava-agent/awesome-ai-ideas.git
+[submodule "temp-ai-ideas"]
+	path = temp-ai-ideas
+	url = https://github.com/ava-agent/awesome-ai-ideas.git
