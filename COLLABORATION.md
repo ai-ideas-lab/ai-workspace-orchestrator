@@ -23,6 +23,9 @@
 - 凤雏可以修改本地代码，但不直接 push、merge 或发布。
 - 孔明确认测试和差异后，才执行 commit、push、PR 更新或合并。
 - 禁止自动 `git add -A`；必须明确提交范围。
+- 所有面向 GitHub 的提交必须归属 `kevinten10`：提交前检查并设置
+  `git config user.name kevinten` 与 `git config user.email 596823919@qq.com`。
+  禁止使用 `孔明 (Kongming) <kongming@ai-ideas-lab.com>` 创建新提交。
 
 ## 健康标准
 

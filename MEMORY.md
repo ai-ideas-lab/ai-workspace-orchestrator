@@ -9,6 +9,7 @@
 - 双轨记忆体系（MEMORY.md长期 + memory/YYYY-MM-DD.md短期）确保信息分离与完整
 - cron任务中避免使用`$(date ...)`变量内联到`edit`工具参数，应当先定义显式`TODAY/WEEK`变量再传递给工具
 - API调用失败先检查错误原因：配额限制（如429）不一定是代码bug，需等待重置或切换
+- GitHub提交身份必须统一为 `kevinten <596823919@qq.com>`；不要再用 `孔明 (Kongming) <kongming@ai-ideas-lab.com>`，否则提交不会归属到 kevinten10。
 
 ## 决策模式
 - 结构化分类管理：经验教训、决策模式、系统配置、时间线
@@ -25,6 +26,7 @@
 - PR审查自动化脚本（quick_pr_review.sh）每小时执行
 - 社区巡检双小时执行机制
 - 安全漏洞监控与响应机制
+- GitHub CLI 登录账号为 `kevinten10`；所有自动提交任务执行前应确保仓库级 `git config user.name=kevinten`、`user.email=596823919@qq.com`
 
 ## 用户偏好
 - 高度认同孔明记忆整理方案，强调精炼性和实用性
@@ -45,6 +47,7 @@
 - 2026-05-03：完善双轨记忆体系，确认四级优先级管理模式稳定运行
 - 2026-05-04：MEMORY.md双轨记忆体系稳定运行第4天，孔明记忆整理方案形成规律性工作流程
 - 2026-06-22：完成全部7个cron任务修复验证，修复了date变量传递问题；遇到volcengine周配额超限，确认配额重置机制
+- 2026-06-23：确认 awesome-ai-ideas 曾用 Kongming 邮箱提交导致 GitHub `author_login:null`；已改为 kevinten/596823919@qq.com，后续定时任务必须沿用。
 
 ## 高优先级待办
 - 🔴 Issue #14（AI Family Health Guardian）：7个高风险漏洞+健康数据安全风险
